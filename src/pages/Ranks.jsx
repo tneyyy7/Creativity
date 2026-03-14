@@ -10,9 +10,13 @@ export function Ranks() {
   useEffect(() => {
     const fetchCount = async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
         const { count, error } = await supabase
           .from('paintings')
           .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
           .eq('is_finished', true)
         if (error) throw error
         setWorkCount(count || 0)
