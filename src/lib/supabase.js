@@ -179,8 +179,7 @@ export const fetchFriends = async (userId) => {
       id,
       status,
       sender_id,
-      receiver_id,
-      profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified)
+      receiver_id
     `)
     .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
     .eq('status', 'accepted')
@@ -195,7 +194,7 @@ export const fetchPendingRequests = async (userId) => {
     .select(`
       id,
       sender_id,
-      profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified)
+      receiver_id
     `)
     .eq('receiver_id', userId)
     .eq('status', 'pending')
