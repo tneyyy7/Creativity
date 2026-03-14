@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
-import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2 } from 'lucide-react'
+import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar } from '../lib/supabase'
 
-export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl }) {
+export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
   
@@ -105,7 +104,10 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl }
     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       <div className="text-center md:text-left">
-        <h1 className="text-3xl md:text-4xl font-black text-white tracking-tighter mb-2">{t('profile_title') || 'Your Profile'}</h1>
+        <h1 className="text-3xl md:text-4xl font-black text-white tracking-tighter mb-2 flex items-center justify-center md:justify-start gap-2">
+          {t('profile_title') || 'Your Profile'}
+          {isVerified && <BadgeCheck className="w-6 h-6 text-purple-400 fill-purple-400/20" />}
+        </h1>
         <p className="text-gray-400 font-medium">{t('profile_desc') || 'Manage your personal space and identity.'}</p>
       </div>
 

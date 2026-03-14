@@ -1,9 +1,9 @@
-import { Plus, ArrowUpRight, Star } from 'lucide-react'
+import { Plus, ArrowUpRight, Star, BadgeCheck } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function Dashboard({ nickname }) {
+export function Dashboard({ nickname, isVerified }) {
   const { t } = useTranslation()
   const [counts, setCounts] = useState({ total: 0, inspiration: 0 })
   const [quoteIdx, setQuoteIdx] = useState(1)
@@ -55,7 +55,10 @@ export function Dashboard({ nickname }) {
         <div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 leading-tight">
              <Trans i18nKey="welcome_back" values={{ name: nickname }}>
-               Welcome Back, <span className="notranslate" translate="no">{{name}}</span>!
+               Welcome Back, <span className="notranslate flex items-center gap-2" translate="no">
+                 {{name}}
+                 {isVerified && <BadgeCheck className="w-6 h-6 md:w-8 md:h-8 text-purple-400 fill-purple-400/20" />}
+               </span>!
              </Trans>
           </h1>
           <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">{t('subtitle')}</p>

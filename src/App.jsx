@@ -21,6 +21,7 @@ function App() {
   const [theme, setTheme] = useState('dark')
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
+  const [isVerified, setIsVerified] = useState(false)
   const [loading, setLoading] = useState(true)
   const [targetUserId, setTargetUserId] = useState(null) // Used for viewing public profiles
 
@@ -36,12 +37,14 @@ function App() {
             if (data) {
               setNickname(data.nickname || meta?.full_name || currUser.email?.split('@')[0])
               setAvatarUrl(data.avatar_url)
+              setIsVerified(data.is_verified || false)
             }
           })
       } else {
         setUser(null)
         setNickname('Artist User')
         setAvatarUrl(null)
+        setIsVerified(false)
       }
       setLoading(false)
     }
@@ -104,13 +107,14 @@ function App() {
           user={user}
           nickname={nickname}
           avatarUrl={avatarUrl}
+          isVerified={isVerified}
           userEmail={user?.email} 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
           onProfileClick={() => setActiveTab('profile')}
           onFriendsClick={() => setActiveTab('friends')}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
-          {activeTab === 'dashboard' && <Dashboard nickname={nickname} />}
+          {activeTab === 'dashboard' && <Dashboard nickname={nickname} isVerified={isVerified} />}
           {activeTab === 'chat' && <Chat />}
           {activeTab === 'images' && <ImageGen />}
           {activeTab === 'gallery' && <Gallery />}
@@ -122,6 +126,7 @@ function App() {
             setNickname={setNickname} 
             avatarUrl={avatarUrl}
             setAvatarUrl={setAvatarUrl}
+            isVerified={isVerified}
           />}
           {activeTab === 'friends' && <Friends 
             user={user} 

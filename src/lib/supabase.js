@@ -27,7 +27,7 @@ export const uploadPainting = async (file, userId) => {
 export const fetchProfile = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('nickname, avatar_url, bio, is_private, is_verified')
     .eq('id', userId)
     .single()
   
@@ -36,9 +36,19 @@ export const fetchProfile = async (userId) => {
 }
 
 export const upsertProfile = async (profile) => {
+  const profileData = {
+    id: profile.id,
+    nickname: profile.nickname,
+    avatar_url: profile.avatar_url,
+    bio: profile.bio,
+    is_private: profile.is_private,
+    is_verified: profile.is_verified,
+    updated_at: new Date().toISOString()
+  }
+  
   const { data, error } = await supabase
     .from('profiles')
-    .upsert(profile)
+    .upsert(profileData)
     .select()
     .single()
   
@@ -117,7 +127,7 @@ export const searchUsers = async (query, currentUserId) => {
 export const fetchPublicProfile = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, nickname, avatar_url, bio, is_private')
+    .select('nickname, avatar_url, bio, is_private, is_verified')
     .eq('id', userId)
     .single()
   
@@ -163,35 +173,33 @@ export const removeFriend = async (friendshipId) => {
 }
 
 export const fetchFriends = async (userId) => {
-  // We need to query friendships where status is accepted and user is either sender or receiver
   const { data, error } = await supabase
     .from('friendships')
     .select(`
       id,
+      status,
       sender_id,
       receiver_id,
-      status,
-      created_at
+      profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified)
     `)
-    .eq('status', 'accepted')
     .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-    
+    .eq('status', 'accepted')
+  
   if (error) throw error
   return data
 }
 
 export const fetchPendingRequests = async (userId) => {
-  // Only requests sent TO the current user
   const { data, error } = await supabase
     .from('friendships')
     .select(`
       id,
       sender_id,
-      created_at
+      profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified)
     `)
     .eq('receiver_id', userId)
     .eq('status', 'pending')
-    
+  
   if (error) throw error
   return data
 }
@@ -200,7 +208,7 @@ export const fetchPendingRequests = async (userId) => {
 export const fetchProfileMinimal = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, nickname, avatar_url')
+    .select('id, nickname, avatar_url, is_verified')
     .eq('id', userId)
     .single()
   

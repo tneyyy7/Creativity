@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, Clock, UserMinus, Image as ImageIcon, Lock } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, Clock, UserMinus, Image as ImageIcon, Lock, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend } from '../lib/supabase'
 
@@ -120,7 +119,10 @@ export function PublicProfile({ currentUserId, targetUserId, onBack }) {
 
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight notranslate" translate="no">{profile.nickname || 'Unknown Artist'}</h1>
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2" translate="no">
+                {profile.nickname || 'Unknown Artist'}
+                {profile.is_verified && <BadgeCheck className="w-6 h-6 text-purple-400 fill-purple-400/20" />}
+              </h1>
               {isAccepted && <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold uppercase tracking-wider rounded-lg mt-2"><Check className="w-3 h-3"/> {t('friend') || 'Friend'}</span>}
             </div>
 

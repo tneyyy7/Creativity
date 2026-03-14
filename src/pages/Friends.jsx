@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { Search, UserPlus, Check, X, User, UserMinus } from 'lucide-react'
+import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
 
@@ -138,7 +137,10 @@ export function Friends({ user, onViewProfile }) {
                     )}
                   </div>
                   <div>
-                    <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors notranslate" translate="no">{result.nickname || 'Unknown Artist'}</h3>
+                    <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors notranslate flex items-center gap-1.5" translate="no">
+                      {result.nickname || 'Unknown Artist'}
+                      {result.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
+                    </h3>
                   </div>
                 </div>
                 <UserPlus className="w-5 h-5 text-gray-500 group-hover:text-purple-400 transition-colors" />
@@ -170,7 +172,10 @@ export function Friends({ user, onViewProfile }) {
                     )}
                   </div>
                   <div>
-                    <h3 className="font-bold text-white group-hover:text-purple-400 notranslate" translate="no">{req.profile?.nickname || 'Unknown'}</h3>
+                    <h3 className="font-bold text-white group-hover:text-purple-400 notranslate flex items-center gap-1.5" translate="no">
+                      {req.profile?.nickname || 'Unknown'}
+                      {req.profile?.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
+                    </h3>
                     <p className="text-xs text-gray-500">{t('wants_to_be_friends') || 'wants to be friends'}</p>
                   </div>
                 </div>
@@ -215,7 +220,10 @@ export function Friends({ user, onViewProfile }) {
                         <User className="text-purple-500 w-8 h-8" />
                       )}
                     </div>
-                    <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors w-full truncate px-2 notranslate" translate="no">{friend.profile?.nickname || 'Unknown'}</h3>
+                    <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors w-full truncate px-2 notranslate flex items-center justify-center gap-1.5" translate="no">
+                      {friend.profile?.nickname || 'Unknown'}
+                      {friend.profile?.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
+                    </h3>
                   </div>
                   
                   <button 

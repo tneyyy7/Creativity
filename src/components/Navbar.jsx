@@ -1,9 +1,9 @@
-import { Search, Languages, User, Menu, Bell } from 'lucide-react'
+import { Search, Languages, User, Menu, Bell, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import { fetchPendingRequests } from '../lib/supabase'
 
-export function Navbar({ user, nickname, avatarUrl, onToggleSidebar, onProfileClick, onFriendsClick }) {
+export function Navbar({ user, nickname, avatarUrl, isVerified, onToggleSidebar, onProfileClick, onFriendsClick }) {
   const { t, i18n } = useTranslation()
   const [showLangs, setShowLangs] = useState(false)
 
@@ -80,7 +80,10 @@ export function Navbar({ user, nickname, avatarUrl, onToggleSidebar, onProfileCl
 
         <div className="flex items-center gap-3 md:gap-4 md:pl-8 md:border-l md:border-white/5">
           <div className="text-right hidden sm:block">
-            <h4 className="text-[14px] md:text-[15px] font-black text-white leading-tight notranslate" translate="no">{nickname}</h4>
+            <h4 className="text-[14px] md:text-[15px] font-black text-white leading-tight notranslate flex items-center justify-end gap-1.5" translate="no">
+              {nickname}
+              {isVerified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
+            </h4>
           </div>
           <button 
             onClick={onProfileClick}
