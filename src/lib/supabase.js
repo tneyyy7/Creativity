@@ -98,3 +98,112 @@ export const uploadAvatar = async (file, userId) => {
 
   return publicUrl
 }
+
+// --- FRIENDSHIP & PUBLIC PROFILE LOGIC ---
+
+export const searchUsers = async (query, currentUserId) => {
+  if (!query) return []
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, nickname, avatar_url')
+    .ilike('nickname', `%${query}%`)
+    .neq('id', currentUserId)
+    .limit(10)
+  
+  if (error) throw error
+  return data
+}
+
+export const fetchPublicProfile = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, nickname, avatar_url, bio, is_private')
+    .eq('id', userId)
+    .single()
+  
+  if (error) throw error
+  return data
+}
+
+export const checkFriendshipStatus = async (user1, user2) => {
+  const { data, error } = await supabase
+    .from('friendships')
+    .select('*')
+    .or(`and(sender_id.eq.${user1},receiver_id.eq.${user2}),and(sender_id.eq.${user2},receiver_id.eq.${user1})`)
+    .single()
+    
+  if (error && error.code !== 'PGRST116') throw error
+  return data // returns null if no relationship exists
+}
+
+export const sendFriendRequest = async (senderId, receiverId) => {
+  const { error } = await supabase
+    .from('friendships')
+    .insert({ sender_id: senderId, receiver_id: receiverId, status: 'pending' })
+    
+  if (error) throw error
+}
+
+export const respondToFriendRequest = async (requestId, status) => {
+  if (status === 'rejected') {
+    const { error } = await supabase.from('friendships').delete().eq('id', requestId)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('friendships')
+      .update({ status: 'accepted' })
+      .eq('id', requestId)
+    if (error) throw error
+  }
+}
+
+export const removeFriend = async (friendshipId) => {
+  const { error } = await supabase.from('friendships').delete().eq('id', friendshipId)
+  if (error) throw error
+}
+
+export const fetchFriends = async (userId) => {
+  // We need to query friendships where status is accepted and user is either sender or receiver
+  const { data, error } = await supabase
+    .from('friendships')
+    .select(`
+      id,
+      sender_id,
+      receiver_id,
+      status,
+      created_at
+    `)
+    .eq('status', 'accepted')
+    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+    
+  if (error) throw error
+  return data
+}
+
+export const fetchPendingRequests = async (userId) => {
+  // Only requests sent TO the current user
+  const { data, error } = await supabase
+    .from('friendships')
+    .select(`
+      id,
+      sender_id,
+      created_at
+    `)
+    .eq('receiver_id', userId)
+    .eq('status', 'pending')
+    
+  if (error) throw error
+  return data
+}
+
+// Fetch a specific profile by ID (minimal fields for loops)
+export const fetchProfileMinimal = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, nickname, avatar_url')
+    .eq('id', userId)
+    .single()
+  
+  if (error) throw error
+  return data
+}

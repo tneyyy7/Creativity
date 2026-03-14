@@ -11,6 +11,8 @@ import { Ranks } from './pages/Ranks'
 import { Settings } from './pages/Settings'
 import { Auth } from './pages/Auth'
 import { Profile } from './pages/Profile'
+import { Friends } from './pages/Friends'
+import { PublicProfile } from './pages/PublicProfile'
 
 function App() {
   console.log('App initialization started')
@@ -20,6 +22,7 @@ function App() {
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [targetUserId, setTargetUserId] = useState(null) // Used for viewing public profiles
 
   useEffect(() => {
     const syncUser = (currUser) => {
@@ -98,11 +101,13 @@ function App() {
       />
       <div className="main-content">
         <Navbar 
+          user={user}
           nickname={nickname}
           avatarUrl={avatarUrl}
           userEmail={user?.email} 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
           onProfileClick={() => setActiveTab('profile')}
+          onFriendsClick={() => setActiveTab('friends')}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
           {activeTab === 'dashboard' && <Dashboard nickname={nickname} />}
@@ -118,7 +123,16 @@ function App() {
             avatarUrl={avatarUrl}
             setAvatarUrl={setAvatarUrl}
           />}
-          {activeTab === 'settings' && <Settings nickname={nickname} setNickname={setNickname} userEmail={user?.email} />}
+          {activeTab === 'friends' && <Friends 
+            user={user} 
+            onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }} 
+          />}
+          {activeTab === 'public_profile' && <PublicProfile 
+            currentUserId={user?.id}
+            targetUserId={targetUserId}
+            onBack={() => setActiveTab('friends')}
+          />}
+          {activeTab === 'settings' && <Settings userEmail={user?.email} />}
         </main>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose }) {
@@ -11,6 +11,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose }) 
     { id: 'gallery', icon: Palette, label: t('gallery') },
     { id: 'ranks', icon: Trophy, label: t('ranks') },
     { id: 'productivity', icon: BarChart3, label: t('productivity') },
+    { id: 'friends', icon: Users, label: t('friends') },
   ]
 
   return (

@@ -1,29 +1,38 @@
 import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
-import { User, Save } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { useState, useEffect } from 'react'
+import { Save, Lock, Unlock } from 'lucide-react'
+import { supabase, fetchProfile, upsertProfile } from '../lib/supabase'
 
-export function Settings({ nickname, setNickname, userEmail }) {
-  const { t, i18n } = useTranslation()
-  const [nameInput, setNameInput] = useState(nickname)
+export function Settings({ userEmail }) {
+  const { t } = useTranslation()
+  const [isPrivate, setIsPrivate] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserId(user.id)
+        fetchProfile(user.id).then((profile) => {
+          if (profile) {
+            setIsPrivate(profile.is_private || false)
+          }
+          setLoading(false)
+        })
+      }
+    })
+  }, [])
 
   const handleSave = async () => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { nickname: nameInput }
-      })
-      if (error) throw error
-      setNickname(nameInput)
+      if (userId) {
+        await upsertProfile({ id: userId, is_private: isPrivate })
+      }
       alert(t('save_success') || 'Changes saved!')
     } catch (error) {
       console.error('Error saving profile:', error)
       alert('Error: ' + error.message)
     }
-  }
-
-  const changeLanguage = (lng) => {
-    i18n.changeLanguage(lng)
-    localStorage.setItem('app_lang', lng)
   }
 
   return (
@@ -46,42 +55,28 @@ export function Settings({ nickname, setNickname, userEmail }) {
             </div>
           </div>
 
-          <div className="space-y-3">
-            <label className="text-[10px] md:text-[11px] font-black text-gray-500 uppercase tracking-[0.2em]">{t('nickname')}</label>
-            <div className="relative">
-              <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                className="w-full h-12 md:h-14 pl-12 md:pl-14 pr-6 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white font-medium text-sm md:text-base"
-              />
+          {!loading && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    {isPrivate ? <Lock className="w-5 h-5 text-purple-500" /> : <Unlock className="w-5 h-5 text-gray-400" />}
+                    {t('private_account')}
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-1">{t('private_account_desc')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPrivate(!isPrivate)}
+                  className={`relative inline-flex h-7 w-12 md:h-8 md:w-14 items-center rounded-full transition-colors focus:outline-none ${isPrivate ? 'bg-purple-600' : 'bg-white/10'}`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 md:h-6 md:w-6 transform rounded-full bg-white transition-transform ${isPrivate ? 'translate-x-6 md:translate-x-7' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="text-[10px] md:text-[11px] font-black text-gray-500 uppercase tracking-[0.2em]">{t('language')}</label>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => changeLanguage('en')}
-                className={`flex-1 py-3 md:py-4 rounded-2xl border transition-all font-bold text-sm md:text-base ${i18n.language === 'en' ? 'bg-purple-600/20 border-purple-500 text-white' : 'bg-white/5 border-white/10 text-gray-500'}`}
-              >
-                English
-              </button>
-              <button 
-                onClick={() => changeLanguage('ru')}
-                className={`flex-1 py-3 md:py-4 rounded-2xl border transition-all font-bold text-sm md:text-base ${i18n.language === 'ru' ? 'bg-purple-600/20 border-purple-500 text-white' : 'bg-white/5 border-white/10 text-gray-500'}`}
-              >
-                Русский
-              </button>
-              <button 
-                onClick={() => changeLanguage('it')}
-                className={`flex-1 py-3 md:py-4 rounded-2xl border transition-all font-bold text-sm md:text-base ${i18n.language === 'it' ? 'bg-purple-600/20 border-purple-500 text-white' : 'bg-white/5 border-white/10 text-gray-500'}`}
-              >
-                Italiano
-              </button>
-            </div>
-          </div>
+          )}
 
 
           <button
