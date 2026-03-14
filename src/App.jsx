@@ -12,6 +12,7 @@ import { Settings } from './pages/Settings'
 import { Auth } from './pages/Auth'
 
 function App() {
+  console.log('App initialization started')
   const [user, setUser] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [theme, setTheme] = useState('dark')
@@ -32,8 +33,13 @@ function App() {
     }
 
     // Get initial session
+    console.log('Fetching initial session...')
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Session fetched:', session ? 'User logged in' : 'No user')
       syncUser(session?.user)
+    }).catch(err => {
+      console.error('Session fetch error:', err)
+      setLoading(false)
     })
 
     // Listen for changes
@@ -57,8 +63,16 @@ function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  if (loading) return null
-  if (!user) return <Auth onAuth={setUser} />
+  console.log('App render. Loading:', loading, 'User:', !!user)
+
+  if (loading) {
+    console.log('Returning null (loading)')
+    return null
+  }
+  if (!user) {
+    console.log('Redirecting to Auth')
+    return <Auth onAuth={setUser} />
+  }
 
   const closeSidebar = () => setIsSidebarOpen(false)
 
