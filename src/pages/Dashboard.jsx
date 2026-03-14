@@ -56,7 +56,7 @@ export function Dashboard({ nickname, isVerified }) {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 leading-tight">
              <Trans i18nKey="welcome_back" values={{ name: nickname }}>
                Welcome Back, <span className="notranslate flex items-center gap-2" translate="no">
-                 {{name}}
+                 {nickname}
                  {isVerified && <BadgeCheck className="w-6 h-6 md:w-8 md:h-8 text-purple-400 fill-purple-400/20" />}
                </span>!
              </Trans>

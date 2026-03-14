@@ -115,7 +115,7 @@ export const searchUsers = async (query, currentUserId) => {
   if (!query) return []
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, nickname, avatar_url')
+    .select('id, nickname, avatar_url, is_verified')
     .ilike('nickname', `%${query}%`)
     .neq('id', currentUserId)
     .limit(10)

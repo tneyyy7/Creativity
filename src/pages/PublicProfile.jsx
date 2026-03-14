@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { ArrowLeft, User, UserPlus, Check, Clock, UserMinus, Image as ImageIcon, Lock, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend } from '../lib/supabase'
