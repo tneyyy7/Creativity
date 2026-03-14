@@ -80,7 +80,7 @@ export function Navbar({ user, nickname, avatarUrl, onToggleSidebar, onProfileCl
 
         <div className="flex items-center gap-3 md:gap-4 md:pl-8 md:border-l md:border-white/5">
           <div className="text-right hidden sm:block">
-            <h4 className="text-[14px] md:text-[15px] font-black text-white leading-tight">{nickname}</h4>
+            <h4 className="text-[14px] md:text-[15px] font-black text-white leading-tight notranslate" translate="no">{nickname}</h4>
           </div>
           <button 
             onClick={onProfileClick}

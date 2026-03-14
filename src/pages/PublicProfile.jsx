@@ -120,12 +120,12 @@ export function PublicProfile({ currentUserId, targetUserId, onBack }) {
 
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">{profile.nickname || 'Unknown Artist'}</h1>
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight notranslate" translate="no">{profile.nickname || 'Unknown Artist'}</h1>
               {isAccepted && <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold uppercase tracking-wider rounded-lg mt-2"><Check className="w-3 h-3"/> {t('friend') || 'Friend'}</span>}
             </div>
 
             {profile.bio ? (
-              <p className="text-gray-300 leading-relaxed text-lg max-w-2xl">{profile.bio}</p>
+              <p className="text-gray-300 leading-relaxed text-lg max-w-2xl notranslate" translate="no">{profile.bio}</p>
             ) : (
               <p className="text-gray-500 italic">{t('no_bio') || 'This artist prefers to let their work speak for itself.'}</p>
             )}

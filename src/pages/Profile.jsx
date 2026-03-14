@@ -187,7 +187,8 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl }
                    value={bio}
                    onChange={(e) => setBio(e.target.value)}
                    placeholder={t('bio_placeholder') || 'Tell the world about your art...'}
-                   className="w-full h-32 p-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-white resize-none custom-scrollbar"
+                   translate="no"
+                   className="notranslate w-full h-32 p-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-white resize-none custom-scrollbar"
                  />
               </div>
 

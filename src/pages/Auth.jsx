@@ -86,7 +86,8 @@ export function Auth({ onAuth }) {
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   placeholder="MasterArtist"
-                  className="w-full h-14 pl-12 pr-4 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
+                  translate="no"
+                  className="notranslate w-full h-14 pl-12 pr-4 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
                 />
               </div>
             </div>

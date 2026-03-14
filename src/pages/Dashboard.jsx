@@ -1,5 +1,5 @@
 import { Plus, ArrowUpRight, Star } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -54,7 +54,9 @@ export function Dashboard({ nickname }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 leading-tight">
-             {t('welcome_back', { name: nickname })}
+             <Trans i18nKey="welcome_back" values={{ name: nickname }}>
+               Welcome Back, <span className="notranslate" translate="no">{{name}}</span>!
+             </Trans>
           </h1>
           <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">{t('subtitle')}</p>
         </div>
