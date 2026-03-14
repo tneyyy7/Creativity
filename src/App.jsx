@@ -10,6 +10,7 @@ import { Productivity } from './pages/Productivity'
 import { Ranks } from './pages/Ranks'
 import { Settings } from './pages/Settings'
 import { Auth } from './pages/Auth'
+import { Profile } from './pages/Profile'
 
 function App() {
   console.log('App initialization started')
@@ -17,6 +18,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [theme, setTheme] = useState('dark')
   const [nickname, setNickname] = useState('Artist User')
+  const [avatarUrl, setAvatarUrl] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -24,10 +26,19 @@ function App() {
       if (currUser) {
         setUser(currUser)
         const meta = currUser.user_metadata
-        setNickname(meta?.nickname || meta?.full_name || currUser.email?.split('@')[0])
+        
+        // Fetch full profile info to get avatar and other DB-specific fields
+        supabase.from('profiles').select('*').eq('id', currUser.id).single()
+          .then(({ data }) => {
+            if (data) {
+              setNickname(data.nickname || meta?.full_name || currUser.email?.split('@')[0])
+              setAvatarUrl(data.avatar_url)
+            }
+          })
       } else {
         setUser(null)
         setNickname('Artist User')
+        setAvatarUrl(null)
       }
       setLoading(false)
     }
@@ -87,9 +98,11 @@ function App() {
       />
       <div className="main-content">
         <Navbar 
-          nickname={nickname} 
+          nickname={nickname}
+          avatarUrl={avatarUrl}
           userEmail={user?.email} 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
+          onProfileClick={() => setActiveTab('profile')}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
           {activeTab === 'dashboard' && <Dashboard nickname={nickname} />}
@@ -98,6 +111,13 @@ function App() {
           {activeTab === 'gallery' && <Gallery />}
           {activeTab === 'productivity' && <Productivity />}
           {activeTab === 'ranks' && <Ranks />}
+          {activeTab === 'profile' && <Profile 
+            user={user} 
+            nickname={nickname} 
+            setNickname={setNickname} 
+            avatarUrl={avatarUrl}
+            setAvatarUrl={setAvatarUrl}
+          />}
           {activeTab === 'settings' && <Settings nickname={nickname} setNickname={setNickname} userEmail={user?.email} />}
         </main>
       </div>

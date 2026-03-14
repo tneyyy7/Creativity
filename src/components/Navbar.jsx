@@ -2,7 +2,7 @@ import { Search, Languages, User, Moon, Sun, Menu } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 
-export function Navbar({ nickname, onToggleSidebar }) {
+export function Navbar({ nickname, avatarUrl, onToggleSidebar, onProfileClick }) {
   const { t, i18n } = useTranslation()
   const [showLangs, setShowLangs] = useState(false)
 
@@ -60,11 +60,18 @@ export function Navbar({ nickname, onToggleSidebar }) {
           <div className="text-right hidden sm:block">
             <h4 className="text-[14px] md:text-[15px] font-black text-white leading-tight">{nickname}</h4>
           </div>
-          <div className="relative p-[2px] rounded-xl md:rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-400">
-            <div className="w-9 h-9 md:w-11 md:h-11 rounded-[10px] md:rounded-[14px] bg-[#0c0b11] flex items-center justify-center overflow-hidden">
-              <User className="text-purple-500 w-5 h-5 md:w-6 md:h-6" />
+          <button 
+            onClick={onProfileClick}
+            className="group relative p-[2px] rounded-xl md:rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-400 hover:from-purple-500 hover:to-indigo-300 transition-all cursor-pointer shadow-lg shadow-purple-900/40 hover:shadow-purple-700/60"
+          >
+            <div className="w-9 h-9 md:w-11 md:h-11 rounded-[10px] md:rounded-[14px] bg-[#0c0b11] flex items-center justify-center overflow-hidden relative">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+              ) : (
+                <User className="text-purple-500 w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform duration-300" />
+              )}
             </div>
-          </div>
+          </button>
         </div>
       </div>
     </header>
