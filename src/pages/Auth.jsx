@@ -55,8 +55,8 @@ export function Auth({ onAuth }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#0c0b11] flex items-center justify-center p-6">
-       <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500">
+    <div className="min-h-screen w-full bg-[#0c0b11] flex items-center justify-center p-4 py-12 overflow-y-auto">
+       <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500 my-auto">
           <div className="text-center">
              <div className="w-20 h-20 bg-purple-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-purple-900/40">
                 <Lock className="text-white w-10 h-10" />
@@ -74,7 +74,7 @@ export function Auth({ onAuth }) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="glass-card p-10 space-y-6">
+          <form onSubmit={handleSubmit} className="glass-card p-6 sm:p-10 space-y-6">
              {!isLogin && (
                  <div className="space-y-2">
                     <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('nickname')}</label>
