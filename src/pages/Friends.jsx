@@ -1,3 +1,6 @@
+import { useState, useEffect } from 'react'
+import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 

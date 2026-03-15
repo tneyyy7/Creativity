@@ -1,3 +1,6 @@
+import { useState, useRef, useEffect } from 'react'
+import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 
