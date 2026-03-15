@@ -11,14 +11,21 @@ export function Productivity() {
 
   useEffect(() => {
     const fetchCounts = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       const { count: paintingCount } = await supabase
         .from('paintings')
         .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_finished', true)
       
       const { count: aiCount } = await supabase
         .from('paintings')
         .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
         .eq('is_ai_generated', true)
+        .eq('is_finished', true)
       
       setCounts({
         total: paintingCount || 0,
