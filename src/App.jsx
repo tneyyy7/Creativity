@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
-import { supabase } from './lib/supabase'
+import { supabase, fetchProfile } from './lib/supabase'
 import { Dashboard } from './pages/Dashboard'
 import { Chat } from './pages/Chat'
 import { ImageGen } from './pages/ImageGen'
@@ -33,8 +33,8 @@ function App() {
         const meta = currUser.user_metadata
         
         // Fetch full profile info to get avatar and other DB-specific fields
-        supabase.from('profiles').select('*').eq('id', currUser.id).single()
-          .then(({ data }) => {
+        fetchProfile(currUser.id)
+          .then((data) => {
             if (data) {
               setNickname(data.nickname || meta?.full_name || currUser.email?.split('@')[0])
               setAvatarUrl(data.avatar_url)

@@ -1,19 +1,19 @@
 import { User } from 'lucide-react'
 
 export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className = "" }) {
-  // Rank thresholds
+  // Rank thresholds - Lowered for faster progression feedback
   const getRankInfo = (count) => {
-    if (count >= 200) return { id: 10, color: 'from-rose-500 to-rose-300', glow: 'shadow-rose-500/50', animate: true }
-    if (count >= 175) return { id: 9, color: 'from-amber-400 to-yellow-200', glow: 'shadow-amber-500/40', animate: true }
-    if (count >= 150) return { id: 8, color: 'from-fuchsia-600 to-purple-400', glow: 'shadow-fuchsia-500/40' }
-    if (count >= 125) return { id: 7, color: 'from-indigo-600 to-blue-400', glow: 'shadow-indigo-500/30' }
-    if (count >= 100) return { id: 6, color: 'from-yellow-400 to-yellow-200', glow: 'shadow-yellow-500/30' }
-    if (count >= 75) return { id: 5, color: 'from-emerald-500 to-teal-300' }
-    if (count >= 50) return { id: 4, color: 'from-purple-500 to-indigo-400' }
-    if (count >= 30) return { id: 3, color: 'border-blue-500/50' }
-    if (count >= 15) return { id: 2, color: 'border-orange-400/40' }
-    if (count >= 5) return { id: 1, color: 'border-gray-400/30' }
-    return { id: 0, color: 'border-white/5' }
+    if (count >= 150) return { id: 10, color: 'from-rose-500 to-rose-300', glow: 'shadow-rose-500/50', animate: true }
+    if (count >= 100) return { id: 9, color: 'from-amber-400 to-yellow-200', glow: 'shadow-amber-500/40', animate: true }
+    if (count >= 75) return { id: 8, color: 'from-fuchsia-600 to-purple-400', glow: 'shadow-fuchsia-500/40' }
+    if (count >= 50) return { id: 7, color: 'from-indigo-600 to-blue-400', glow: 'shadow-indigo-500/30' }
+    if (count >= 25) return { id: 6, color: 'from-yellow-400 to-yellow-200', glow: 'shadow-yellow-500/30' }
+    if (count >= 15) return { id: 5, color: 'from-emerald-500 to-teal-300' }
+    if (count >= 10) return { id: 4, color: 'from-purple-500 to-indigo-400' }
+    if (count >= 3) return { id: 3, color: 'border-blue-400', glow: 'shadow-blue-500/20' }
+    if (count >= 2) return { id: 2, color: 'border-orange-500' }
+    if (count >= 1) return { id: 1, color: 'border-white/60' }
+    return { id: 0, color: 'border-white/10' }
   }
 
   const rank = getRankInfo(workCount)
@@ -43,14 +43,14 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
   }
 
   // Base styling: for higher ranks, use a gradient border (via p-[2px] Trick)
-  // For lower ranks (1-3), just a simple border
+  // For lower ranks (1-3), just a simple border but thicker
   const isHighRank = rank.id >= 4
   
   return (
     <div className={`
       relative shrink-0 transition-all duration-500
       ${sizeClasses[size] || sizeClasses.md}
-      ${isHighRank ? `bg-gradient-to-tr ${rank.color} p-[2px]` : `border ${rank.color}`}
+      ${isHighRank ? `bg-gradient-to-tr ${rank.color} p-[2.5px]` : `border-2 ${rank.color}`}
       ${rank.glow ? `shadow-lg ${rank.glow}` : ''}
       ${rank.animate ? 'animate-pulse-subtle' : ''}
       ${className}
@@ -72,3 +72,4 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
     </div>
   )
 }
+

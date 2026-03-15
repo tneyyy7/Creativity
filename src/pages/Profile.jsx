@@ -120,7 +120,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
           <div className="flex flex-col items-center gap-4 mx-auto md:mx-0 shrink-0">
             <div 
               onClick={handleAvatarClick}
-              className="group cursor-pointer"
+              className="group cursor-pointer relative"
             >
               <ProfileAvatar 
                 avatarUrl={avatarUrl} 
@@ -183,13 +183,15 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
               {/* Bio */}
               <div className="space-y-2">
                  <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('bio') || 'Bio'}</label>
-                 <textarea 
-                   value={bio}
-                   onChange={(e) => setBio(e.target.value)}
-                   placeholder={t('bio_placeholder') || 'Tell the world about your art...'}
-                   translate="no"
-                   className="notranslate w-full h-32 p-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-white resize-none custom-scrollbar"
-                 />
+                 <div className="relative">
+                   <textarea 
+                     value={bio}
+                     onChange={(e) => setBio(e.target.value)}
+                     placeholder={t('bio_placeholder') || 'Tell the world about your art...'}
+                     translate="no"
+                     className="notranslate w-full h-32 p-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-white resize-none custom-scrollbar"
+                   />
+                 </div>
               </div>
 
               {/* Error Message */}

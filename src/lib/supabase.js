@@ -24,15 +24,39 @@ export const uploadPainting = async (file, userId) => {
   return publicUrl
 }
 
-export const fetchProfile = async (userId) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
-    .eq('id', userId)
-    .single()
-  
-  if (error && error.code !== 'PGRST116') throw error
-  return data
+// Helper to clean profile data and handle missing columns
+function cleanProfile(data) {
+  if (!data) return null
+  if (Array.isArray(data)) return data.map(cleanProfile)
+  return {
+    ...data,
+    finished_work_count: data.finished_work_count || 0
+  }
+}
+
+export async function fetchProfile(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
+      .eq('id', userId)
+      .single()
+    if (error) {
+      if (error.message?.includes('finished_work_count')) {
+        const { data: retry } = await supabase
+          .from('profiles')
+          .select('nickname, avatar_url, bio, is_private, is_verified')
+          .eq('id', userId)
+          .single()
+        return cleanProfile(retry)
+      }
+      if (error.code !== 'PGRST116') throw error
+    }
+    return cleanProfile(data)
+  } catch (e) {
+    console.error("fetchProfile error:", e)
+    return null
+  }
 }
 
 export const upsertProfile = async (profile) => {
@@ -113,26 +137,52 @@ export const uploadAvatar = async (file, userId) => {
 
 export const searchUsers = async (query, currentUserId) => {
   if (!query) return []
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, nickname, avatar_url, is_verified, finished_work_count')
-    .ilike('nickname', `%${query}%`)
-    .neq('id', currentUserId)
-    .limit(10)
-  
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, nickname, avatar_url, is_verified, finished_work_count')
+      .ilike('nickname', `%${query}%`)
+      .neq('id', currentUserId)
+      .limit(10)
+    
+    if (error && error.message?.includes('finished_work_count')) {
+      const { data: retry } = await supabase
+        .from('profiles')
+        .select('id, nickname, avatar_url, is_verified')
+        .ilike('nickname', `%${query}%`)
+        .neq('id', currentUserId)
+        .limit(10)
+      return cleanProfile(retry)
+    }
+    if (error) throw error
+    return cleanProfile(data)
+  } catch (e) {
+    console.error("searchUsers error:", e)
+    return []
+  }
 }
 
 export const fetchPublicProfile = async (userId) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
-    .eq('id', userId)
-    .single()
-  
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
+      .eq('id', userId)
+      .single()
+    if (error && error.message?.includes('finished_work_count')) {
+      const { data: retry } = await supabase
+        .from('profiles')
+        .select('nickname, avatar_url, bio, is_private, is_verified')
+        .eq('id', userId)
+        .single()
+      return cleanProfile(retry)
+    }
+    if (error) throw error
+    return cleanProfile(data)
+  } catch (e) {
+    console.error("fetchPublicProfile error:", e)
+    return null
+  }
 }
 
 export const checkFriendshipStatus = async (user1, user2) => {
@@ -173,45 +223,94 @@ export const removeFriend = async (friendshipId) => {
 }
 
 export const fetchFriends = async (userId) => {
-  const { data, error } = await supabase
-    .from('friendships')
-    .select(`
-      id,
-      status,
-      sender_id,
-      receiver_id,
-      profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
-    `)
-    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-    .eq('status', 'accepted')
-  
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase
+      .from('friendships')
+      .select(`
+        id,
+        status,
+        sender_id,
+        receiver_id,
+        profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
+      `)
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .eq('status', 'accepted')
+    
+    if (error && error.message?.includes('finished_work_count')) {
+       const { data: retry } = await supabase
+        .from('friendships')
+        .select(`
+          id,
+          status,
+          sender_id,
+          receiver_id,
+          profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified)
+        `)
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        .eq('status', 'accepted')
+       return retry?.map(f => ({ ...f, profile: cleanProfile(f.profile) })) || []
+    }
+    if (error) throw error
+    return data?.map(f => ({ ...f, profile: cleanProfile(f.profile) })) || []
+  } catch (e) {
+    console.error("fetchFriends error:", e)
+    return []
+  }
 }
 
 export const fetchPendingRequests = async (userId) => {
-  const { data, error } = await supabase
-    .from('friendships')
-    .select(`
-      id,
-      sender_id,
-      profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
-    `)
-    .eq('receiver_id', userId)
-    .eq('status', 'pending')
-  
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase
+      .from('friendships')
+      .select(`
+        id,
+        sender_id,
+        profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
+      `)
+      .eq('receiver_id', userId)
+      .eq('status', 'pending')
+    
+    if (error && error.message?.includes('finished_work_count')) {
+      const { data: retry } = await supabase
+        .from('friendships')
+        .select(`
+          id,
+          sender_id,
+          profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified)
+        `)
+        .eq('receiver_id', userId)
+        .eq('status', 'pending')
+      return retry?.map(r => ({ ...r, profile: cleanProfile(r.profile) })) || []
+    }
+    if (error) throw error
+    return data?.map(r => ({ ...r, profile: cleanProfile(r.profile) })) || []
+  } catch (e) {
+    console.error("fetchPendingRequests error:", e)
+    return []
+  }
 }
 
-// Fetch a specific profile by ID (minimal fields for loops)
-export const fetchProfileMinimal = async (userId) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, nickname, avatar_url, is_verified, finished_work_count')
-    .eq('id', userId)
-    .single()
-  
-  if (error) throw error
-  return data
+export async function fetchProfileMinimal(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, nickname, avatar_url, is_verified, finished_work_count')
+      .eq('id', userId)
+      .single()
+    
+    if (error && error.message?.includes('finished_work_count')) {
+       const { data: retryData } = await supabase
+        .from('profiles')
+        .select('id, nickname, avatar_url, is_verified')
+        .eq('id', userId)
+        .single()
+       return cleanProfile(retryData)
+    }
+    if (error) throw error
+    return cleanProfile(data)
+  } catch (e) {
+    console.error("fetchProfileMinimal error:", e)
+    return null
+  }
 }
+
