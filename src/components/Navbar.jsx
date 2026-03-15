@@ -17,12 +17,28 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
-    if (user?.id) {
-      fetchPendingRequests(user.id)
-        .then(data => setPendingCount(data.length))
-        .catch(console.error)
+    if (!user?.id) {
+      setPendingCount(0)
+      return
     }
-  }, [user])
+
+    const loadPendingCount = async () => {
+      try {
+        const data = await fetchPendingRequests(user.id)
+        setPendingCount(data.length)
+      } catch (err) {
+        console.error("Error fetching pending count:", err)
+      }
+    }
+
+    // Initial load
+    loadPendingCount()
+
+    // Poll every 15 seconds to catch new requests
+    const interval = setInterval(loadPendingCount, 15000)
+
+    return () => clearInterval(interval)
+  }, [user?.id])
 
   return (
     <header className="h-20 md:h-24 px-4 md:px-10 flex items-center justify-between border-b border-white/[0.04] bg-[#0c0b11]/80 backdrop-blur-md sticky top-0 z-40">

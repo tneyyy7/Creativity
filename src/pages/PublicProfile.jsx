@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, Clock, UserMinus, Image as ImageIcon, Lock, BadgeCheck } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Image as ImageIcon, Lock, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend } from '../lib/supabase'
+import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack }) {
@@ -49,6 +49,33 @@ export function PublicProfile({ currentUserId, targetUserId, onBack }) {
       await loadData() // refresh status
     } catch (error) {
       console.error("Error sending request:", error)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleAccept = async () => {
+    if (!friendship) return
+    setActionLoading(true)
+    try {
+      await respondToFriendRequest(friendship.id, 'accepted')
+      await loadData()
+    } catch (error) {
+      console.error("Error accepting request:", error)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!friendship) return
+    setActionLoading(true)
+    try {
+      await respondToFriendRequest(friendship.id, 'rejected')
+      setFriendship(null)
+      await loadData()
+    } catch (error) {
+      console.error("Error rejecting request:", error)
     } finally {
       setActionLoading(false)
     }
@@ -144,11 +171,28 @@ export function PublicProfile({ currentUserId, targetUserId, onBack }) {
                   </button>
                 ) : isPending ? (
                   isReceiver ? (
-                    <div className="flex items-center gap-2 justify-center md:justify-start">
-                      <span className="px-6 py-3 bg-white/5 text-gray-400 font-bold rounded-xl flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 justify-center md:justify-start">
+                      <span className="text-gray-400 font-bold flex items-center gap-2 mb-2 sm:mb-0">
                         <User className="w-5 h-5 text-purple-400" />
                         {t('sent_you_request') || 'Sent you a request'}
                       </span>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={handleAccept}
+                          disabled={actionLoading}
+                          className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-purple-900/20 disabled:opacity-50"
+                        >
+                          <Check className="w-4 h-4" />
+                          {t('accept') || 'Accept'}
+                        </button>
+                        <button 
+                          onClick={handleReject}
+                          disabled={actionLoading}
+                          className="px-4 py-2 bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-500 font-bold rounded-xl transition-all"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button 
