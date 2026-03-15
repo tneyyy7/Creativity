@@ -231,12 +231,14 @@ export const fetchFriends = async (userId) => {
         status,
         sender_id,
         receiver_id,
-        profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
+        sender:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count),
+        receiver:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
       `)
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .eq('status', 'accepted')
     
     if (error && error.message?.includes('finished_work_count')) {
+       // Fallback for missing column
        const { data: retry } = await supabase
         .from('friendships')
         .select(`
@@ -244,14 +246,25 @@ export const fetchFriends = async (userId) => {
           status,
           sender_id,
           receiver_id,
-          profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified)
+          sender:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified),
+          receiver:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified)
         `)
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
         .eq('status', 'accepted')
-       return retry?.map(f => ({ ...f, profile: cleanProfile(f.profile) })) || []
+       
+       return retry?.map(f => {
+         const friendProfile = f.sender_id === userId ? f.receiver : f.sender
+         return { ...f, profile: cleanProfile(friendProfile) }
+       }) || []
     }
+    
     if (error) throw error
-    return data?.map(f => ({ ...f, profile: cleanProfile(f.profile) })) || []
+    
+    return data?.map(f => {
+      // Determine which profile belongs to the friend
+      const friendProfile = f.sender_id === userId ? f.receiver : f.sender
+      return { ...f, profile: cleanProfile(friendProfile) }
+    }) || []
   } catch (e) {
     console.error("fetchFriends error:", e)
     return []

@@ -22,27 +22,18 @@ export function Friends({ user, onViewProfile }) {
     try {
       // Load pending requests
       const requests = await fetchPendingRequests(user.id)
-      
-      // We only get sender_id back, so let's fetch their basic profiles
-      const requestsWithProfiles = await Promise.all(
-        requests.map(async (req) => {
-          const profile = await fetchProfileMinimal(req.sender_id)
-          return { ...req, profile }
-        })
-      )
-      setPendingRequests(requestsWithProfiles)
+      setPendingRequests(requests || [])
 
       // Load friends
       const friendsData = await fetchFriends(user.id)
-      const friendsWithProfiles = await Promise.all(
-        friendsData.map(async (f) => {
-          const isSender = f.sender_id === user.id
-          const friendId = isSender ? f.receiver_id : f.sender_id
-          const profile = await fetchProfileMinimal(friendId)
-          return { ...f, friendId, profile }
-        })
-      )
-      setFriends(friendsWithProfiles)
+      
+      // Map to ensure we have a consistent friendId and profile object
+      const formattedFriends = friendsData.map(f => {
+        const friendId = f.sender_id === user.id ? f.receiver_id : f.sender_id
+        return { ...f, friendId }
+      })
+      
+      setFriends(formattedFriends)
     } catch (error) {
       console.error("Error loading friends data:", error)
     }

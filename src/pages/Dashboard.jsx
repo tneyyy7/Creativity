@@ -13,26 +13,27 @@ export function Dashboard({ nickname, isVerified }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { count: paintingCount, error: pError } = await supabase
-        .from('paintings')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-      
-      const { count: aiCount, error: aiError } = await supabase
-        .from('paintings')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('is_ai_generated', true)
-      
       const { count: finishedCount, error: fError } = await supabase
         .from('paintings')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('is_finished', true)
       
-      if (!pError) setCounts(prev => ({ ...prev, total: paintingCount || 0 }))
+      const { count: aiCount, error: aiError } = await supabase
+        .from('paintings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_ai_generated', true)
+        .eq('is_finished', true) // Also AI works should be finished to count as "results"
+      
+      const { count: totalDrafts, error: pError } = await supabase
+        .from('paintings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      
+      if (!fError) setCounts(prev => ({ ...prev, finished: finishedCount || 0, total: finishedCount || 0 }))
       if (!aiError) setCounts(prev => ({ ...prev, inspiration: aiCount || 0 }))
-      if (!fError) setCounts(prev => ({ ...prev, finished: finishedCount || 0 }))
+      if (!pError) setCounts(prev => ({ ...prev, drafts: (totalDrafts || 0) - (finishedCount || 0) }))
     }
     fetchCounts()
 
