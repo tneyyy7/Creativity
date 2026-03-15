@@ -143,7 +143,34 @@ const resources = {
       "private_account": "Private Account",
       "private_account_desc": "Hide your artworks from users who are not in your friends list.",
       "account_is_private": "This Account is Private",
-      "account_is_private_desc": "Become friends to see their portfolio."
+      "account_is_private_desc": "Become friends to see their portfolio.",
+      "notifications": "Notifications",
+      "no_notifications": "No new notifications",
+      "messages": "Messages",
+      "message": "Message",
+      "search_chats": "Search conversations...",
+      "no_conversations": "No messages yet.",
+      "click_to_chat": "Click to chat",
+      "type_message": "Type a message...",
+      "start_new_chat": "Start new chat",
+      "new_chat": "New Chat",
+      "no_users_found": "No artists found.",
+      "type_to_search": "Type nickname to search...",
+      "message_deleted": "Message deleted",
+      "confirm_delete_message": "Are you sure you want to delete this message?",
+      "edited": "edited",
+      "new_messages": "New messages",
+      "search_friends_only": "Search only among friends...",
+      "reply": "Reply",
+      "replying_to": "Replying to",
+      "you": "You",
+      "share": "Share",
+      "share_with_friends": "Share with friends",
+      "share_profile": "Share Profile",
+      "choose_friend": "Choose a friend to share with",
+      "shared_successfully": "Profile shared successfully!",
+      "artist_profile": "Artist Profile",
+      "view_profile": "View Profile"
     }
   },
   ru: {
@@ -287,7 +314,34 @@ const resources = {
       "private_account": "Приватный аккаунт",
       "private_account_desc": "Скрыть ваши работы от пользователей, которых нет в списке друзей.",
       "account_is_private": "Это приватный аккаунт",
-      "account_is_private_desc": "Добавьте в друзья, чтобы увидеть работы."
+      "account_is_private_desc": "Добавьте в друзья, чтобы увидеть работы.",
+      "notifications": "Уведомления",
+      "no_notifications": "Нет новых уведомлений",
+      "messages": "Сообщения",
+      "message": "Написать",
+      "search_chats": "Поиск диалогов...",
+      "no_conversations": "Сообщений пока нет.",
+      "click_to_chat": "Нажмите, чтобы начать",
+      "type_message": "Введите сообщение...",
+      "start_new_chat": "Начать новый чат",
+      "new_chat": "Новый чат",
+      "no_users_found": "Художники не найдены.",
+      "type_to_search": "Введите никнейм для поиска...",
+      "message_deleted": "Сообщение удалено",
+      "confirm_delete_message": "Вы уверены, что хотите удалить это сообщение?",
+      "edited": "изменено",
+      "new_messages": "Новые сообщения",
+      "search_friends_only": "Поиск только среди друзей...",
+      "reply": "Ответить",
+      "replying_to": "В ответ на",
+      "you": "Вы",
+      "share": "Поделиться",
+      "share_with_friends": "Поделиться с друзьями",
+      "share_profile": "Поделиться профилем",
+      "choose_friend": "Выберите друга для пересылки",
+      "shared_successfully": "Профиль успешно отправлен!",
+      "artist_profile": "Профиль художника",
+      "view_profile": "Посмотреть профиль"
     }
   },
   it: {
@@ -431,10 +485,31 @@ const resources = {
         "private_account": "Account Privato",
         "private_account_desc": "Nascondi le tue opere agli utenti che non sono nella tua lista amici.",
         "account_is_private": "Questo Account è Privato",
-        "account_is_private_desc": "Diventate amici per vedere il suo portfolio."
+        "account_is_private_desc": "Diventate amici per vedere il suo portfolio.",
+        "notifications": "Notifiche",
+        "no_notifications": "Nessuna nuova notifica",
+        "messages": "Messaggi",
+        "message": "Messaggio",
+        "search_chats": "Cerca conversazioni...",
+        "no_conversations": "Ancora nessun messaggio.",
+        "click_to_chat": "Clicca per chattare",
+        "type_message": "Scrivi un messaggio...",
+        "start_new_chat": "Inizia una nuova chat",
+        "new_chat": "Nuova Chat",
+        "no_users_found": "Nessun artista trovato.",
+        "type_to_search": "Scrivi il nickname per cercare...",
+        "message_deleted": "Messaggio eliminato",
+        "confirm_delete_message": "Sei sicuro di voler eliminare questo messaggio?",
+        "edited": "modificato",
+        "new_messages": "Nuovi messaggi",
+        "search_friends_only": "Cerca solo tra gli amici...",
+        "reply": "Rispondi",
+        "replying_to": "In risposta a",
+        "you": "Tu",
+        "view_profile": "Visualizza profilo"
       }
-  }
-}
+    }
+  };
 
 i18n
   .use(initReactI18next)
@@ -445,6 +520,6 @@ i18n
     interpolation: {
       escapeValue: false
     }
-  })
+  });
 
-export default i18n
+export default i18n;

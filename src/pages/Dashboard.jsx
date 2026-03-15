@@ -54,11 +54,11 @@ export function Dashboard({ nickname, isVerified }) {
     <div className="space-y-8 md:space-y-12 pb-12 animate-in fade-in duration-1000">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 leading-none">
              <Trans i18nKey="welcome_back" values={{ name: nickname }}>
-               Welcome Back, <span className="notranslate inline-flex items-center gap-2 align-middle" translate="no">
+               Welcome Back, <span className="notranslate inline-flex items-baseline gap-2" translate="no">
                  {nickname}
-                 {isVerified && <BadgeCheck className="w-6 h-6 md:w-8 md:h-8 text-purple-400 fill-purple-400/20" />}
+                 {isVerified && <BadgeCheck className="w-5 h-5 md:w-7 md:h-7 text-purple-400 fill-purple-400/20 translate-y-0.5" />}
                </span>!
              </Trans>
           </h1>

@@ -70,7 +70,7 @@ export function Ranks() {
   })
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 md:space-y-12 pb-12 animate-in fade-in duration-500">
+    <div className="w-full space-y-8 md:space-y-12 pb-12 animate-in fade-in duration-500">
       <div>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3">{t('ranks_title')}</h1>
         <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">{t('ranks_subtitle')}</p>
