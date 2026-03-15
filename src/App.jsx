@@ -22,6 +22,7 @@ function App() {
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [isVerified, setIsVerified] = useState(false)
+  const [workCount, setWorkCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [targetUserId, setTargetUserId] = useState(null) // Used for viewing public profiles
 
@@ -38,6 +39,7 @@ function App() {
               setNickname(data.nickname || meta?.full_name || currUser.email?.split('@')[0])
               setAvatarUrl(data.avatar_url)
               setIsVerified(data.is_verified || false)
+              setWorkCount(data.finished_work_count || 0)
             }
           })
       } else {
@@ -45,6 +47,7 @@ function App() {
         setNickname('Artist User')
         setAvatarUrl(null)
         setIsVerified(false)
+        setWorkCount(0)
       }
       setLoading(false)
     }
@@ -108,6 +111,7 @@ function App() {
           nickname={nickname}
           avatarUrl={avatarUrl}
           isVerified={isVerified}
+          workCount={workCount}
           userEmail={user?.email} 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
           onProfileClick={() => setActiveTab('profile')}
@@ -127,6 +131,7 @@ function App() {
             avatarUrl={avatarUrl}
             setAvatarUrl={setAvatarUrl}
             isVerified={isVerified}
+            workCount={workCount}
           />}
           {activeTab === 'friends' && <Friends 
             user={user} 

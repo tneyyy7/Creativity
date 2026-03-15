@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, Clock, UserMinus, Image as ImageIcon, Lock, BadgeCheck } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend } from '../lib/supabase'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack }) {
   const { t } = useTranslation()
@@ -108,16 +106,13 @@ export function PublicProfile({ currentUserId, targetUserId, onBack }) {
         {/* Decorative background blur */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
+        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-10">
+          <ProfileAvatar 
+            avatarUrl={profile.avatar_url} 
+            workCount={profile.finished_work_count} 
+            size="xl"
+          />
           
-          <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] bg-[#0c0b11] flex items-center justify-center overflow-hidden shrink-0 shadow-2xl shadow-purple-900/40 border-2 border-white/5">
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <User className="text-purple-500 w-12 h-12" />
-            )}
-          </div>
-
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2" translate="no">

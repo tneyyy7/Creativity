@@ -27,7 +27,7 @@ export const uploadPainting = async (file, userId) => {
 export const fetchProfile = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('nickname, avatar_url, bio, is_private, is_verified')
+    .select('nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
     .eq('id', userId)
     .single()
   
@@ -115,7 +115,7 @@ export const searchUsers = async (query, currentUserId) => {
   if (!query) return []
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, nickname, avatar_url, is_verified')
+    .select('id, nickname, avatar_url, is_verified, finished_work_count')
     .ilike('nickname', `%${query}%`)
     .neq('id', currentUserId)
     .limit(10)
@@ -127,7 +127,7 @@ export const searchUsers = async (query, currentUserId) => {
 export const fetchPublicProfile = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('nickname, avatar_url, bio, is_private, is_verified')
+    .select('nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
     .eq('id', userId)
     .single()
   
@@ -179,7 +179,8 @@ export const fetchFriends = async (userId) => {
       id,
       status,
       sender_id,
-      receiver_id
+      receiver_id,
+      profile:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
     `)
     .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
     .eq('status', 'accepted')
@@ -194,7 +195,7 @@ export const fetchPendingRequests = async (userId) => {
     .select(`
       id,
       sender_id,
-      receiver_id
+      profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
     `)
     .eq('receiver_id', userId)
     .eq('status', 'pending')
@@ -207,7 +208,7 @@ export const fetchPendingRequests = async (userId) => {
 export const fetchProfileMinimal = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, nickname, avatar_url, is_verified')
+    .select('id, nickname, avatar_url, is_verified, finished_work_count')
     .eq('id', userId)
     .single()
   

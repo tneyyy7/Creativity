@@ -1,9 +1,10 @@
-import { Search, Languages, User, Menu, Bell, BadgeCheck } from 'lucide-react'
+import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ProfileAvatar } from './ProfileAvatar'
 import { useState, useEffect } from 'react'
 import { fetchPendingRequests } from '../lib/supabase'
 
-export function Navbar({ user, nickname, avatarUrl, isVerified, onToggleSidebar, onProfileClick, onFriendsClick }) {
+export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, onProfileClick, onFriendsClick, isVerified, workCount }) {
   const { t, i18n } = useTranslation()
   const [showLangs, setShowLangs] = useState(false)
 
@@ -26,7 +27,7 @@ export function Navbar({ user, nickname, avatarUrl, isVerified, onToggleSidebar,
   return (
     <header className="h-20 md:h-24 px-4 md:px-10 flex items-center justify-between border-b border-white/[0.04] bg-[#0c0b11]/80 backdrop-blur-md sticky top-0 z-40">
       <div className="flex items-center gap-4">
-        <button 
+        <button
           onClick={onToggleSidebar}
           className="lg:hidden p-2 text-gray-400 hover:text-white transition-colors"
         >
@@ -39,8 +40,8 @@ export function Navbar({ user, nickname, avatarUrl, isVerified, onToggleSidebar,
 
       <div className="flex items-center gap-4 md:gap-8">
         <div className="flex items-center gap-2">
-          
-          <button 
+
+          <button
             onClick={onFriendsClick}
             className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-gray-400 hover:bg-white/5 hover:text-white rounded-2xl transition-all relative"
           >
@@ -51,13 +52,13 @@ export function Navbar({ user, nickname, avatarUrl, isVerified, onToggleSidebar,
           </button>
 
           <div className="relative">
-            <button 
+            <button
               onClick={() => setShowLangs(!showLangs)}
               className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-gray-400 hover:bg-white/5 hover:text-white rounded-2xl transition-all"
             >
               <Languages className="w-5 h-5" />
             </button>
-            
+
             {showLangs && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowLangs(false)}></div>
@@ -79,24 +80,24 @@ export function Navbar({ user, nickname, avatarUrl, isVerified, onToggleSidebar,
         </div>
 
         <div className="flex items-center gap-3 md:gap-4 md:pl-8 md:border-l md:border-white/5">
-          <div className="text-right hidden sm:block">
-            <h4 className="text-[14px] md:text-[15px] font-black text-white leading-tight notranslate flex items-center justify-end gap-1.5" translate="no">
-              {nickname}
-              {isVerified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
-            </h4>
-          </div>
-          <button 
+          <div
             onClick={onProfileClick}
-            className="group relative p-[2px] rounded-xl md:rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-400 hover:from-purple-500 hover:to-indigo-300 transition-all cursor-pointer shadow-lg shadow-purple-900/40 hover:shadow-purple-700/60"
+            className="flex items-center gap-3 pl-3 py-1.5 pr-1.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer group"
           >
-            <div className="w-9 h-9 md:w-11 md:h-11 rounded-[10px] md:rounded-[14px] bg-[#0c0b11] flex items-center justify-center overflow-hidden relative">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
-              ) : (
-                <User className="text-purple-500 w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform duration-300" />
-              )}
+            <div className="flex flex-col items-end hidden sm:flex">
+              <span className="text-xs font-black text-white notranslate flex items-center gap-1" translate="no">
+                {nickname}
+                {isVerified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
+              </span>
+              <span className="text-[10px] font-bold text-gray-500 truncate max-w-[120px]">{userEmail}</span>
             </div>
-          </button>
+
+            <ProfileAvatar
+              avatarUrl={avatarUrl}
+              workCount={workCount}
+              size="md"
+            />
+          </div>
         </div>
       </div>
     </header>

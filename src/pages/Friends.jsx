@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 
 export function Friends({ user, onViewProfile }) {
   const { t } = useTranslation()
@@ -130,13 +128,11 @@ export function Friends({ user, onViewProfile }) {
             {searchResults.map(result => (
               <div key={result.id} className="glass-card p-4 flex items-center justify-between group hover:border-purple-500/30 transition-all cursor-pointer" onClick={() => onViewProfile(result.id)}>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-[14px] bg-[#0c0b11] flex items-center justify-center overflow-hidden shrink-0">
-                    {result.avatar_url ? (
-                      <img src={result.avatar_url} alt={result.nickname} className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="text-purple-500 w-6 h-6" />
-                    )}
-                  </div>
+                  <ProfileAvatar 
+                    avatarUrl={result.avatar_url} 
+                    workCount={result.finished_work_count} 
+                    size="md"
+                  />
                   <div>
                     <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors notranslate flex items-center gap-1.5" translate="no">
                       {result.nickname || 'Unknown Artist'}
@@ -165,13 +161,11 @@ export function Friends({ user, onViewProfile }) {
                   className="flex items-center gap-3 cursor-pointer group"
                   onClick={() => onViewProfile(req.sender_id)}
                 >
-                  <div className="w-12 h-12 rounded-[14px] bg-[#0c0b11] flex items-center justify-center overflow-hidden shrink-0">
-                    {req.profile?.avatar_url ? (
-                      <img src={req.profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="text-purple-500 w-6 h-6" />
-                    )}
-                  </div>
+                  <ProfileAvatar 
+                    avatarUrl={req.profile?.avatar_url} 
+                    workCount={req.profile?.finished_work_count} 
+                    size="md"
+                  />
                   <div>
                     <h3 className="font-bold text-white group-hover:text-purple-400 notranslate flex items-center gap-1.5" translate="no">
                       {req.profile?.nickname || 'Unknown'}
@@ -214,13 +208,12 @@ export function Friends({ user, onViewProfile }) {
                     className="flex flex-col items-center text-center cursor-pointer transition-transform duration-300 group-hover:-translate-y-1"
                     onClick={() => onViewProfile(friend.friendId)}
                   >
-                    <div className="w-20 h-20 rounded-[20px] bg-[#0c0b11] flex items-center justify-center overflow-hidden mb-3 shadow-[0_0_20px_rgba(147,51,234,0.1)]">
-                      {friend.profile?.avatar_url ? (
-                        <img src={friend.profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="text-purple-500 w-8 h-8" />
-                      )}
-                    </div>
+                    <ProfileAvatar 
+                      avatarUrl={friend.profile?.avatar_url} 
+                      workCount={friend.profile?.finished_work_count} 
+                      size="lg"
+                      className="mb-3"
+                    />
                     <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors w-full truncate px-2 notranslate flex items-center justify-center gap-1.5" translate="no">
                       {friend.profile?.nickname || 'Unknown'}
                       {friend.profile?.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}

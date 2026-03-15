@@ -1,9 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
-import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar } from '../lib/supabase'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 
-export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified }) {
+export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, workCount }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
   
@@ -119,21 +117,17 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
           <div className="flex flex-col items-center gap-4 mx-auto md:mx-0 shrink-0">
             <div 
               onClick={handleAvatarClick}
-              className="relative w-32 h-32 md:w-40 md:h-40 rounded-[2rem] bg-gradient-to-tr from-purple-600 to-indigo-400 p-[3px] group shadow-2xl shadow-purple-900/40 cursor-pointer overflow-hidden transition-all hover:scale-105"
+              className="group cursor-pointer"
             >
-              <div className="w-full h-full rounded-[30px] bg-[#0c0b11] overflow-hidden relative flex items-center justify-center">
-                {isUploading ? (
-                  <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
-                ) : avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                ) : (
-                  <User className="w-12 h-12 text-purple-500 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12" />
-                )}
-                
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <Camera className="w-8 h-8 text-white drop-shadow-lg" />
-                </div>
+              <ProfileAvatar 
+                avatarUrl={avatarUrl} 
+                workCount={workCount} 
+                size="xl" 
+              />
+              
+              {/* Overlay for interaction */}
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[2rem]">
+                <Camera className="w-8 h-8 text-white drop-shadow-lg" />
               </div>
             </div>
             
