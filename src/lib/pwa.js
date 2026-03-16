@@ -111,8 +111,18 @@ export async function testPushNotification(userId) {
     });
 
     if (error) {
-      if (data && data.error) throw new Error(data.error);
-      throw error;
+      console.error('Invoke returned error:', error);
+      // Try to get status code if available
+      const statusInfo = error.context?.status ? ` (Status: ${error.context.status})` : '';
+      let message = error.message + statusInfo;
+      
+      try {
+        // Try to see if there's a body in the error context
+        const errorBody = await error.context?.text();
+        if (errorBody) message += `\nResponse: ${errorBody.substring(0, 100)}`;
+      } catch (e) {}
+
+      throw new Error(message);
     }
     
     // Check if the body contains an error even with 200 OK (our diagnostic mode)
@@ -122,13 +132,14 @@ export async function testPushNotification(userId) {
     }
     
     if (data && data.message) {
-      // For things like "No subscriptions found"
       throw new Error(data.message);
     }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Test push failed:', error);
-    return { success: false, error: error.message || 'Unknown error during test' };
+    console.error('Test push caught exception:', error);
+    // If it's a weird object, stringify it
+    const finalMsg = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+    return { success: false, error: finalMsg };
   }
 }
