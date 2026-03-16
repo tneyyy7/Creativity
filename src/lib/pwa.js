@@ -103,3 +103,16 @@ export async function unsubscribeFromPush(userId) {
 export async function checkNotificationSupport() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
+
+export async function testPushNotification(userId) {
+  try {
+    const { data, error } = await supabase.functions.invoke('send-push', {
+      body: { test_user_id: userId }
+    });
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    console.error('Test push failed:', error);
+    return { success: false, error: error.message };
+  }
+}

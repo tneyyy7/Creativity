@@ -3,7 +3,7 @@ import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Pa
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
-import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport } from '../lib/pwa'
+import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification } from '../lib/pwa'
 
 export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, workCount }) {
   const { t } = useTranslation()
@@ -119,6 +119,21 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     } catch (err) {
       console.error('Error in handleDisableNotifications:', err)
       setError(t('notifications_error') || 'An error occurred while disabling notifications')
+    } finally {
+      setIsSubscribing(false)
+    }
+  }
+
+  const handleTestNotification = async () => {
+    if (isSubscribing || !notificationsGranted) return
+    setIsSubscribing(true)
+    try {
+      const result = await testPushNotification(user.id)
+      if (result.success) {
+        alert(t('test_notification_sent') || 'Test notification requested! Wait a few seconds...')
+      } else {
+        setError(`Test failed: ${result.error}`)
+      }
     } finally {
       setIsSubscribing(false)
     }
@@ -390,6 +405,17 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                       </div>
                     )}
                   </button>
+                  
+                  {notificationsGranted && !isSubscribing && (
+                    <button
+                      type="button"
+                      onClick={handleTestNotification}
+                      className="mt-2 w-full flex items-center justify-center gap-2 p-3 bg-purple-600/10 border border-purple-500/20 rounded-xl text-purple-400 text-[10px] font-black uppercase tracking-widest hover:bg-purple-600/20 transition-all"
+                    >
+                      <BadgeCheck className="w-3.5 h-3.5" />
+                      {t('test_notifications') || 'Test Notifications'}
+                    </button>
+                  )}
                 </div>
               )}
 
