@@ -9,18 +9,32 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : { title: 'Creativity', body: 'New notification!' };
+  let data = { title: 'Creativity', body: 'New notification!' };
+  
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (err) {
+    console.warn('Failed to parse push data, using default:', err);
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
   
   const options = {
     body: data.body,
     icon: '/pwa-icon.png',
     badge: '/pwa-icon.png',
     data: data.url || '/',
-    vibrate: [100, 50, 100]
+    vibrate: [100, 50, 100],
+    actions: [
+      { action: 'open', title: 'View' }
+    ]
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title || 'Creativity', options)
   );
 });
 
