@@ -106,29 +106,27 @@ export async function checkNotificationSupport() {
 
 export async function testPushNotification(userId) {
   try {
+    console.log('Invoking send-push for user:', userId);
     const { data, error } = await supabase.functions.invoke('send-push', {
       body: { test_user_id: userId }
     });
 
     if (error) {
-      console.error('Invoke returned error:', error);
-      // Try to get status code if available
-      const statusInfo = error.context?.status ? ` (Status: ${error.context.status})` : '';
-      let message = error.message + statusInfo;
+      console.error('Invoke error:', error);
+      // Supabase's invoke error might be a string or object
+      let message = error.message || (typeof error === 'string' ? error : 'Unknown invoke error');
       
-      try {
-        // Try to see if there's a body in the error context
-        const errorBody = await error.context?.text();
-        if (errorBody) message += `\nResponse: ${errorBody.substring(0, 100)}`;
-      } catch (e) {}
+      // Check for specific Safari/network failure messages
+      if (message.includes('Failed to fetch')) {
+        message = 'Connection blocked by browser (Safari CORS/Network error). Ensure Edge Function has CORS headers.';
+      }
 
+      if (data && data.error) message = data.error;
       throw new Error(message);
     }
     
-    // Check if the body contains an error even with 200 OK (our diagnostic mode)
     if (data && data.error) {
-      const details = data.details ? `\nDetails: ${JSON.stringify(data.details)}` : '';
-      throw new Error(`${data.error}${details}`);
+      throw new Error(data.error);
     }
     
     if (data && data.message) {
@@ -138,8 +136,7 @@ export async function testPushNotification(userId) {
     return { success: true, data };
   } catch (error) {
     console.error('Test push caught exception:', error);
-    // If it's a weird object, stringify it
-    const finalMsg = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+    const finalMsg = error.message || 'Network error or request blocked by browser';
     return { success: false, error: finalMsg };
   }
 }
