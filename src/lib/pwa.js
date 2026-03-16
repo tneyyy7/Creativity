@@ -109,10 +109,21 @@ export async function testPushNotification(userId) {
     const { data, error } = await supabase.functions.invoke('send-push', {
       body: { test_user_id: userId }
     });
-    if (error) throw error;
+
+    if (error) {
+      // Supabase's invoke error might contain the response body
+      let message = error.message;
+      try {
+        const body = await error.context?.json();
+        if (body && body.error) message = body.error;
+      } catch (e) { /* ignore parse error */ }
+      
+      throw new Error(message);
+    }
+    
     return { success: true, data };
   } catch (error) {
     console.error('Test push failed:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || 'Unknown error during test' };
   }
 }
