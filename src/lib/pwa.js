@@ -49,6 +49,11 @@ export async function subscribeToPush(userId) {
     const subscriptionData = subscription.toJSON();
     console.log('Saving subscription to Supabase...');
     
+    // Explicitly check for keys
+    if (!subscriptionData.keys || !subscriptionData.keys.auth || !subscriptionData.keys.p256dh) {
+      throw new Error('Push keys are missing from subscription object');
+    }
+
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert({
@@ -61,14 +66,14 @@ export async function subscribeToPush(userId) {
 
     if (error) {
       console.error('Supabase upsert error:', error);
-      throw error;
+      return { success: false, error: error.message };
     }
     
     console.log('Subscription successfully saved to database');
-    return true;
+    return { success: true };
   } catch (error) {
     console.error('Push subscription failed full error:', error);
-    return false;
+    return { success: false, error: error.message || 'Unknown subscription error' };
   }
 }
 

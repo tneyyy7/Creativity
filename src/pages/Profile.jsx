@@ -86,11 +86,11 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
       }
       
       if (user) {
-        const success = await subscribeToPush(user.id)
-        if (success) {
+        const result = await subscribeToPush(user.id)
+        if (result.success) {
           setNotificationsGranted(true)
         } else {
-          setError(t('notifications_subscribe_error') || 'Failed to register device for notifications. Please try again.')
+          setError(`${t('notifications_subscribe_error') || 'Failed to register device'}: ${result.error}`)
         }
       }
     } catch (err) {
