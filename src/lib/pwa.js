@@ -29,34 +29,45 @@ export async function requestNotificationPermission() {
 
 export async function subscribeToPush(userId) {
   try {
+    console.log('Starting push subscription for user:', userId);
     const registration = await navigator.serviceWorker.ready;
     
     // Check for existing subscription
     let subscription = await registration.pushManager.getSubscription();
+    console.log('Current browser subscription:', subscription ? 'exists' : 'none');
     
     if (!subscription) {
+      console.log('Subscribing to push manager...');
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
+      console.log('Push manager subscription successful');
     }
 
     // Save to database
-    const { endpoint, keys } = subscription.toJSON();
+    const subscriptionData = subscription.toJSON();
+    console.log('Saving subscription to Supabase...');
+    
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert({
         user_id: userId,
-        endpoint: endpoint,
-        auth: keys.auth,
-        p256dh: keys.p256dh
+        endpoint: subscriptionData.endpoint,
+        auth: subscriptionData.keys.auth,
+        p256dh: subscriptionData.keys.p256dh,
+        updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,endpoint' });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      throw error;
+    }
     
+    console.log('Subscription successfully saved to database');
     return true;
   } catch (error) {
-    console.error('Push subscription failed:', error);
+    console.error('Push subscription failed full error:', error);
     return false;
   }
 }

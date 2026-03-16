@@ -63,9 +63,14 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     }
     fetchProfileData()
     
-    checkNotificationSupport().then(supported => {
+    checkNotificationSupport().then(async supported => {
       setNotificationsSupported(supported)
-      setNotificationsGranted(Notification.permission === 'granted')
+      if (supported) {
+        // Check if we actually have a subscription
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.getSubscription()
+        setNotificationsGranted(!!subscription)
+      }
     })
   }, [user])
 
@@ -98,14 +103,22 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
 
   const handleDisableNotifications = async () => {
     if (isSubscribing) return
-    if (!window.confirm(t('confirm_disable_push') || 'Are you sure you want to disable push notifications on this device?')) return
+    if (!window.confirm(t('confirm_disable_push') || 'Вы уверены, что хотите отключить уведомления на этом устройстве?')) return
     
     setIsSubscribing(true)
+    setError('')
     try {
       if (user) {
-        await unsubscribeFromPush(user.id)
-        setNotificationsGranted(false)
+        const success = await unsubscribeFromPush(user.id)
+        if (success) {
+          setNotificationsGranted(false)
+        } else {
+          setError(t('notifications_unsubscribe_error') || 'Failed to disable notifications. Please try again.')
+        }
       }
+    } catch (err) {
+      console.error('Error in handleDisableNotifications:', err)
+      setError(t('notifications_error') || 'An error occurred while disabling notifications')
     } finally {
       setIsSubscribing(false)
     }
