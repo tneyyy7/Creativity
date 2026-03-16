@@ -3,7 +3,7 @@ import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Pa
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
-import { requestNotificationPermission, checkNotificationSupport } from '../lib/pwa'
+import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport } from '../lib/pwa'
 
 export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, workCount }) {
   const { t } = useTranslation()
@@ -21,6 +21,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   const [localWorkCount, setLocalWorkCount] = useState(workCount)
   const [notificationsSupported, setNotificationsSupported] = useState(false)
   const [notificationsGranted, setNotificationsGranted] = useState(false)
+  const [isSubscribing, setIsSubscribing] = useState(false)
 
   useEffect(() => {
     // Fetch bio when component mounts
@@ -69,11 +70,44 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   }, [user])
 
   const handleEnableNotifications = async () => {
-    const granted = await requestNotificationPermission()
-    setNotificationsGranted(granted)
-    if (granted) {
-      // Logic for actually subscribing could go here
-      console.log('Notifications enabled!')
+    if (isSubscribing) return
+    setIsSubscribing(true)
+    setError('')
+    try {
+      const granted = await requestNotificationPermission()
+      if (!granted) {
+        setError(t('notifications_permission_denied') || 'Permission for notifications was denied')
+        return
+      }
+      
+      if (user) {
+        const success = await subscribeToPush(user.id)
+        if (success) {
+          setNotificationsGranted(true)
+        } else {
+          setError(t('notifications_subscribe_error') || 'Failed to register device for notifications. Please try again.')
+        }
+      }
+    } catch (err) {
+      console.error('Error in handleEnableNotifications:', err)
+      setError(t('notifications_error') || 'An error occurred while enabling notifications')
+    } finally {
+      setIsSubscribing(false)
+    }
+  }
+
+  const handleDisableNotifications = async () => {
+    if (isSubscribing) return
+    if (!window.confirm(t('confirm_disable_push') || 'Are you sure you want to disable push notifications on this device?')) return
+    
+    setIsSubscribing(true)
+    try {
+      if (user) {
+        await unsubscribeFromPush(user.id)
+        setNotificationsGranted(false)
+      }
+    } finally {
+      setIsSubscribing(false)
     }
   }
 
@@ -316,30 +350,30 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                   </label>
                   <button
                     type="button"
-                    onClick={handleEnableNotifications}
-                    disabled={notificationsGranted}
+                    onClick={notificationsGranted ? handleDisableNotifications : handleEnableNotifications}
+                    disabled={isSubscribing}
                     className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
                       notificationsGranted
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 cursor-default'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                         : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20 hover:text-gray-300'
-                    }`}
+                    } ${isSubscribing ? 'opacity-70 cursor-wait' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${notificationsGranted ? 'bg-emerald-500 text-white' : 'bg-white/5 text-gray-500'}`}>
-                        <BadgeCheck className="w-5 h-5" />
+                        {isSubscribing ? <Loader2 className="w-5 h-5 animate-spin" /> : <BadgeCheck className="w-5 h-5" />}
                       </div>
                       <div className="text-left">
                         <p className="text-xs font-black uppercase tracking-tight">
-                          {notificationsGranted ? (t('notifications_enabled') || 'Notifications Active') : (t('enable_notifications') || 'Enable Push Notifications')}
+                          {notificationsGranted ? (t('notifications_enabled') || 'Уведомления активны') : (t('enable_notifications') || 'Включить уведомления')}
                         </p>
                         <p className="text-[9px] font-medium opacity-60">
-                          {notificationsGranted ? (t('notifications_desc_active') || 'You will receive alerts on this device') : (t('notifications_desc_inactive') || 'Get alerted about new messages and activity')}
+                          {notificationsGranted ? (t('notifications_desc_active') || 'Ваш телефон будет получать оповещения') : (t('notifications_desc_inactive') || 'Получайте уведомления о сообщениях и активности')}
                         </p>
                       </div>
                     </div>
-                    {!notificationsGranted && (
-                      <div className="px-3 py-1 bg-purple-600 rounded-lg text-white text-[9px] font-black uppercase tracking-widest">
-                        {t('activate') || 'Activate'}
+                    {!isSubscribing && (
+                      <div className={`px-3 py-1 rounded-lg text-white text-[9px] font-black uppercase tracking-widest ${notificationsGranted ? 'bg-white/10 hover:bg-red-500/20 text-gray-400' : 'bg-purple-600'}`}>
+                        {notificationsGranted ? (t('disable') || 'Отключить') : (t('activate') || 'Активировать')}
                       </div>
                     )}
                   </button>
