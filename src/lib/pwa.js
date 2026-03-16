@@ -111,16 +111,21 @@ export async function testPushNotification(userId) {
     });
 
     if (error) {
-      // Supabase's invoke error might contain the response body
-      let message = error.message;
-      try {
-        const body = await error.context?.json();
-        if (body && body.error) message = body.error;
-      } catch (e) { /* ignore parse error */ }
-      
-      throw new Error(message);
+      if (data && data.error) throw new Error(data.error);
+      throw error;
     }
     
+    // Check if the body contains an error even with 200 OK (our diagnostic mode)
+    if (data && data.error) {
+      const details = data.details ? `\nDetails: ${JSON.stringify(data.details)}` : '';
+      throw new Error(`${data.error}${details}`);
+    }
+    
+    if (data && data.message) {
+      // For things like "No subscriptions found"
+      throw new Error(data.message);
+    }
+
     return { success: true, data };
   } catch (error) {
     console.error('Test push failed:', error);
