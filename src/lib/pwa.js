@@ -106,37 +106,34 @@ export async function checkNotificationSupport() {
 
 export async function testPushNotification(userId) {
   try {
-    console.log('Invoking send-push for user:', userId);
-    const { data, error } = await supabase.functions.invoke('send-push', {
-      body: { test_user_id: userId }
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const functionUrl = `${supabaseUrl}/functions/v1/send-push`;
+
+    console.log('Sending direct fetch to:', functionUrl);
+    
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+        // No Authorization header to test if JWT-less works better in Safari
+      },
+      body: JSON.stringify({ test_user_id: userId }),
+      mode: 'cors'
     });
 
-    if (error) {
-      console.error('Invoke error:', error);
-      // Supabase's invoke error might be a string or object
-      let message = error.message || (typeof error === 'string' ? error : 'Unknown invoke error');
-      
-      // Check for specific Safari/network failure messages
-      if (message.includes('Failed to fetch')) {
-        message = 'Connection blocked by browser (Safari CORS/Network error). Ensure Edge Function has CORS headers.';
-      }
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}`);
+    }
 
-      if (data && data.error) message = data.error;
-      throw new Error(message);
-    }
-    
-    if (data && data.error) {
-      throw new Error(data.error);
-    }
-    
-    if (data && data.message) {
-      throw new Error(data.message);
-    }
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
 
     return { success: true, data };
   } catch (error) {
-    console.error('Test push caught exception:', error);
-    const finalMsg = error.message || 'Network error or request blocked by browser';
-    return { success: false, error: finalMsg };
+    console.error('Test push direct fetch error:', error);
+    return { success: false, error: error.message || 'Network error' };
   }
 }
