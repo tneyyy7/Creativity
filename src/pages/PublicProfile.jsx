@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -170,7 +170,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
         {t('back_to_friends') || 'Back to Friends'}
       </button>
 
-      <div className="glass-card p-6 md:p-10 relative overflow-hidden">
+      <div className="glass-card p-4 sm:p-6 md:p-10 relative overflow-hidden">
         {/* Decorative background blur */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
 
@@ -191,15 +191,25 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
           
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2" translate="no">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2" translate="no">
                 {profile.nickname || 'Unknown Artist'}
                 {profile.is_verified && <BadgeCheck className="w-6 h-6 text-purple-400 fill-purple-400/20" />}
               </h1>
-              {isAccepted && <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold uppercase tracking-wider rounded-lg mt-2"><Check className="w-3 h-3"/> {t('friend') || 'Friend'}</span>}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
+                {profile.specialization && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 text-gray-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-white/10 group-hover:border-purple-500/30 transition-all">
+                    {profile.specialization === 'painter' ? <Palette className="w-3 h-3 text-purple-400" /> : 
+                     profile.specialization === 'photographer' ? <Camera className="w-3 h-3 text-purple-400" /> : 
+                     <Shapes className="w-3 h-3 text-purple-400" />}
+                    {t(profile.specialization)}
+                  </span>
+                )}
+                {isAccepted && <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-purple-500/20"><Check className="w-3 h-3"/> {t('friend')}</span>}
+              </div>
             </div>
 
             {profile.bio ? (
-              <p className="text-gray-300 leading-relaxed text-lg max-w-2xl notranslate" translate="no">{profile.bio}</p>
+              <p className="text-gray-300 leading-relaxed text-base md:text-lg max-w-2xl notranslate" translate="no">{profile.bio}</p>
             ) : (
               <p className="text-gray-500 italic">{t('no_bio') || 'This artist prefers to let their work speak for itself.'}</p>
             )}
@@ -293,7 +303,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
             <p className="text-gray-400 font-medium">{t('no_public_works') || 'No finished works available yet.'}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
             {paintings.map((painting, idx) => (
               <div key={painting.id} className="group cursor-pointer" onClick={() => onOpenPost?.(painting.id, painting, paintings, idx)}>
                 <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-[#0c0b11] relative">

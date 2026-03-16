@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 
@@ -10,6 +10,7 @@ export function Auth({ onAuth }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nickname, setNickname] = useState('')
+  const [specialization, setSpecialization] = useState('painter')
 
   const [error, setError] = useState('')
 
@@ -33,7 +34,8 @@ export function Auth({ onAuth }) {
           options: {
             data: {
               nickname: nickname.trim(),
-              full_name: nickname.trim() // Add full_name just in case some providers/logic use it
+              full_name: nickname.trim(),
+              specialization: specialization
             }
           }
         })
@@ -55,13 +57,13 @@ export function Auth({ onAuth }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#0c0b11] flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[100] bg-[#0c0b11] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="text-center">
-          <div className="w-20 h-20 bg-purple-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-purple-900/40">
-            <Lock className="text-white w-10 h-10" />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-600 rounded-[1.5rem] sm:rounded-[2rem] flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-2xl shadow-purple-900/40">
+            <Lock className="text-white w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tighter mb-2">
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tighter mb-2">
             {isLogin ? t('auth_welcome') : t('auth_create')}
           </h1>
           <p className="text-gray-500 font-medium">{t('auth_ignite')}</p>
@@ -74,23 +76,50 @@ export function Auth({ onAuth }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="glass-card p-10 space-y-6">
+        <form onSubmit={handleSubmit} className="glass-card p-5 sm:p-8 md:p-10 space-y-5 sm:space-y-6">
           {!isLogin && (
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('nickname')}</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input
-                  required
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  placeholder="MasterArtist"
-                  translate="no"
-                  className="notranslate w-full h-14 pl-12 pr-4 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
-                />
+            <>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('nickname')}</label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <input
+                    required
+                    type="text"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    placeholder="MasterArtist"
+                    translate="no"
+                    className="notranslate w-full h-14 pl-12 pr-4 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
+                  />
+                </div>
               </div>
-            </div>
+
+              <div className="space-y-4 pt-2">
+                <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('choose_specialization')}</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: 'painter', icon: Palette, label: t('painter') },
+                    { id: 'photographer', icon: Camera, label: t('photographer') },
+                    { id: 'sculptor', icon: Shapes, label: t('sculptor') }
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSpecialization(item.id)}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
+                        specialization === item.id
+                          ? 'bg-purple-600/20 border-purple-500 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.15)]'
+                          : 'bg-white/5 border-white/5 text-gray-500 hover:border-white/10 hover:text-gray-300'
+                      }`}
+                    >
+                      <item.icon className={`w-6 h-6 ${specialization === item.id ? 'animate-pulse' : ''}`} />
+                      <span className="text-[10px] font-black uppercase tracking-tighter">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           <div className="space-y-2">

@@ -176,7 +176,7 @@ export function Productivity() {
               </div>
            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+            <div className="grid grid-cols-1 gap-6 md:gap-8">
                <div className="glass-card p-6 md:p-10 flex items-center gap-6 md:gap-8 group border-white/5">
                   <div className="w-16 h-16 md:w-20 md:h-20 bg-purple-600 rounded-2xl md:rounded-[2rem] flex items-center justify-center shadow-2xl shadow-purple-900/40 transform group-hover:scale-110 transition-transform">
                      <ImageIcon className="text-white w-8 h-8 md:w-10 md:h-10" />
@@ -184,15 +184,6 @@ export function Productivity() {
                   <div>
                      <h4 className="text-3xl md:text-4xl font-black text-white tracking-tighter mb-1">{counts.total}</h4>
                      <p className="text-[10px] md:text-xs font-black text-purple-500 uppercase tracking-widest">{t('total_masterpieces')}</p>
-                  </div>
-               </div>
-               <div className="glass-card p-6 md:p-10 flex items-center gap-6 md:gap-8 group border-white/5">
-                  <div className="w-16 h-16 md:w-20 md:h-20 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl md:rounded-[2rem] flex items-center justify-center transform group-hover:scale-110 transition-transform">
-                     <Sparkles className="text-indigo-400 w-8 h-8 md:w-10 md:h-10" />
-                  </div>
-                  <div>
-                     <h4 className="text-3xl md:text-4xl font-black text-white tracking-tighter mb-1">{counts.inspiration}</h4>
-                     <p className="text-[10px] md:text-xs font-black text-indigo-400 uppercase tracking-widest">{t('ai_sparks')}</p>
                   </div>
                </div>
             </div>

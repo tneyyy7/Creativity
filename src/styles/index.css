@@ -99,6 +99,12 @@ body {
   border-radius: 1.5rem;
 }
 
+@media (max-width: 640px) {
+  .glass-card {
+    border-radius: 1.25rem;
+  }
+}
+
 [data-theme='light'] .glass-card {
   background: white;
   border: 1px solid rgba(0, 0, 0, 0.05);

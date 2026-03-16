@@ -1,8 +1,8 @@
 import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
-import { useState, useEffect, useCallback } from 'react'
-import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, markNotificationAsRead } from '../lib/supabase'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../lib/supabase'
 
 export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, onProfileClick, onFriendsClick, isVerified, workCount, onOpenPost }) {
   const { t, i18n } = useTranslation()
@@ -11,6 +11,9 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
   const [pendingRequests, setPendingRequests] = useState([])
   const [postNotifications, setPostNotifications] = useState([])
   const [activeNotifTab, setActiveNotifTab] = useState('all') // 'all' | 'requests' | 'activity'
+  
+  const notifRef = useRef(null)
+  const langRef = useRef(null)
 
   const toggleLanguage = (code) => {
     i18n.changeLanguage(code)
@@ -39,6 +42,32 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
     return () => clearInterval(interval)
   }, [loadAll])
 
+  // Auto-mark notifications as read when pane closes
+  useEffect(() => {
+    if (!showNotifications && user?.id) {
+      const hasUnread = postNotifications.some(n => !n.is_read)
+      if (hasUnread) {
+        markAllNotificationsAsRead(user.id)
+        setPostNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+      }
+    }
+  }, [showNotifications, user?.id, postNotifications])
+
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotifications(false)
+      }
+      if (langRef.current && !langRef.current.contains(event.target)) {
+        setShowLangs(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleAction = async (id, status) => {
     try {
       await respondToFriendRequest(id, status)
@@ -55,7 +84,8 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
     }
   }
 
-  const totalCount = pendingRequests.length + postNotifications.length
+  const unreadPostNotifs = postNotifications.filter(n => !n.is_read).length
+  const totalCount = pendingRequests.length + unreadPostNotifs
 
   const formatTime = (ts) => {
     try {
@@ -80,6 +110,19 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
       setPostNotifications(prev => prev.filter(n => n.id !== notif.id))
     } catch (err) {
       console.error("Error marking notification as read:", err)
+    }
+  }
+
+  const handleClearAll = async () => {
+    if (!user?.id) return
+    try {
+      // We do NOT clear local state optimistically here because if the DB 
+      // deletion fails (e.g. RLS issues), the items will come back on next sync.
+      await deleteAllNotifications(user.id)
+      setPostNotifications([])
+    } catch (err) {
+      console.error("Error clearing notifications:", err)
+      // If error occurs (like no DELETE policy), alert the user in console at least
     }
   }
 
@@ -117,7 +160,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
       <div className="flex items-center gap-4 md:gap-8">
         <div className="flex items-center gap-2">
 
-          <div className="relative">
+          <div className="relative" ref={notifRef}>
             <button
               onClick={() => {
                 setShowNotifications(!showNotifications)
@@ -134,25 +177,33 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
             </button>
 
             {showNotifications && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
-                <div className="absolute right-0 mt-4 w-[300px] sm:w-[360px] bg-[#0c0b11] border border-white/10 rounded-3xl z-50 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="absolute right-0 sm:right-0 mt-4 w-[calc(100vw-2rem)] sm:w-[360px] bg-[#0c0b11] border border-white/10 rounded-3xl z-50 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 max-h-[80vh] -right-2">
                   {/* Header */}
                   <div className="p-4 border-b border-white/5">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-xs font-black text-white uppercase tracking-widest">{t('notifications')}</h3>
-                      {totalCount > 0 && (
-                        <span className="px-2 py-0.5 bg-purple-500/10 rounded-md border border-purple-500/20 text-[9px] font-black text-purple-500">
-                          {totalCount}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs font-black text-white uppercase tracking-widest">{t('notifications')}</h3>
+                        {unreadPostNotifs > 0 && (
+                          <span className="px-1.5 py-0.5 bg-purple-500/10 rounded-md border border-purple-500/20 text-[9px] font-black text-purple-500">
+                            {unreadPostNotifs}
+                          </span>
+                        )}
+                      </div>
+                      {(postNotifications.length > 0 || pendingRequests.length > 0) && (
+                        <button 
+                          onClick={handleClearAll}
+                          className="text-[10px] font-bold text-gray-500 hover:text-purple-400 transition-colors uppercase tracking-tighter"
+                        >
+                          {t('clear_all', 'Clear all')}
+                        </button>
                       )}
                     </div>
                     {/* Tabs */}
                     <div className="flex gap-2">
                       {[
-                        { key: 'all', label: t('all') || 'All' },
-                        { key: 'requests', label: t('requests') || 'Requests', count: pendingRequests.length },
-                        { key: 'activity', label: t('activity') || 'Activity', count: postNotifications.length },
+                        { key: 'all', label: t('all', 'All') },
+                        { key: 'requests', label: t('requests', 'Requests'), count: pendingRequests.length },
+                        { key: 'activity', label: t('activity', 'Activity'), count: postNotifications.length },
                       ].map(tab => (
                         <button
                           key={tab.key}
@@ -216,7 +267,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                           <div
                             key={item.id}
                             onClick={() => handleNotifClick(item)}
-                            className="p-3 flex items-center gap-3 hover:bg-white/[0.04] transition-colors border-b border-white/[0.03] last:border-0 cursor-pointer group"
+                            className={`p-3 flex items-center gap-3 hover:bg-white/[0.04] transition-colors border-b border-white/[0.03] last:border-0 cursor-pointer group ${!item.is_read ? 'bg-white/[0.02]' : ''}`}
                           >
                             {/* Actor avatar */}
                             <div className="relative flex-shrink-0">
@@ -241,8 +292,8 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                                 <span className="font-bold notranslate group-hover:text-purple-400 transition-colors" translate="no">{item.actor?.nickname || 'Someone'}</span>
                                 {' '}
                                 {item.type === 'like'
-                                  ? (t('liked_your_post') || 'liked your post')
-                                  : (t('commented_on_your_post') || 'commented on your post')}
+                                  ? t('liked_your_post', 'liked your post')
+                                  : t('commented_on_your_post', 'commented on your post')}
                               </p>
                               {item.type === 'comment' && item.content && (
                                 <p className="text-[10px] text-gray-500 truncate mt-0.5 max-w-[180px]">"{item.content}"</p>
@@ -269,11 +320,10 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                     )}
                   </div>
                 </div>
-              </>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="relative">
+          <div className="relative" ref={langRef}>
             <button
               onClick={() => {
                 setShowLangs(!showLangs)
@@ -285,9 +335,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
             </button>
 
             {showLangs && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowLangs(false)}></div>
-                <div className="absolute right-0 mt-4 w-52 bg-[#0c0b11] border border-white/10 rounded-3xl z-50 py-3 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="absolute right-0 mt-4 w-52 bg-[#0c0b11] border border-white/10 rounded-3xl z-50 py-3 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                   {['en', 'ru', 'it'].map((code) => (
                     <button
                       key={code}
@@ -299,9 +347,8 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                     </button>
                   ))}
                 </div>
-              </>
-            )}
-          </div>
+              )}
+            </div>
         </div>
 
         <div className="flex items-center gap-3 md:gap-4 md:pl-8 md:border-l md:border-white/5">
@@ -309,7 +356,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
             onClick={onProfileClick}
             className="flex items-center gap-3 pl-3 py-1.5 pr-1.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer group"
           >
-            <div className="flex flex-col items-end hidden sm:flex">
+            <div className="hidden sm:flex flex-col items-end">
               <span className="text-xs font-black text-white notranslate flex items-center gap-1" translate="no">
                 {nickname}
                 {isVerified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}

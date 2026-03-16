@@ -19,19 +19,19 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
   const rank = getRankInfo(workCount)
   
   const sizeClasses = {
-    xs: "w-8 h-8 rounded-lg",
+    xs: "w-8 h-8 rounded-[9px]",
     sm: "w-10 h-10 rounded-[12px]",
     md: "w-12 h-12 rounded-[14px]",
-    lg: "w-20 h-20 rounded-[20px]",
-    xl: "w-32 h-32 md:w-40 md:h-40 rounded-[2rem]"
+    lg: "w-20 h-20 rounded-[22px]",
+    xl: "w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem]"
   }
 
   const innerSizeClasses = {
     xs: "rounded-[7px]",
-    sm: "rounded-[11px]",
-    md: "rounded-[13px]",
+    sm: "rounded-[10px]",
+    md: "rounded-[12px]",
     lg: "rounded-[19px]",
-    xl: "rounded-[30px]"
+    xl: "rounded-[2.2rem]"
   }
 
   const iconSizeClasses = {

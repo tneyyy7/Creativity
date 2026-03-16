@@ -44,8 +44,6 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
     { id: 'gallery', icon: Palette, label: t('gallery') },
     { id: 'friends', icon: Users, label: t('friends') },
     { id: 'messages', icon: MessageCircle, label: t('messages') || 'Messages' },
-    { id: 'chat', icon: MessageSquare, label: t('chat') },
-    { id: 'images', icon: Image, label: t('images') },
     { id: 'ranks', icon: Trophy, label: t('ranks') },
     { id: 'productivity', icon: BarChart3, label: t('productivity') },
   ]

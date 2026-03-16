@@ -9,6 +9,7 @@ export function Gallery({ onOpenPost }) {
   const [paintings, setPaintings] = useState([])
   const [loading, setLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
+  const [filter, setFilter] = useState('all') // 'all', 'finished', 'in_progress'
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -139,9 +140,15 @@ export function Gallery({ onOpenPost }) {
     }
   }
 
-  const filteredPaintings = paintings.filter(p => 
-    p.title.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredPaintings = paintings.filter(p => {
+    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase())
+    const matchesFilter = filter === 'all' 
+      ? true 
+      : filter === 'finished' 
+        ? p.is_finished 
+        : !p.is_finished
+    return matchesSearch && matchesFilter
+  })
 
   return (
     <div className="space-y-8 md:space-y-12 pb-12">
@@ -178,7 +185,27 @@ export function Gallery({ onOpenPost }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit">
+        {[
+          { id: 'all', label: t('filter_all') },
+          { id: 'finished', label: t('filter_finished') },
+          { id: 'in_progress', label: t('filter_in_progress') }
+        ].map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-tighter ${
+              filter === f.id 
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40' 
+                : 'text-gray-500 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
         <div className="flex flex-col gap-4">
           <button 
             onClick={() => {
@@ -226,13 +253,7 @@ export function Gallery({ onOpenPost }) {
               />
               {/* Top status bar */}
               <div className="absolute top-0 left-0 right-0 p-4 sm:p-5 flex items-start justify-between z-10 pointer-events-none">
-                 <div className="flex flex-col gap-2">
-                   <div className="px-3 py-1.5 bg-black/70 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl flex items-center gap-2 self-start pointer-events-auto">
-                      <div className={`w-1.5 h-1.5 rounded-full ${painting.is_ai_generated ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] animate-pulse' : 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`}></div>
-                      <span className="text-[9px] font-black text-white uppercase tracking-widest whitespace-nowrap">
-                        {painting.is_ai_generated ? t('ai_gen') : t('handmade')}
-                      </span>
-                   </div>
+                  <div className="flex flex-col gap-2">
                    {painting.is_finished && (
                      <div className="px-3 py-1.5 bg-emerald-500/95 backdrop-blur-xl rounded-xl flex items-center gap-1.5 shadow-2xl border border-emerald-400/30 self-start pointer-events-auto">
                         <Star className="w-2.5 h-2.5 text-white fill-white" />
@@ -289,7 +310,7 @@ export function Gallery({ onOpenPost }) {
                 </div>
               </div>
             </div>
-            <div className="p-8 flex-1 flex flex-col">
+            <div className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-xl font-black text-white tracking-tight group-hover:text-purple-400 transition-colors uppercase">{painting.title}</h3>
                 <p className="text-[11px] text-gray-500 font-black uppercase tracking-widest">
@@ -303,8 +324,8 @@ export function Gallery({ onOpenPost }) {
       </div>
 
       {editingPainting && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in zoom-in duration-300">
-           <div className="glass-card p-10 w-full max-w-lg space-y-6">
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-in zoom-in duration-300">
+           <div className="glass-card p-5 sm:p-8 md:p-10 w-full max-w-lg space-y-4 sm:space-y-6">
               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Edit Masterpiece</h3>
               
               <div className="space-y-2">

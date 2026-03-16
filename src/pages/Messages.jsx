@@ -198,7 +198,7 @@ export function Messages({ currentUser, onViewProfile }) {
 
   return (
     <>
-    <div className="h-full flex gap-6 max-w-6xl mx-auto w-full">
+    <div className="h-full flex flex-col md:flex-row gap-4 md:gap-6 max-w-6xl mx-auto w-full min-h-0">
       {/* Conversations List */}
       <div className={`
         flex-col w-full md:w-80 glass-card p-4 space-y-4
@@ -354,7 +354,7 @@ export function Messages({ currentUser, onViewProfile }) {
             {/* Messages Area */}
             <div 
               ref={scrollRef}
-              className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
+              className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 custom-scrollbar"
             >
               {messages.map((msg, i) => (
                 <div 

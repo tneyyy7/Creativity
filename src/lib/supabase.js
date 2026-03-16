@@ -30,29 +30,35 @@ function cleanProfile(data) {
   if (Array.isArray(data)) return data.map(cleanProfile)
   return {
     ...data,
-    finished_work_count: data.finished_work_count || 0
+    finished_work_count: data.finished_work_count || 0,
+    specialization: data.specialization || null
   }
 }
 
 export async function fetchProfile(userId) {
   try {
+    // Stage 1: Try full fetch
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization')
       .eq('id', userId)
       .single()
-    if (error) {
-      if (error.message?.includes('finished_work_count')) {
-        const { data: retry } = await supabase
-          .from('profiles')
-          .select('nickname, avatar_url, bio, is_private, is_verified')
-          .eq('id', userId)
-          .single()
-        return cleanProfile(retry)
-      }
-      if (error.code !== 'PGRST116') throw error
+    
+    if (!error) return cleanProfile(data)
+
+    // Stage 2: Fallback (removing specialization and count if they cause errors)
+    console.warn("Retrying profile fetch without extra columns...")
+    const { data: retry, error: rError } = await supabase
+      .from('profiles')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified')
+      .eq('id', userId)
+      .single()
+    
+    if (rError) {
+      if (rError.code !== 'PGRST116') throw rError
+      return null
     }
-    return cleanProfile(data)
+    return cleanProfile(retry)
   } catch (e) {
     console.error("fetchProfile error:", e)
     return null
@@ -67,6 +73,7 @@ export const upsertProfile = async (profile) => {
     bio: profile.bio,
     is_private: profile.is_private,
     is_verified: profile.is_verified,
+    specialization: profile.specialization,
     updated_at: new Date().toISOString()
   }
   
@@ -655,7 +662,6 @@ export async function fetchPostNotifications(userId) {
       .from('notifications')
       .select('*, actor:profiles!notifications_actor_id_fkey(id, nickname, avatar_url, finished_work_count), painting:paintings!notifications_painting_id_fkey(id, title, image_url)')
       .eq('user_id', userId)
-      .eq('is_read', false)
       .order('created_at', { ascending: false })
       .limit(30)
     
@@ -664,6 +670,33 @@ export async function fetchPostNotifications(userId) {
   } catch (e) {
     console.error('fetchPostNotifications error:', e)
     return []
+  }
+}
+
+export async function markAllNotificationsAsRead(userId) {
+  try {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', userId)
+      .eq('is_read', false)
+    if (error) throw error
+  } catch (e) {
+    console.error('markAllNotificationsAsRead error:', e)
+    throw e
+  }
+}
+
+export async function deleteAllNotifications(userId) {
+  try {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId)
+    if (error) throw error
+  } catch (e) {
+    console.error('deleteAllNotifications error:', e)
+    throw e
   }
 }
 

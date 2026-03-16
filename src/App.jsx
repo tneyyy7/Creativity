@@ -129,9 +129,9 @@ function App() {
           })}
         />
         <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden' : 'overflow-y-auto'} p-4 md:p-10 custom-scrollbar flex flex-col`}>
-          {activeTab === 'dashboard' && <Dashboard nickname={nickname} isVerified={isVerified} />}
-          {activeTab === 'chat' && <Chat />}
-          {activeTab === 'images' && <ImageGen />}
+          {activeTab === 'dashboard' && <Dashboard nickname={nickname} isVerified={isVerified} onNavigate={setActiveTab} />}
+          {/* {activeTab === 'chat' && <Chat />} */}
+          {/* {activeTab === 'images' && <ImageGen />} */}
           {activeTab === 'gallery' && (
             <Gallery 
               onOpenPost={(id, painting, collection, index) => setPostViewer({ 

@@ -3,7 +3,7 @@ import { useTranslation, Trans } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function Dashboard({ nickname, isVerified }) {
+export function Dashboard({ nickname, isVerified, onNavigate }) {
   const { t } = useTranslation()
   const [counts, setCounts] = useState({ total: 0, inspiration: 0 })
   const [quoteIdx, setQuoteIdx] = useState(1)
@@ -32,22 +32,20 @@ export function Dashboard({ nickname, isVerified }) {
         .eq('user_id', user.id)
       
       if (!fError) setCounts(prev => ({ ...prev, finished: finishedCount || 0, total: finishedCount || 0 }))
-      if (!aiError) setCounts(prev => ({ ...prev, inspiration: aiCount || 0 }))
       if (!pError) setCounts(prev => ({ ...prev, drafts: (totalDrafts || 0) - (finishedCount || 0) }))
     }
     fetchCounts()
 
     const interval = setInterval(() => {
-      setQuoteIdx(prev => (prev === 10 ? 1 : prev + 1))
+      setQuoteIdx(prev => (prev === 25 ? 1 : prev + 1))
     }, 60000)
 
     return () => clearInterval(interval)
   }, [])
 
   const stats = [
-    { label: t('total_projects'), value: (counts.total || 0).toString(), change: '+1', trend: 'up', color: 'bg-purple-600' },
-    { label: t('creative_spark'), value: (counts.inspiration || 0).toString(), change: 'AI Art', trend: 'up', color: 'bg-white/5' },
-    { label: t('completed'), value: (counts.finished || 0).toString(), change: 'Stable', trend: 'up', color: 'bg-white/5' },
+    { id: 'works', label: t('total_projects'), value: (counts.total || 0).toString(), change: '+1', trend: 'up', color: 'bg-purple-600', showArrow: true, link: 'gallery' },
+    { id: 'finished', label: t('completed'), value: (counts.finished || 0).toString(), change: 'Stable', trend: 'up', color: 'bg-white/5', showArrow: false },
   ]
 
   return (
@@ -71,9 +69,14 @@ export function Dashboard({ nickname, isVerified }) {
           <div key={i} className={`glass-card p-6 md:p-8 group relative overflow-hidden transition-all duration-500 hover:-translate-y-2 ${stat.color === 'bg-purple-600' ? 'bg-purple-600/10 border-purple-500/30' : 'border-white/5'}`}>
             <div className="flex justify-between items-start mb-4 md:mb-6">
               <h3 className="text-base md:text-lg font-bold text-white tracking-tight">{stat.label}</h3>
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                <ArrowUpRight className="w-5 h-5" />
-              </div>
+              {stat.showArrow && (
+                <button 
+                  onClick={() => stat.link && onNavigate?.(stat.link)}
+                  className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 hover:bg-purple-600 hover:text-white transition-all active:scale-95"
+                >
+                  <ArrowUpRight className="w-5 h-5" />
+                </button>
+              )}
             </div>
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-3 md:mb-4 tracking-tighter">{stat.value}</h2>
             <div className="flex items-center gap-2">

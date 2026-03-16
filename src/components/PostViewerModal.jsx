@@ -142,18 +142,18 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
       {/* Navigation arrows — hidden on mobile, shown on desktop */}
       {currentIndex > 0 && (
-        <button onClick={() => setCurrentIndex(i => i - 1)} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
+        <button onClick={() => setCurrentIndex(i => i - 1)} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
           <ChevronLeft className="w-5 h-5" />
         </button>
       )}
       {currentIndex < (paintings?.length ?? 1) - 1 && (
-        <button onClick={() => setCurrentIndex(i => i + 1)} className="hidden sm:flex absolute left-16 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
+        <button onClick={() => setCurrentIndex(i => i + 1)} className="hidden md:flex absolute left-16 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
           <ChevronRight className="w-5 h-5" />
         </button>
       )}
 
       {/* MOBILE LAYOUT: vertical scroll */}
-      <div className="sm:hidden absolute inset-0 z-10 overflow-y-auto">
+      <div className="md:hidden absolute inset-0 z-10 overflow-y-auto">
         {/* Image */}
         <div className="w-full min-h-[50vh] flex items-center justify-center bg-black pt-12 pb-2 px-2">
           <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
@@ -207,7 +207,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
       {/* DESKTOP LAYOUT: side-by-side */}
       {/* Image — fills all space except right panel */}
-      <div className="hidden sm:flex absolute inset-0 right-[380px] items-center justify-center p-6" onClick={onClose}>
+      <div className="hidden md:flex absolute inset-0 right-[320px] lg:right-[380px] items-center justify-center p-6" onClick={onClose}>
         <img
           src={painting.image_url}
           alt={painting.title ?? ''}
@@ -217,7 +217,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       </div>
 
       {/* Right panel (desktop) */}
-      <div className="hidden sm:flex absolute top-0 right-0 bottom-0 w-[380px] flex-col bg-[#0e0d14] border-l border-white/5 z-20">
+      <div className="hidden md:flex absolute top-0 right-0 bottom-0 w-[320px] lg:w-[380px] flex-col bg-[#0e0d14] border-l border-white/5 z-20">
         <InfoPanel
           painting={painting}
           authorProfile={authorProfile}
@@ -294,9 +294,16 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {(painting.title || painting.description) && (
-          <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/5 space-y-1.5">
-            {painting.title && <h2 className="text-white font-black text-base leading-tight">{painting.title}</h2>}
+        {(painting.title || painting.description || painting.created_at) && (
+          <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/5 space-y-2">
+            <div className="flex items-baseline justify-between gap-4">
+              {painting.title && <h2 className="text-white font-black text-base leading-tight uppercase tracking-tight">{painting.title}</h2>}
+              {painting.created_at && (
+                <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest shrink-0">
+                  {new Date(painting.created_at).toLocaleDateString()}
+                </span>
+              )}
+            </div>
             {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description}</p>}
           </div>
         )}

@@ -1,0 +1,17 @@
+{
+  "name": "Creativity - Painter's Companion",
+  "short_name": "Creativity",
+  "description": "A premium social platform for artists and creators.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0b11",
+  "theme_color": "#9333ea",
+  "icons": [
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

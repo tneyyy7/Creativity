@@ -94,8 +94,8 @@ export function Friends({ user, onViewProfile }) {
       
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight mb-2">{t('friends') || 'Friends'}</h1>
-          <p className="text-gray-400">{t('friends_subtitle') || 'Find and connect with other visionary artists.'}</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2">{t('friends') || 'Friends'}</h1>
+          <p className="text-gray-400 text-sm">{t('friends_subtitle') || 'Find and connect with other visionary artists.'}</p>
         </div>
       </div>
 
