@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const VAPID_PUBLIC_KEY = 'BODZx_ji6d7QHMqGxuBFKfVj1-oZcELm52oRAv_Ozj1EPtY4OpazYPooxKxiBRiUtU1zvZRCvGyDLAGHn7nvZkM';
+const VAPID_PUBLIC_KEY = 'BCkhyWx7oYDtgzm6md1t6UI9H3kMVHsdczSyodhtrH4KZsVvd7iyR_Pz3_jw-vDlqD5E9n7Ywsil8dGapYKkO_A';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -117,7 +117,7 @@ export async function testPushNotification(userId) {
       headers: {
         'Content-Type': 'application/json',
         'apikey': supabaseAnonKey,
-        // No Authorization header to test if JWT-less works better in Safari
+        'Authorization': `Bearer ${supabaseAnonKey}`,
       },
       body: JSON.stringify({ test_user_id: userId }),
       mode: 'cors'
