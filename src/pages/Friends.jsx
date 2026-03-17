@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck } from 'lucide-react'
+import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck, Palette, Camera, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -131,9 +131,19 @@ export function Friends({ user, onViewProfile }) {
                     {result.nickname || 'Unknown Artist'}
                     {result.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                   </h3>
-                  <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest">
-                    {result.finished_work_count || 0} {t('works') || 'Works'}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
+                      {result.finished_work_count || 0} {t('works') || 'Works'}
+                    </p>
+                    {result.specialization && (
+                      <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                        {result.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
+                         result.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+                         <Shapes className="w-2.5 h-2.5" />}
+                        {t(result.specialization)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 group-hover:bg-purple-600 group-hover:text-white transition-all flex-shrink-0">
                   <UserPlus className="w-4 h-4" />
@@ -215,9 +225,19 @@ export function Friends({ user, onViewProfile }) {
                       {friend.profile?.nickname || 'Unknown'}
                       {friend.profile?.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                     </h3>
-                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest">
-                      {friend.profile?.finished_work_count || 0} {t('works') || 'Works'}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
+                        {friend.profile?.finished_work_count || 0} {t('works') || 'Works'}
+                      </p>
+                      {friend.profile?.specialization && (
+                        <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                          {friend.profile.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
+                           friend.profile.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+                           <Shapes className="w-2.5 h-2.5" />}
+                          {t(friend.profile.specialization)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleRemoveFriend(friend.id); }}

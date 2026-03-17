@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight } from 'lucide-react'
+import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 
@@ -282,14 +283,25 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
 // Shared info panel used for both mobile and desktop
 function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isSendingComment, onViewProfile, onClose }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col h-full">
       {/* Author */}
       <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/5 flex items-center gap-3 shrink-0">
         <ProfileAvatar avatarUrl={authorProfile?.avatar_url} workCount={authorProfile?.finished_work_count ?? 0} size="sm" />
-        <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black text-white hover:text-purple-400 transition-colors notranslate text-sm" translate="no">
-          {authorProfile?.nickname ?? 'Unknown'}
-        </button>
+        <div className="flex flex-col">
+          <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black text-white hover:text-purple-400 transition-colors notranslate text-sm text-left" translate="no">
+            {authorProfile?.nickname ?? 'Unknown'}
+          </button>
+          {authorProfile?.specialization && (
+            <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest mt-0.5">
+              {authorProfile.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
+               authorProfile.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+               <Shapes className="w-2.5 h-2.5" />}
+              {t(authorProfile.specialization)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Scrollable content */}

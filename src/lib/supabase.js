@@ -10,7 +10,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 console.log('Supabase client initialized')
 
 export const uploadPainting = async (file, userId) => {
-  const fileName = `${userId}/${Date.now()}-${file.name}`
+  // Normalize filename: remove special characters, spaces to dashes, etc.
+  const cleanName = file.name
+    .replace(/[^\x00-\x7F]/g, "") // remove non-ascii
+    .replace(/\s+/g, '-')         // spaces to dashes
+    .replace(/[^a-zA-Z0-9.-]/g, '') // remove anything not alphanumeric, dot or dash
+  
+  const fileName = `${userId}/${Date.now()}-${cleanName || 'image'}`
   const { data, error } = await supabase.storage
     .from('paintings')
     .upload(fileName, file)
@@ -50,7 +56,7 @@ export async function fetchProfile(userId) {
     console.warn("Retrying profile fetch without extra columns...")
     const { data: retry, error: rError } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified, specialization')
       .eq('id', userId)
       .single()
     
@@ -66,16 +72,14 @@ export async function fetchProfile(userId) {
 }
 
 export const upsertProfile = async (profile) => {
-  const profileData = {
-    id: profile.id,
-    nickname: profile.nickname,
-    avatar_url: profile.avatar_url,
-    bio: profile.bio,
-    is_private: profile.is_private,
-    is_verified: profile.is_verified,
-    specialization: profile.specialization,
-    updated_at: new Date().toISOString()
-  }
+  // Only include fields that are explicitly provided to avoid overwriting existing DB values with null
+  const profileData = { id: profile.id, updated_at: new Date().toISOString() }
+  if (profile.nickname !== undefined) profileData.nickname = profile.nickname
+  if (profile.avatar_url !== undefined) profileData.avatar_url = profile.avatar_url
+  if (profile.bio !== undefined) profileData.bio = profile.bio
+  if (profile.is_private !== undefined) profileData.is_private = profile.is_private
+  if (profile.is_verified !== undefined) profileData.is_verified = profile.is_verified
+  if (profile.specialization !== undefined) profileData.specialization = profile.specialization
   
   const { data, error } = await supabase
     .from('profiles')
@@ -147,7 +151,7 @@ export const searchUsers = async (query, currentUserId) => {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, is_verified, finished_work_count')
+      .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization')
       .ilike('nickname', `%${query}%`)
       .neq('id', currentUserId)
       .limit(10)
@@ -155,7 +159,7 @@ export const searchUsers = async (query, currentUserId) => {
     if (error && error.message?.includes('finished_work_count')) {
       const { data: retry } = await supabase
         .from('profiles')
-        .select('id, nickname, avatar_url, is_verified')
+        .select('id, nickname, avatar_url, is_verified, specialization')
         .ilike('nickname', `%${query}%`)
         .neq('id', currentUserId)
         .limit(10)
@@ -173,13 +177,13 @@ export const fetchPublicProfile = async (userId) => {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization')
       .eq('id', userId)
       .single()
     if (error && error.message?.includes('finished_work_count')) {
       const { data: retry } = await supabase
         .from('profiles')
-        .select('nickname, avatar_url, bio, is_private, is_verified')
+        .select('nickname, avatar_url, bio, is_private, is_verified, specialization')
         .eq('id', userId)
         .single()
       return cleanProfile(retry)
@@ -238,8 +242,8 @@ export const fetchFriends = async (userId) => {
         status,
         sender_id,
         receiver_id,
-        sender:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count),
-        receiver:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
+        sender:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count, specialization),
+        receiver:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count, specialization)
       `)
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .eq('status', 'accepted')
@@ -257,7 +261,7 @@ export const fetchFriends = async (userId) => {
         const profileIds = [...new Set(relations.flatMap(r => [r.sender_id, r.receiver_id]))]
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, nickname, avatar_url, is_verified, finished_work_count')
+          .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization')
           .in('id', profileIds)
         
         const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || [])
@@ -289,7 +293,7 @@ export const fetchPendingRequests = async (userId) => {
       .select(`
         id,
         sender_id,
-        profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count)
+        profile:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count, specialization)
       `)
       .eq('receiver_id', userId)
       .eq('status', 'pending')
@@ -414,7 +418,7 @@ export const fetchConversations = async (userId) => {
     // Fetch profiles for these users
     const { data: profiles, error: pError } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, is_verified, finished_work_count')
+      .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization')
       .in('id', otherUserIds)
     
     if (pError) throw pError
@@ -501,7 +505,7 @@ export const searchFriends = async (query, currentUserId) => {
     // 2. Search profiles only among these friend IDs
     const { data: profiles, error: pError } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, is_verified, finished_work_count')
+      .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization')
       .ilike('nickname', `%${query}%`)
       .in('id', friendIds)
       .limit(10)
@@ -509,7 +513,7 @@ export const searchFriends = async (query, currentUserId) => {
     if (pError && pError.message?.includes('finished_work_count')) {
       const { data: retry } = await supabase
         .from('profiles')
-        .select('id, nickname, avatar_url, is_verified')
+        .select('id, nickname, avatar_url, is_verified, specialization')
         .ilike('nickname', `%${query}%`)
         .in('id', friendIds)
         .limit(10)
@@ -551,7 +555,7 @@ export async function fetchPostLikes(paintingId) {
     const userIds = [...new Set(data.map(l => l.user_id))]
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, finished_work_count')
+      .select('id, nickname, avatar_url, finished_work_count, specialization')
       .in('id', userIds)
     const profileMap = {}
     ;(profiles || []).forEach(p => { profileMap[p.id] = p })
@@ -604,7 +608,7 @@ export async function fetchPostComments(paintingId) {
     const userIds = [...new Set(data.map(c => c.user_id))]
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, finished_work_count')
+      .select('id, nickname, avatar_url, finished_work_count, specialization')
       .in('id', userIds)
     const profileMap = {}
     ;(profiles || []).forEach(p => { profileMap[p.id] = p })

@@ -144,7 +144,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
   })
 
   return (
-    <header className="h-20 md:h-24 px-4 md:px-10 flex items-center justify-between border-b border-white/[0.04] bg-[#0c0b11]/80 backdrop-blur-md sticky top-0 z-40">
+    <header className="h-20 md:h-24 px-4 md:px-10 flex items-center justify-between border-b border-white/[0.04] bg-[#0c0b11]/80 backdrop-blur-md sticky top-0 z-40 relative">
       <div className="flex items-center gap-4">
         <button
           onClick={onToggleSidebar}
@@ -160,7 +160,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
       <div className="flex items-center gap-4 md:gap-8">
         <div className="flex items-center gap-2">
 
-          <div className="relative" ref={notifRef}>
+          <div className="sm:relative" ref={notifRef}>
             <button
               onClick={() => {
                 setShowNotifications(!showNotifications)
@@ -177,7 +177,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 sm:right-0 mt-4 w-[calc(100vw-2rem)] sm:w-[360px] bg-[#0c0b11] border border-white/10 rounded-3xl z-50 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 max-h-[80vh] -right-2">
+              <div className="absolute right-4 sm:right-0 mt-4 w-[calc(100vw-2rem)] sm:w-[360px] bg-[#0c0b11] border border-white/10 rounded-3xl z-50 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 max-h-[80vh]">
                   {/* Header */}
                   <div className="p-4 border-b border-white/5">
                     <div className="flex items-center justify-between mb-3">
@@ -323,7 +323,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
               )}
             </div>
 
-          <div className="relative" ref={langRef}>
+          <div className="sm:relative" ref={langRef}>
             <button
               onClick={() => {
                 setShowLangs(!showLangs)
@@ -335,7 +335,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
             </button>
 
             {showLangs && (
-              <div className="absolute right-0 mt-4 w-52 bg-[#0c0b11] border border-white/10 rounded-3xl z-50 py-3 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="absolute right-4 sm:right-0 mt-4 w-52 bg-[#0c0b11] border border-white/10 rounded-3xl z-50 py-3 shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                   {['en', 'ru', 'it'].map((code) => (
                     <button
                       key={code}

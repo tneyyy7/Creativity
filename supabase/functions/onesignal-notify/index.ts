@@ -1,7 +1,12 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const ONESIGNAL_APP_ID = Deno.env.get('ONESIGNAL_APP_ID')
 const ONESIGNAL_REST_API_KEY = Deno.env.get('ONESIGNAL_REST_API_KEY')
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,31 +20,38 @@ serve(async (req) => {
 
   try {
     const payload = await req.json()
-    const { record, table, type, schema } = payload
+    const { record, table, type } = payload
     
     console.log(`Notification trigger for ${table} (${type})`)
 
     let receiverId = null
     let title = "Creativity"
     let message = ""
-    let senderNickname = "Кто-то"
+    let actorId = null
 
     if (table === 'messages' && type === 'INSERT') {
       receiverId = record.receiver_id
+      actorId = record.sender_id
       title = "Новое сообщение"
       message = record.content
-    } else if (table === 'post_likes' && type === 'INSERT') {
-      // Find the owner of the painting
-      // Note: Edge functions can query DB. Here we assuming payload might not have all info.
-      // We'll need to fetch receiver_id (painting owner) in a real scenario if not in payload.
-      // For now, let's assume the trigger sends enough info or we fetch it.
-    } else if (table === 'post_comments' && type === 'INSERT') {
-      // Similar to likes
     } else if (table === 'notifications' && type === 'INSERT') {
-       // This table already aggregates likes/comments!
-       receiverId = record.user_id
-       title = "Creativity"
-       message = record.content || "У вас новое уведомление"
+      receiverId = record.user_id
+      actorId = record.actor_id
+      
+      const notifType = record.type // 'like', 'comment', 'friend_request', etc.
+      
+      if (notifType === 'like') {
+        title = "Новый лайк ❤️"
+        message = "оценил(а) ваш рисунок"
+      } else if (notifType === 'comment') {
+        title = "Новый комментарий 💬"
+        message = `прокомментировал(а) ваш рисунок: ${record.content || ''}`
+      } else if (notifType === 'friend_request') {
+        title = "Запрос в друзья 👋"
+        message = "хочет добавить вас в друзья"
+      } else {
+        message = record.content || "У вас новое уведомление"
+      }
     }
 
     if (!receiverId) {
@@ -47,6 +59,23 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
+    }
+
+    // Fetch actor nickname if we have an actorId
+    if (actorId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('nickname')
+        .eq('id', actorId)
+        .single()
+      
+      if (profile?.nickname) {
+        if (table === 'messages') {
+          title = `Сообщение от ${profile.nickname}`
+        } else {
+          message = `${profile.nickname} ${message}`
+        }
+      }
     }
 
     const response = await fetch("https://onesignal.com/api/v1/notifications", {

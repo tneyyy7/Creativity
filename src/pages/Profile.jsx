@@ -5,13 +5,12 @@ import { supabase, upsertProfile, uploadAvatar } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification } from '../lib/pwa'
 
-export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, workCount }) {
+export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
   
   const [formNickname, setFormNickname] = useState(nickname)
   const [bio, setBio] = useState('')
-  const [specialization, setSpecialization] = useState('painter')
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -133,17 +132,18 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     setIsUploading(true)
     try {
       const publicUrl = await uploadAvatar(file, user.id)
-      setAvatarUrl(publicUrl)
       
       // Update profile with new avatar URL
       await upsertProfile({
         id: user.id,
-        nickname: formNickname,
         avatar_url: publicUrl,
         bio: bio,
         specialization: specialization,
         updated_at: new Date().toISOString()
       })
+      
+      setAvatarUrl(publicUrl)
+      // setSpecialization(specialization) // Already in state, but ensuring consistency
       
     } catch (err) {
       console.error('Error uploading avatar:', err)

@@ -8,7 +8,7 @@ export function Gallery({ onOpenPost }) {
   const [search, setSearch] = useState('')
   const [paintings, setPaintings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [isUploading, setIsUploading] = useState(false)
+  const [isUploading, setIsUploading] = useState(null) // null or string status
   const [filter, setFilter] = useState('all') // 'all', 'finished', 'in_progress'
   const fileInputRef = useRef(null)
 
@@ -31,32 +31,42 @@ export function Gallery({ onOpenPost }) {
   }
 
   const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
 
-    setIsUploading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      const publicUrl = await uploadPainting(file, user.id)
-      
-      const newPainting = {
-        user_id: user.id,
-        title: file.name.split('.')[0] || 'Untitled',
-        image_url: publicUrl,
-        description: 'New upload',
-        category: 'Digital',
-        is_finished: false // Force false for new uploads
-      }
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const status = files.length > 1 
+          ? `${t('uploading')} (${i + 1}/${files.length})` 
+          : t('uploading')
+        
+        setIsUploading(status)
 
-      await savePaintingMetadata(newPainting)
+        const publicUrl = await uploadPainting(file, user.id)
+        
+        const newPainting = {
+          user_id: user.id,
+          title: file.name.split('.')[0] || 'Untitled',
+          image_url: publicUrl,
+          description: 'New upload',
+          category: 'Digital',
+          is_finished: false
+        }
+
+        await savePaintingMetadata(newPainting)
+      }
+      
       await loadPaintings()
     } catch (err) {
       console.error("Upload error:", err)
       alert("Failed to upload: " + (err.message || "Unknown error"))
     } finally {
-      setIsUploading(false)
+      setIsUploading(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -67,7 +77,7 @@ export function Gallery({ onOpenPost }) {
     const file = e.target.files?.[0]
     if (!file || !replacingId) return
 
-    setIsUploading(true)
+    setIsUploading(t('uploading'))
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
@@ -86,7 +96,8 @@ export function Gallery({ onOpenPost }) {
       console.error("Replace error:", err)
       alert("Failed to replace image")
     } finally {
-      setIsUploading(false)
+      setIsUploading(null)
+      if (replaceInputRef.current) replaceInputRef.current.value = ''
     }
   }
 
@@ -164,6 +175,7 @@ export function Gallery({ onOpenPost }) {
             ref={fileInputRef} 
             onChange={handleFileUpload}
             accept="image/*"
+            multiple
           />
           <input 
             type="file" 
@@ -222,7 +234,7 @@ export function Gallery({ onOpenPost }) {
             </div>
             <div className="text-center">
               <span className="block text-lg font-black text-white mb-1">
-                {isUploading ? t('uploading') : t('upload_new')}
+                {isUploading || t('upload_new')}
               </span>
               <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('images_photos')}</span>
             </div>

@@ -25,6 +25,7 @@ function App() {
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [isVerified, setIsVerified] = useState(false)
+  const [specialization, setSpecialization] = useState('painter')
   const [workCount, setWorkCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [targetUserId, setTargetUserId] = useState(null) // Used for viewing public profiles
@@ -43,6 +44,7 @@ function App() {
               setNickname(data.nickname || meta?.full_name || currUser.email?.split('@')[0])
               setAvatarUrl(data.avatar_url)
               setIsVerified(data.is_verified || false)
+              setSpecialization(data.specialization || 'painter')
               setWorkCount(data.finished_work_count || 0)
             }
           })
@@ -51,6 +53,7 @@ function App() {
         setNickname('Artist User')
         setAvatarUrl(null)
         setIsVerified(false)
+        setSpecialization('painter')
         setWorkCount(0)
       }
       setLoading(false)
@@ -158,6 +161,8 @@ function App() {
             avatarUrl={avatarUrl}
             setAvatarUrl={setAvatarUrl}
             isVerified={isVerified}
+            specialization={specialization}
+            setSpecialization={setSpecialization}
             workCount={workCount}
           />}
           {activeTab === 'friends' && <Friends 
@@ -194,11 +199,15 @@ function App() {
             id: user?.id,
             nickname: nickname,
             avatar_url: avatarUrl,
+            is_verified: isVerified,
+            specialization: specialization,
             finished_work_count: workCount
           } : (postViewer.externalProfile || postViewer.painting?.profiles || {
             id: user?.id,
             nickname: nickname,
             avatar_url: avatarUrl,
+            is_verified: isVerified,
+            specialization: specialization,
             finished_work_count: workCount
           })}
           onClose={() => setPostViewer(null)}

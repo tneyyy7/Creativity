@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X } from 'lucide-react'
+import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -260,7 +260,17 @@ export function Messages({ currentUser, onViewProfile }) {
                       {user.nickname}
                       {user.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400" />}
                     </p>
-                    <p className="text-[10px] text-purple-500 uppercase tracking-widest font-black">{t('new_chat') || 'New Chat'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-purple-500 uppercase tracking-widest font-black leading-none">{t('new_chat') || 'New Chat'}</p>
+                      {user.specialization && (
+                        <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                          {user.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
+                           user.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+                           <Shapes className="w-2.5 h-2.5" />}
+                          {t(user.specialization)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))
@@ -295,9 +305,19 @@ export function Messages({ currentUser, onViewProfile }) {
                     {conv.nickname}
                     {conv.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400" />}
                   </p>
-                  <p className={`text-xs truncate ${conv.unread_count > 0 ? 'text-purple-400 font-bold' : 'text-gray-500'}`}>
-                    {conv.unread_count > 0 ? t('new_messages') || 'New messages' : (t('click_to_chat') || 'Click to chat')}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-[10px] truncate leading-none ${conv.unread_count > 0 ? 'text-purple-400 font-bold' : 'text-gray-500'}`}>
+                      {conv.unread_count > 0 ? t('new_messages') || 'New messages' : (t('click_to_chat') || 'Click to chat')}
+                    </p>
+                    {conv.specialization && (
+                      <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                        {conv.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
+                         conv.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+                         <Shapes className="w-2.5 h-2.5" />}
+                        {t(conv.specialization)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {conv.unread_count > 0 && activeChat?.id !== conv.id && (
                   <div className="w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg shadow-red-500/40">
@@ -313,7 +333,7 @@ export function Messages({ currentUser, onViewProfile }) {
       {/* Chat Window */}
       <div className={`
         flex-1 glass-card flex flex-col relative overflow-hidden
-        ${!activeChat && isMobileView ? 'hidden' : 'flex'}
+        ${activeChat && !isMobileView ? 'hidden md:flex' : 'flex'}
         ${!activeChat ? 'hidden md:flex items-center justify-center' : 'flex'}
       `}>
         {!activeChat ? (
@@ -328,7 +348,7 @@ export function Messages({ currentUser, onViewProfile }) {
             {/* Header */}
             <div className="p-4 border-b border-white/5 flex items-center gap-4 bg-white/[0.02]">
               <button 
-                onClick={() => setIsMobileView(false)}
+                onClick={() => { setIsMobileView(false); setActiveChat(null); }}
                 className="md:hidden p-2 text-gray-400 hover:text-white"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -343,7 +363,17 @@ export function Messages({ currentUser, onViewProfile }) {
                     {activeChat.nickname}
                     {activeChat.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400" />}
                   </h3>
-                  <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest">Active Chat</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest leading-none">Active Chat</p>
+                    {activeChat.specialization && (
+                      <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                        {activeChat.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
+                         activeChat.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+                         <Shapes className="w-2.5 h-2.5" />}
+                        {t(activeChat.specialization)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
               <button className="p-2 text-gray-500 hover:text-white transition-colors">
