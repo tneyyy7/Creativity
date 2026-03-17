@@ -110,20 +110,6 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     }
   }
 
-  const handleTestNotification = async () => {
-    if (isSubscribing || !notificationsGranted) return
-    setIsSubscribing(true)
-    try {
-      const result = await testPushNotification(user.id)
-      if (result.success) {
-        alert(t('test_notification_sent_onesignal') || 'Test notification requested via OneSignal! Please check OneSignal Dashboard for sending real test push.')
-      } else {
-        setError(`Test failed: ${result.error}`)
-      }
-    } finally {
-      setIsSubscribing(false)
-    }
-  }
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click()
@@ -392,16 +378,6 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                     )}
                   </button>
                   
-                  {notificationsGranted && !isSubscribing && (
-                    <button
-                      type="button"
-                      onClick={handleTestNotification}
-                      className="mt-2 w-full flex items-center justify-center gap-2 p-3 bg-purple-600/10 border border-purple-500/20 rounded-xl text-purple-400 text-[10px] font-black uppercase tracking-widest hover:bg-purple-600/20 transition-all"
-                    >
-                      <BadgeCheck className="w-3.5 h-3.5" />
-                      {t('test_notifications') || 'Test Notifications'}
-                    </button>
-                  )}
                 </div>
               )}
 
