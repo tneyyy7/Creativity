@@ -106,34 +106,21 @@ export async function checkNotificationSupport() {
 
 export async function testPushNotification(userId) {
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const functionUrl = `${supabaseUrl}/functions/v1/send-push`;
-
-    console.log('Sending direct fetch to:', functionUrl);
+    console.log('Testing push notification for user:', userId);
     
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-      },
-      body: JSON.stringify({ test_user_id: userId }),
-      mode: 'cors'
+    const { data, error } = await supabase.functions.invoke('send-push', {
+      body: { test_user_id: userId },
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}`);
+    if (error) {
+      console.error('Supabase function invocation error:', error);
+      throw new Error(error.message || 'Error invoking function');
     }
 
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
-
+    console.log('Test notification response:', data);
     return { success: true, data };
   } catch (error) {
-    console.error('Test push direct fetch error:', error);
+    console.error('Test push error details:', error);
     return { success: false, error: error.message || 'Network error' };
   }
 }
