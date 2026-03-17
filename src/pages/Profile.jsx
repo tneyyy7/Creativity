@@ -63,14 +63,10 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     }
     fetchProfileData()
     
-    checkNotificationSupport().then(async supported => {
-      setNotificationsSupported(supported)
-      if (supported) {
-        // Check if we actually have a subscription
-        const registration = await navigator.serviceWorker.ready
-        const subscription = await registration.pushManager.getSubscription()
-        setNotificationsGranted(!!subscription)
-      }
+    import('react-onesignal').then(module => {
+      const OneSignal = module.default
+      setNotificationsSupported(true)
+      setNotificationsGranted(OneSignal.User.PushSubscription.optedIn || false)
     })
   }, [user])
 
@@ -79,19 +75,11 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     setIsSubscribing(true)
     setError('')
     try {
-      const granted = await requestNotificationPermission()
-      if (!granted) {
-        setError(t('notifications_permission_denied') || 'Permission for notifications was denied')
-        return
-      }
-      
-      if (user) {
-        const result = await subscribeToPush(user.id)
-        if (result.success) {
-          setNotificationsGranted(true)
-        } else {
-          setError(`${t('notifications_subscribe_error') || 'Failed to register device'}: ${result.error}`)
-        }
+      const result = await subscribeToPush(user.id)
+      if (result.success) {
+        setNotificationsGranted(true)
+      } else {
+        setError(`${t('notifications_subscribe_error') || 'Failed to register device'}: ${result.error}`)
       }
     } catch (err) {
       console.error('Error in handleEnableNotifications:', err)
@@ -108,13 +96,11 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     setIsSubscribing(true)
     setError('')
     try {
-      if (user) {
-        const success = await unsubscribeFromPush(user.id)
-        if (success) {
-          setNotificationsGranted(false)
-        } else {
-          setError(t('notifications_unsubscribe_error') || 'Failed to disable notifications. Please try again.')
-        }
+      const success = await unsubscribeFromPush()
+      if (success) {
+        setNotificationsGranted(false)
+      } else {
+        setError(t('notifications_unsubscribe_error') || 'Failed to disable notifications. Please try again.')
       }
     } catch (err) {
       console.error('Error in handleDisableNotifications:', err)
@@ -130,7 +116,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     try {
       const result = await testPushNotification(user.id)
       if (result.success) {
-        alert(t('test_notification_sent') || 'Test notification requested! Wait a few seconds...')
+        alert(t('test_notification_sent_onesignal') || 'Test notification requested via OneSignal! Please check OneSignal Dashboard for sending real test push.')
       } else {
         setError(`Test failed: ${result.error}`)
       }

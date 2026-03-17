@@ -15,6 +15,7 @@ import { Messages } from './pages/Messages'
 import { PostViewerModal } from './components/PostViewerModal'
 import { Profile } from './pages/Profile'
 import { Friends } from './pages/Friends'
+import { initOneSignal } from './lib/pwa'
 
 function App() {
   console.log('App initialization started')
@@ -72,6 +73,12 @@ function App() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      initOneSignal(user.id)
+    }
+  }, [user])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')

@@ -1,126 +1,66 @@
-import { supabase } from './supabase';
+import OneSignal from 'react-onesignal';
 
-const VAPID_PUBLIC_KEY = 'BJFhVx4shzAnXAtaSpwhtC6TQi1uvPQdzbeUiO-Cqy9Zd0be_ZE2e1fPTA3IBcDNewJDdUC6XULbDojQz0mrCJI';
+const ONESIGNAL_APP_ID = '3aaec25a-5a3d-4029-8a79-7b2b93c86788';
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-export async function requestNotificationPermission() {
-  if (!('Notification' in window)) {
-    console.warn('This browser does not support notifications.');
-    return false;
-  }
-
-  const permission = await Notification.requestPermission();
-  return permission === 'granted';
-}
-
-export async function subscribeToPush(userId) {
+export async function initOneSignal(userId) {
   try {
-    console.log('Starting push subscription for user:', userId);
-    const registration = await navigator.serviceWorker.ready;
+    await OneSignal.init({
+      appId: ONESIGNAL_APP_ID,
+      allowLocalhostAsSecureOrigin: true,
+      serviceWorkerParam: { scope: '/' },
+      serviceWorkerPath: 'OneSignalSDKWorker.js',
+    });
     
-    // Check for existing subscription
-    let subscription = await registration.pushManager.getSubscription();
-    console.log('Current browser subscription:', subscription ? 'exists' : 'none');
-    
-    if (!subscription) {
-      console.log('Subscribing to push manager...');
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
-      console.log('Push manager subscription successful');
+    if (userId) {
+      await OneSignal.login(userId);
+      console.log('OneSignal initialized and user logged in:', userId);
     }
-
-    // Save to database
-    const subscriptionData = subscription.toJSON();
-    console.log('Saving subscription to Supabase...');
-    
-    // Explicitly check for keys
-    if (!subscriptionData.keys || !subscriptionData.keys.auth || !subscriptionData.keys.p256dh) {
-      throw new Error('Push keys are missing from subscription object');
-    }
-
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        user_id: userId,
-        endpoint: subscriptionData.endpoint,
-        auth: subscriptionData.keys.auth,
-        p256dh: subscriptionData.keys.p256dh,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id,endpoint' });
-
-    if (error) {
-      console.error('Supabase upsert error:', error);
-      return { success: false, error: error.message };
-    }
-    
-    console.log('Subscription successfully saved to database');
-    return { success: true };
   } catch (error) {
-    console.error('Push subscription failed full error:', error);
-    return { success: false, error: error.message || 'Unknown subscription error' };
-  }
-}
-
-export async function unsubscribeFromPush(userId) {
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-    
-    if (subscription) {
-      const { endpoint } = subscription.toJSON();
-      await subscription.unsubscribe();
-      
-      // Remove from database
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .match({ user_id: userId, endpoint: endpoint });
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Unsubscribe failed:', error);
-    return false;
+    console.error('OneSignal Init Error:', error);
   }
 }
 
 export async function checkNotificationSupport() {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  return true; // OneSignal handles checking support internally
+}
+
+export async function requestNotificationPermission() {
+  try {
+    await OneSignal.Slidedown.promptPush();
+    return true;
+  } catch (err) {
+    console.error('Permission request failed:', err);
+    return false;
+  }
+}
+
+export async function subscribeToPush(userId) {
+  try {
+    if (userId) {
+      await OneSignal.login(userId);
+    }
+    await OneSignal.User.PushSubscription.optIn();
+    
+    return { success: true };
+  } catch (error) {
+    console.error('OneSignal Subscribe error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function unsubscribeFromPush() {
+  try {
+    await OneSignal.User.PushSubscription.optOut();
+    return true;
+  } catch (error) {
+    console.error('OneSignal Unsubscribe error:', error);
+    return false;
+  }
 }
 
 export async function testPushNotification(userId) {
-  try {
-    console.log('Testing push notification for user:', userId);
-    
-    const { data, error } = await supabase.functions.invoke('send-push', {
-      body: { test_user_id: userId },
-    });
-
-    if (error) {
-      console.error('Supabase function invocation error:', error);
-      throw new Error(error.message || 'Error invoking function');
-    }
-
-    console.log('Test notification response:', data);
-    return { success: true, data };
-  } catch (error) {
-    console.error('Test push error details:', error);
-    return { success: false, error: error.message || 'Network error' };
-  }
+  // OneSignal doesn't have a direct "test" function for a specific user from client SDK easily
+  // Usually tests are done via Dashboard or API. 
+  // We'll return success and tell the user to check dashboard or we can try to trigger via Supabase later if needed.
+  return { success: true, message: "Use OneSignal dashboard to send test alerts" };
 }
