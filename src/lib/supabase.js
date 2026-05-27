@@ -1231,10 +1231,56 @@ export async function fetchExplorePaintings(filters = {}) {
       query = query.in('id', paintingIdsFromTag)
     }
 
-    // 3. Текстовый поиск (по названию или описанию)
+    // 3. Текстовый поиск (по названию, описанию или хештегам)
     if (searchQuery && searchQuery.trim().length > 0) {
       const cleanSearch = searchQuery.trim()
-      query = query.or(`title.ilike.%${cleanSearch}%,description.ilike.%${cleanSearch}%`)
+      
+      // Находим хештеги в поисковом запросе (любые слова, начинающиеся с #)
+      const hashtags = []
+      const hashtagRegex = /#([a-zA-Z0-9_\u0400-\u04FF-]+)/g
+      let match
+      while ((match = hashtagRegex.exec(cleanSearch)) !== null) {
+        hashtags.push(match[1].toLowerCase())
+      }
+
+      // Поисковые слова для сопоставления с тегами
+      let tagSearchNames = [...hashtags]
+      if (tagSearchNames.length === 0) {
+        // Если знаков решетки нет, используем очищенную поисковую строку целиком
+        tagSearchNames.push(cleanSearch.toLowerCase())
+      }
+
+      let paintingIdsFromTags = []
+      try {
+        // Запрашиваем подходящие теги из таблицы tags
+        const orConditions = tagSearchNames.map(name => `name.ilike.%${name}%`).join(',')
+        const { data: matchedTags } = await supabase
+          .from('tags')
+          .select('id')
+          .or(orConditions)
+
+        if (matchedTags && matchedTags.length > 0) {
+          const tagIds = matchedTags.map(t => t.id)
+          // Запрашиваем ID картин, у которых есть эти теги
+          const { data: pTags } = await supabase
+            .from('painting_tags')
+            .select('painting_id')
+            .in('tag_id', tagIds)
+          
+          if (pTags && pTags.length > 0) {
+            paintingIdsFromTags = [...new Set(pTags.map(pt => pt.painting_id))]
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching paintings by tags:', err)
+      }
+
+      // Формируем OR условие
+      let orClause = `title.ilike.%${cleanSearch}%,description.ilike.%${cleanSearch}%`
+      if (paintingIdsFromTags.length > 0) {
+        orClause += `,id.in.(${paintingIdsFromTags.join(',')})`
+      }
+      query = query.or(orClause)
     }
 
     const { data: paintings, error } = await query

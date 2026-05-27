@@ -5,6 +5,7 @@ import { supabase, fetchExplorePaintings, fetchFeedPaintings, togglePostLike, to
 import { StoriesBanner } from '../components/StoriesBanner'
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 
 export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewProfile }) {
   const { t, i18n } = useTranslation()
@@ -256,13 +257,11 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                       onClick={() => onViewProfile?.(author.id)}
                       className="flex items-center gap-3 cursor-pointer group/author"
                     >
-                      <div className="w-11 h-11 rounded-full border border-white/5 overflow-hidden bg-purple-900/10 flex-shrink-0">
-                        <img 
-                          src={author.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
-                          alt={author.nickname} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                      <ProfileAvatar 
+                        avatarUrl={author.avatar_url} 
+                        workCount={author.finished_work_count ?? 0} 
+                        size="md" 
+                      />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors">
@@ -377,13 +376,11 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                     <div key={creator.id} className="glass-card p-6 border-white/5 rounded-3xl flex flex-col justify-between hover:border-purple-500/10 transition-all duration-300 w-full">
                       
                       <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full border border-white/10 overflow-hidden bg-purple-900/10 flex-shrink-0">
-                          <img 
-                            src={creator.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
-                            alt={creator.nickname} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
+                        <ProfileAvatar 
+                          avatarUrl={creator.avatar_url} 
+                          workCount={creator.finished_work_count ?? 0} 
+                          size="md" 
+                        />
                         <div className="flex-1 space-y-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-bold text-white truncate">{creator.nickname}</span>
@@ -545,13 +542,11 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                         }}
                         className="flex items-center gap-2 border-t border-white/5 pt-3 group/author"
                       >
-                        <div className="w-6 h-6 rounded-full overflow-hidden bg-purple-900/10 border border-white/10 flex-shrink-0">
-                          <img 
-                            src={author.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
-                            alt={author.nickname} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
+                        <ProfileAvatar 
+                          avatarUrl={author.avatar_url} 
+                          workCount={author.finished_work_count ?? 0} 
+                          size="xs" 
+                        />
                         <div className="flex items-center gap-1 min-w-0">
                           <span className="text-[11px] font-bold text-gray-400 group-hover/author:text-white transition-colors truncate max-w-[120px]">
                             {author.nickname || 'Unknown Artist'}
