@@ -26,6 +26,95 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
   const [brushColor, setBrushColor] = useState('#ec4899') // default purple/pink
   const [brushSize, setBrushSize] = useState(4)
 
+  // Interactive Pan & Zoom states
+  const [editMode, setEditMode] = useState('pan') // 'pan' or 'draw'
+  const [scale, setScale] = useState(1)
+  const [panX, setPanX] = useState(0)
+  const [panY, setPanY] = useState(0)
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 })
+  const [dimensions, setDimensions] = useState({ w: 270, h: 480 })
+  const [pinchStartDist, setPinchStartDist] = useState(0)
+
+  // Helper for natural "cover" sizing inside a 270x480 container
+  const getCoverDimensions = (imgWidth, imgHeight, containerWidth = 270, containerHeight = 480) => {
+    const imgRatio = imgWidth / imgHeight
+    const containerRatio = containerWidth / containerHeight
+    
+    let w, h
+    if (imgRatio > containerRatio) {
+      h = containerHeight
+      w = containerHeight * imgRatio
+    } else {
+      w = containerWidth
+      h = containerWidth / imgRatio
+    }
+    return { w, h }
+  }
+
+  // Interactive handlers
+  const handlePanStart = (e) => {
+    if (editMode !== 'pan') return
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Support multi-touch pinch detection
+    if (e.touches && e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      setPinchStartDist(dist)
+      return
+    }
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    setPanStart({ x: clientX - panX, y: clientY - panY })
+    setIsPanning(true)
+  }
+
+  const handlePanMove = (e) => {
+    if (editMode !== 'pan') return
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Multi-touch pinch-to-zoom
+    if (e.touches && e.touches.length === 2 && pinchStartDist > 0) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      const factor = dist / pinchStartDist
+      let newScale = scale * factor
+      newScale = Math.max(1, Math.min(4, newScale))
+      setScale(newScale)
+      setPinchStartDist(dist)
+      return
+    }
+
+    if (!isPanning) return
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    setPanX(clientX - panStart.x)
+    setPanY(clientY - panStart.y)
+  }
+
+  const handlePanEnd = (e) => {
+    e.stopPropagation()
+    setIsPanning(false)
+    setPinchStartDist(0)
+  }
+
+  const handleWheel = (e) => {
+    if (editMode !== 'pan') return
+    e.stopPropagation()
+    const zoomFactor = 0.1
+    let newScale = scale + (e.deltaY < 0 ? zoomFactor : -zoomFactor)
+    newScale = Math.max(1, Math.min(4, newScale))
+    setScale(newScale)
+  }
+
   const loadStories = async () => {
     setLoadingStories(true)
     const groups = await fetchActiveStories()
@@ -37,12 +126,12 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
     loadStories()
   }, [])
 
-  // Canvas drawing config effect
+  // Canvas drawing config effect (Fixed resolution to 270x480 for precise mapping)
   useEffect(() => {
     if (previewUrl && canvasRef.current && selectedFile && !selectedFile.type.startsWith('video/')) {
       const canvas = canvasRef.current
-      canvas.width = canvas.offsetWidth || 480
-      canvas.height = canvas.offsetHeight || 256
+      canvas.width = 270
+      canvas.height = 480
       const ctx = canvas.getContext('2d')
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
@@ -50,6 +139,25 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
       ctx.lineWidth = brushSize
     }
   }, [previewUrl, brushColor, brushSize, selectedFile])
+
+  // Effect to calculate base cover dimensions of original image
+  useEffect(() => {
+    if (previewUrl && selectedFile && !selectedFile.type.startsWith('video/')) {
+      const img = new Image()
+      img.src = previewUrl
+      img.onload = () => {
+        const dims = getCoverDimensions(img.naturalWidth, img.naturalHeight, 270, 480)
+        setDimensions(dims)
+      }
+    } else {
+      setDimensions({ w: 270, h: 480 })
+    }
+    
+    // Reset transform adjustments on file change
+    setScale(1)
+    setPanX(0)
+    setPanY(0)
+  }, [previewUrl, selectedFile])
 
   const startDrawing = (e) => {
     e.stopPropagation()
@@ -117,15 +225,20 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
     setIsUploading(true)
     try {
       let fileToUpload = selectedFile
+      let captionToUpload = caption
       
-      // If it's an image and drawing canvas is available, merge them
-      if (selectedFile.type.startsWith('image/') && canvasRef.current) {
+      // If it's an image, merge/crop drawing and custom zoom/pan transforms into a 9:16 vertical format (1080x1920)
+      if (selectedFile.type.startsWith('image/')) {
         const canvas = canvasRef.current
-        const ctx = canvas.getContext('2d')
-        const buffer = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const hasDrawn = buffer.data.some(channel => channel !== 0)
+        let hasDrawn = false
+        if (canvas) {
+          const ctx = canvas.getContext('2d')
+          const buffer = ctx.getImageData(0, 0, canvas.width, canvas.height)
+          hasDrawn = buffer.data.some(channel => channel !== 0)
+        }
         
-        if (hasDrawn) {
+        // Merge if drawn or scaled/panned
+        if (hasDrawn || scale !== 1 || panX !== 0 || panY !== 0) {
           const mergeCanvas = document.createElement('canvas')
           const mergeCtx = mergeCanvas.getContext('2d')
           
@@ -133,24 +246,47 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
           img.src = previewUrl
           await new Promise((resolve) => { img.onload = resolve })
           
-          mergeCanvas.width = img.naturalWidth
-          mergeCanvas.height = img.naturalHeight
+          mergeCanvas.width = 1080
+          mergeCanvas.height = 1920
           
-          // Draw base image
-          mergeCtx.drawImage(img, 0, 0)
-          // Draw drawing scaled
-          mergeCtx.drawImage(canvas, 0, 0, mergeCanvas.width, mergeCanvas.height)
+          // Fill background black
+          mergeCtx.fillStyle = '#000000'
+          mergeCtx.fillRect(0, 0, 1080, 1920)
+          
+          // Factor from 270 preview width to 1080 canvas width
+          const factor = 1080 / 270 // exactly 4
+          const x_prev = (270 - dimensions.w * scale) / 2 + panX
+          const y_prev = (480 - dimensions.h * scale) / 2 + panY
+          const w_prev = dimensions.w * scale
+          const h_prev = dimensions.h * scale
+          
+          // Draw scaled and translated image
+          mergeCtx.drawImage(img, x_prev * factor, y_prev * factor, w_prev * factor, h_prev * factor)
+          
+          // Draw user drawing on top (if canvas exists)
+          if (canvas) {
+            mergeCtx.drawImage(canvas, 0, 0, 1080, 1920)
+          }
           
           const blob = await new Promise(resolve => mergeCanvas.toBlob(resolve, 'image/jpeg', 0.9))
-          fileToUpload = new File([blob], selectedFile.name.replace(/\.[^/.]+$/, "") + "-drawn.jpg", { type: 'image/jpeg' })
+          fileToUpload = new File([blob], selectedFile.name.replace(/\.[^/.]+$/, "") + "-cropped.jpg", { type: 'image/jpeg' })
+        }
+      } else if (selectedFile.type.startsWith('video/')) {
+        // If it's a video, serialize the transform adjustments into the caption
+        if (scale !== 1 || panX !== 0 || panY !== 0) {
+          captionToUpload = caption + '___TRANSFORM:' + JSON.stringify({ scale, panX, panY })
         }
       }
 
-      await uploadStory(currentUser.id, fileToUpload, caption)
+      await uploadStory(currentUser.id, fileToUpload, captionToUpload)
       setUploadModalOpen(false)
       setSelectedFile(null)
       setPreviewUrl(null)
       setCaption('')
+      setScale(1)
+      setPanX(0)
+      setPanY(0)
+      setEditMode('pan')
       await loadStories()
       alert(t('success_story'))
     } catch (err) {
@@ -185,9 +321,9 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
               // If current user has stories, show with neon glowing gradient ring
               <div 
                 onClick={() => handleOpenGroup(activeStoryGroups.indexOf(currentUserGroup))}
-                className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] shadow-[0_0_15px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all duration-300"
+                className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] shadow-[0_0_15px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all duration-300"
               >
-                <div className="w-full h-full rounded-full bg-[#0c0b11] p-[2px]">
+                <div className="w-full h-full rounded-full overflow-hidden bg-[#0c0b11] p-[2px]">
                   <img 
                     src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
                     alt="Me" 
@@ -199,7 +335,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
               // Otherwise just standard avatar with plus icon
               <div 
                 onClick={() => setUploadModalOpen(true)}
-                className="w-16 h-16 rounded-full bg-[#181622] hover:bg-[#201e2e] border border-white/5 flex items-center justify-center relative hover:scale-105 active:scale-95 transition-all duration-300"
+                className="w-16 h-16 rounded-full overflow-hidden bg-[#181622] hover:bg-[#201e2e] border border-white/5 flex items-center justify-center relative hover:scale-105 active:scale-95 transition-all duration-300"
               >
                 <img 
                   src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
@@ -241,8 +377,8 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                 onClick={() => handleOpenGroup(absoluteIndex)}
                 className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
               >
-                <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] shadow-[0_0_12px_rgba(168,85,247,0.2)] hover:scale-105 active:scale-95 transition-all duration-300 hover:shadow-[0_0_20px_rgba(236,72,153,0.5)]">
-                  <div className="w-full h-full rounded-full bg-[#0c0b11] p-[2px]">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] shadow-[0_0_12px_rgba(168,85,247,0.2)] hover:scale-105 active:scale-95 transition-all duration-300 hover:shadow-[0_0_20px_rgba(236,72,153,0.5)]">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-[#0c0b11] p-[2px]">
                     <img 
                       src={group.user.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
                       alt={group.user.nickname} 
@@ -272,47 +408,88 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
       {/* Upload WIP Story Modal */}
       {uploadModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-lg p-6 relative overflow-hidden shadow-2xl shadow-purple-500/10" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-md p-5 relative overflow-hidden shadow-2xl shadow-purple-500/10" onClick={e => e.stopPropagation()}>
             
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white tracking-tight">{t('add_to_story')} (WIP)</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-white tracking-tight">{t('add_to_story')} (WIP)</h3>
               <button 
                 type="button"
                 onClick={() => setUploadModalOpen(false)}
-                className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+                className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-4 h-4 text-gray-400" />
               </button>
             </div>
 
-            <form onSubmit={handleUploadSubmit} className="space-y-6">
-              {/* Media selector */}
+            <form onSubmit={handleUploadSubmit} className="space-y-4">
+              {/* Media selector (Standardized to exact vertical 9:16 stories aspect ratio) */}
               <div 
-                className="w-full h-64 bg-[#181622] rounded-2xl border-2 border-dashed border-white/5 hover:border-purple-500/30 flex flex-col items-center justify-center overflow-hidden transition-all duration-300 relative group"
+                className="w-[270px] h-[480px] bg-[#0c0b11] rounded-[24px] border border-white/5 flex flex-col items-center justify-center overflow-hidden relative mx-auto bg-black shadow-inner shadow-black/80 group"
                 onClick={() => !previewUrl && fileInputRef.current?.click()}
+                onWheel={handleWheel}
               >
                 {previewUrl ? (
                   <>
                     {selectedFile.type.startsWith('video/') ? (
-                      <>
+                      <div 
+                        onMouseDown={handlePanStart}
+                        onMouseMove={handlePanMove}
+                        onMouseUp={handlePanEnd}
+                        onMouseLeave={handlePanEnd}
+                        onTouchStart={handlePanStart}
+                        onTouchMove={handlePanMove}
+                        onTouchEnd={handlePanEnd}
+                        className="w-full h-full absolute inset-0 overflow-hidden cursor-move"
+                      >
                         <video 
                           src={previewUrl} 
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-cover pointer-events-none"
+                          style={{
+                            transform: `translate(${panX}px, ${panY}px) scale(${scale})`,
+                            transformOrigin: 'center center'
+                          }}
                           muted 
                           loop 
                           autoPlay 
+                          playsInline
                         />
                         {caption && (
                           <div className="absolute inset-0 flex items-center justify-center p-6 z-20 pointer-events-none">
-                            <span className="bg-black/60 text-white px-4 py-2 rounded-2xl text-base font-black text-center shadow-lg border border-white/5 max-w-[85%] leading-snug">
+                            <span className="bg-black/60 text-white px-4 py-2 rounded-2xl text-sm font-black text-center shadow-lg border border-white/5 max-w-[85%] leading-snug">
                               {caption}
                             </span>
                           </div>
                         )}
-                      </>
+                      </div>
                     ) : (
                       <>
-                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover pointer-events-none" />
+                        <div 
+                          onMouseDown={handlePanStart}
+                          onMouseMove={handlePanMove}
+                          onMouseUp={handlePanEnd}
+                          onMouseLeave={handlePanEnd}
+                          onTouchStart={handlePanStart}
+                          onTouchMove={handlePanMove}
+                          onTouchEnd={handlePanEnd}
+                          className="w-full h-full absolute inset-0 overflow-hidden cursor-move z-0"
+                          style={{ pointerEvents: editMode === 'pan' ? 'auto' : 'none' }}
+                        >
+                          <img 
+                            src={previewUrl} 
+                            alt="Preview" 
+                            className="pointer-events-none max-w-none"
+                            style={{
+                              width: `${dimensions.w}px`,
+                              height: `${dimensions.h}px`,
+                              transform: `translate(${panX}px, ${panY}px) scale(${scale})`,
+                              transformOrigin: 'center center',
+                              position: 'absolute',
+                              left: `${(270 - dimensions.w) / 2}px`,
+                              top: `${(480 - dimensions.h) / 2}px`
+                            }}
+                          />
+                        </div>
+
                         <canvas
                           ref={canvasRef}
                           onMouseDown={startDrawing}
@@ -322,64 +499,104 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                           onTouchStart={startDrawing}
                           onTouchMove={draw}
                           onTouchEnd={stopDrawing}
-                          className="absolute inset-0 w-full h-full cursor-crosshair z-10"
+                          className="absolute inset-0 w-full h-full z-10"
+                          style={{ 
+                            pointerEvents: editMode === 'draw' ? 'auto' : 'none',
+                            cursor: editMode === 'draw' ? 'crosshair' : 'default'
+                          }}
                         />
-                        {/* Drawing controls */}
-                        <div className="flex items-center justify-between bg-black/70 p-2 rounded-xl backdrop-blur-sm absolute top-3 left-3 z-20 gap-3 border border-white/5" onClick={e => e.stopPropagation()}>
-                          <div className="flex gap-1.5">
-                            {['#ffffff', '#ec4899', '#a855f7', '#eab308', '#ef4444'].map(color => (
+
+                        {/* Photo edit controls toolbar overlay */}
+                        <div className="flex flex-col gap-2 absolute top-3 left-3 right-3 z-30 pointer-events-auto" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-between bg-black/85 p-1.5 rounded-2xl border border-white/5 shadow-xl backdrop-blur-md">
+                            {/* Mode toggle */}
+                            <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5">
                               <button
-                                key={color}
                                 type="button"
-                                onClick={() => setBrushColor(color)}
-                                className={`w-5 h-5 rounded-full border transition-all ${
-                                  brushColor === color ? 'scale-110 border-white ring-2 ring-purple-500/50' : 'border-transparent'
-                                }`}
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </div>
-                          <div className="flex gap-1">
-                            {[2, 4, 8].map(size => (
-                              <button
-                                key={size}
-                                type="button"
-                                onClick={() => setBrushSize(size)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-black border transition-all ${
-                                  brushSize === size ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-transparent hover:text-white'
+                                onClick={() => setEditMode('pan')}
+                                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
+                                  editMode === 'pan' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
                                 }`}
                               >
-                                {size === 2 ? 'Thin' : size === 4 ? 'Med' : 'Thick'}
+                                Pan/Zoom
                               </button>
-                            ))}
+                              <button
+                                type="button"
+                                onClick={() => setEditMode('draw')}
+                                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
+                                  editMode === 'draw' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                Draw
+                              </button>
+                            </div>
+                            
+                            {editMode === 'draw' && (
+                              <button
+                                type="button"
+                                onClick={clearCanvas}
+                                className="px-2 py-0.5 rounded-lg bg-red-600/90 hover:bg-red-500 text-white text-[9px] font-bold border border-red-500 active:scale-95 transition-all"
+                              >
+                                Clear
+                              </button>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={clearCanvas}
-                            className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold border border-red-500 active:scale-95 transition-all"
-                          >
-                            Clear
-                          </button>
+
+                          {editMode === 'draw' && (
+                            <div className="flex items-center justify-between bg-black/85 p-2 rounded-2xl border border-white/5 shadow-xl backdrop-blur-md animate-in slide-in-from-top-2 duration-300 gap-3">
+                              {/* Brush Colors */}
+                              <div className="flex gap-1.5">
+                                {['#ffffff', '#ec4899', '#a855f7', '#eab308', '#ef4444'].map(color => (
+                                  <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setBrushColor(color)}
+                                    className={`w-4.5 h-4.5 rounded-full border transition-all ${
+                                      brushColor === color ? 'scale-110 border-white ring-2 ring-purple-500/50' : 'border-transparent'
+                                    }`}
+                                    style={{ backgroundColor: color }}
+                                  />
+                                ))}
+                              </div>
+                              {/* Brush Sizes */}
+                              <div className="flex gap-1">
+                                {[2, 4, 8].map(size => (
+                                  <button
+                                    key={size}
+                                    type="button"
+                                    onClick={() => setBrushSize(size)}
+                                    className={`px-1.5 py-0.5 rounded text-[8px] font-black border transition-all ${
+                                      brushSize === size ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-transparent hover:text-white'
+                                    }`}
+                                  >
+                                    {size === 2 ? 'Thin' : size === 4 ? 'Med' : 'Thick'}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
                     
-                    {/* Change media option */}
+                    {/* Media Change trigger bubble overlay */}
                     <div 
                       onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                      className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 px-3 py-1.5 rounded-xl border border-white/10 text-white text-[10px] font-bold z-20 flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 px-2.5 py-1.5 rounded-xl border border-white/10 text-white text-[9px] font-bold z-20 flex items-center gap-1 transition-all active:scale-95 cursor-pointer backdrop-blur-sm"
                     >
-                      <ImageIcon className="w-3.5 h-3.5" />
+                      <ImageIcon className="w-3 h-3" />
                       <span>Change</span>
                     </div>
                   </>
                 ) : (
-                  <div className="text-center p-6 space-y-3 cursor-pointer">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mx-auto text-purple-400 group-hover:scale-110 transition-transform">
-                      <ImageIcon className="w-6 h-6" />
+                  <div className="text-center p-5 space-y-3 cursor-pointer">
+                    <div className="w-11 h-11 rounded-2xl bg-white/5 flex items-center justify-center mx-auto text-purple-400 group-hover:scale-110 transition-transform">
+                      <ImageIcon className="w-5 h-5" />
                     </div>
-                    <p className="text-sm font-semibold text-gray-300">{t('images_photos')} / Video</p>
-                    <p className="text-xs text-gray-500">Select photos to draw or videos to overlay text</p>
+                    <p className="text-xs font-semibold text-gray-300">{t('images_photos')} / Video</p>
+                    <p className="text-[10px] text-gray-500 max-w-[200px] mx-auto leading-relaxed">
+                      Upload vertical stories: Pinch/drag to edit frame, draw on photos or add text to video.
+                    </p>
                   </div>
                 )}
                 <input 
@@ -391,9 +608,31 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                 />
               </div>
 
+              {/* Interactive Zoom range slider */}
+              {previewUrl && (
+                <div className="space-y-1 bg-[#181622]/50 p-2.5 rounded-2xl border border-white/5 w-[270px] mx-auto">
+                  <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 uppercase">
+                    <span>ZOOM (МАСШТАБ)</span>
+                    <span className="text-purple-400 font-black">{scale.toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="4"
+                    step="0.05"
+                    value={scale}
+                    onChange={(e) => setScale(parseFloat(e.target.value))}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500 my-1"
+                  />
+                  <div className="text-[8px] text-gray-500 text-center font-bold uppercase leading-none">
+                    Pinch screen or drag with mouse to adjust aspect
+                  </div>
+                </div>
+              )}
+
               {/* Caption */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-purple-400 uppercase tracking-widest px-1">
+              <div className="space-y-1 px-1">
+                <label className="text-[10px] font-bold text-purple-400 uppercase tracking-widest px-0.5">
                   {selectedFile?.type.startsWith('video/') ? 'Text Overlay (Текст на видео)' : t('story_caption')}
                 </label>
                 <textarea
@@ -401,10 +640,10 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                   onChange={(e) => setCaption(e.target.value)}
                   maxLength={120}
                   rows={2}
-                  className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-gray-600 transition-all resize-none"
+                  className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 transition-all resize-none"
                   placeholder={selectedFile?.type.startsWith('video/') ? "Type text to overlay on the video..." : "e.g. Sketching the background details..."}
                 />
-                <div className="text-right text-[10px] text-gray-500 font-bold px-1">
+                <div className="text-right text-[9px] text-gray-500 font-bold px-0.5 leading-none">
                   {caption.length}/120
                 </div>
               </div>
@@ -413,11 +652,11 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
               <button
                 type="submit"
                 disabled={!selectedFile || isUploading}
-                className="w-full py-4 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/30 disabled:text-white/20 text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-purple-900/30"
+                className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/30 disabled:text-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-purple-900/30"
               >
                 {isUploading ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     {t('uploading')}
                   </>
                 ) : (

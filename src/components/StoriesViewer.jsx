@@ -10,6 +10,27 @@ const isVideo = (url) => {
   return ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(extension)
 }
 
+const parseStoryCaptionAndTransform = (captionText) => {
+  if (!captionText) return { caption: '', transformStyle: {} }
+  const parts = captionText.split('___TRANSFORM:')
+  const text = parts[0]
+  let transformStyle = {}
+  if (parts[1]) {
+    try {
+      const t = JSON.parse(parts[1])
+      const pctX = (t.panX / 270) * 100
+      const pctY = (t.panY / 480) * 100
+      transformStyle = {
+        transform: `translate(${pctX}%, ${pctY}%) scale(${t.scale})`,
+        transformOrigin: 'center center'
+      }
+    } catch (e) {
+      console.error("Error parsing story transform:", e)
+    }
+  }
+  return { caption: text, transformStyle }
+}
+
 export function StoriesViewer({ groups, initialGroupIndex, onClose }) {
   const { i18n } = useTranslation()
   const [currentGroupIdx, setCurrentGroupIdx] = useState(initialGroupIndex)
@@ -202,43 +223,58 @@ export function StoriesViewer({ groups, initialGroupIndex, onClose }) {
             className="absolute right-0 top-0 bottom-0 w-[30%] z-20 cursor-e-resize"
           />
 
-          {isVideo(currentStory.image_url) ? (
-            <>
-              <video 
-                src={currentStory.image_url} 
-                className="w-full h-full object-cover pointer-events-none"
-                autoPlay
-                muted
-                loop
-                playsInline
-              />
-              {currentStory.caption && (
-                <div className="absolute inset-0 flex items-center justify-center p-6 z-10 pointer-events-none">
-                  <span className="bg-black/60 text-white px-4 py-2.5 rounded-2xl text-base font-black text-center shadow-2xl border border-white/10 max-w-[85%] leading-snug animate-in zoom-in-50 duration-300">
-                    {currentStory.caption}
-                  </span>
-                </div>
-              )}
-            </>
-          ) : (
-            <img 
-              src={currentStory.image_url} 
-              alt="Story" 
-              className="w-full h-full object-cover pointer-events-none"
-            />
-          )}
+          {(() => {
+            const { caption: parsedCaption, transformStyle } = parseStoryCaptionAndTransform(currentStory.caption)
+            
+            if (isVideo(currentStory.image_url)) {
+              return (
+                <>
+                  <video 
+                    src={currentStory.image_url} 
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={transformStyle}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
+                  {parsedCaption && (
+                    <div className="absolute inset-0 flex items-center justify-center p-6 z-10 pointer-events-none">
+                      <span className="bg-black/60 text-white px-4 py-2.5 rounded-2xl text-base font-black text-center shadow-2xl border border-white/10 max-w-[85%] leading-snug animate-in zoom-in-50 duration-300">
+                        {parsedCaption}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )
+            } else {
+              return (
+                <img 
+                  src={currentStory.image_url} 
+                  alt="Story" 
+                  className="w-full h-full object-cover pointer-events-none"
+                />
+              )
+            }
+          })()}
         </div>
 
         {/* Bottom Description Panel (Only for images) */}
-        {!isVideo(currentStory.image_url) && currentStory.caption && (
-          <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-10 text-center">
-            <div className="inline-block px-4 py-2.5 rounded-2xl bg-purple-950/20 backdrop-blur-md border border-purple-500/20 max-w-[90%] mx-auto shadow-lg shadow-purple-950/40">
-              <p className="text-sm font-semibold text-white tracking-tight leading-relaxed text-pretty">
-                {currentStory.caption}
-              </p>
-            </div>
-          </div>
-        )}
+        {(() => {
+          const { caption: parsedCaption } = parseStoryCaptionAndTransform(currentStory.caption)
+          if (!isVideo(currentStory.image_url) && parsedCaption) {
+            return (
+              <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-10 text-center">
+                <div className="inline-block px-4 py-2.5 rounded-2xl bg-purple-950/20 backdrop-blur-md border border-purple-500/20 max-w-[90%] mx-auto shadow-lg shadow-purple-950/40">
+                  <p className="text-sm font-semibold text-white tracking-tight leading-relaxed text-pretty">
+                    {parsedCaption}
+                  </p>
+                </div>
+              </div>
+            )
+          }
+          return null
+        })()}
       </div>
 
       {/* Desktop navigation side controls (Hidden on Mobile) */}
