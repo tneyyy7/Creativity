@@ -87,7 +87,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
       )
       const factor = dist / pinchStartDist
       let newScale = scale * factor
-      newScale = Math.max(1, Math.min(4, newScale))
+      newScale = Math.max(0.3, Math.min(4, newScale))
       setScale(newScale)
       setPinchStartDist(dist)
       return
@@ -111,7 +111,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
     e.stopPropagation()
     const zoomFactor = 0.1
     let newScale = scale + (e.deltaY < 0 ? zoomFactor : -zoomFactor)
-    newScale = Math.max(1, Math.min(4, newScale))
+    newScale = Math.max(0.3, Math.min(4, newScale))
     setScale(newScale)
   }
 
@@ -321,13 +321,21 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
               // If current user has stories, show with neon glowing gradient ring
               <div 
                 onClick={() => handleOpenGroup(activeStoryGroups.indexOf(currentUserGroup))}
-                className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] shadow-[0_0_15px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all duration-300"
+                className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden"
+                style={{
+                  clipPath: 'circle(50% at 50% 50%)',
+                  WebkitClipPath: 'circle(50% at 50% 50%)'
+                }}
               >
-                <div className="w-full h-full rounded-full overflow-hidden bg-[#0c0b11] p-[2px]">
+                <div className="w-full h-full rounded-full bg-[#0c0b11] p-[2px] overflow-hidden">
                   <img 
                     src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
                     alt="Me" 
                     className="w-full h-full rounded-full object-cover"
+                    style={{
+                      clipPath: 'circle(50% at 50% 50%)',
+                      WebkitClipPath: 'circle(50% at 50% 50%)'
+                    }}
                   />
                 </div>
               </div>
@@ -335,12 +343,20 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
               // Otherwise just standard avatar with plus icon
               <div 
                 onClick={() => setUploadModalOpen(true)}
-                className="w-16 h-16 rounded-full overflow-hidden bg-[#181622] hover:bg-[#201e2e] border border-white/5 flex items-center justify-center relative hover:scale-105 active:scale-95 transition-all duration-300"
+                className="w-16 h-16 rounded-full bg-[#181622] hover:bg-[#201e2e] border border-white/5 flex items-center justify-center relative hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
+                style={{
+                  clipPath: 'circle(50% at 50% 50%)',
+                  WebkitClipPath: 'circle(50% at 50% 50%)'
+                }}
               >
                 <img 
                   src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
                   alt="Me" 
                   className="w-full h-full rounded-full object-cover p-[2px]"
+                  style={{
+                    clipPath: 'circle(50% at 50% 50%)',
+                    WebkitClipPath: 'circle(50% at 50% 50%)'
+                  }}
                 />
               </div>
             )}
@@ -348,7 +364,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
             {/* Pulsing Plus Button */}
             <div 
               onClick={() => setUploadModalOpen(true)}
-              className="absolute bottom-0 right-0 w-5 h-5 bg-purple-600 rounded-full border border-[#0c0b11] flex items-center justify-center text-white cursor-pointer shadow-lg shadow-purple-500/20 group-hover:scale-110 active:scale-90 transition-transform"
+              className="absolute bottom-0 right-0 w-5 h-5 bg-purple-600 rounded-full border border-[#0c0b11] flex items-center justify-center text-white cursor-pointer shadow-lg shadow-purple-500/20 group-hover:scale-110 active:scale-90 transition-transform z-10"
             >
               <Plus className="w-3.5 h-3.5" />
             </div>
@@ -377,12 +393,22 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                 onClick={() => handleOpenGroup(absoluteIndex)}
                 className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
               >
-                <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] shadow-[0_0_12px_rgba(168,85,247,0.2)] hover:scale-105 active:scale-95 transition-all duration-300 hover:shadow-[0_0_20px_rgba(236,72,153,0.5)]">
-                  <div className="w-full h-full rounded-full overflow-hidden bg-[#0c0b11] p-[2px]">
+                <div 
+                  className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden"
+                  style={{
+                    clipPath: 'circle(50% at 50% 50%)',
+                    WebkitClipPath: 'circle(50% at 50% 50%)'
+                  }}
+                >
+                  <div className="w-full h-full rounded-full bg-[#0c0b11] p-[2px] overflow-hidden">
                     <img 
                       src={group.user.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
                       alt={group.user.nickname} 
                       className="w-full h-full rounded-full object-cover"
+                      style={{
+                        clipPath: 'circle(50% at 50% 50%)',
+                        WebkitClipPath: 'circle(50% at 50% 50%)'
+                      }}
                     />
                   </div>
                 </div>
@@ -422,15 +448,45 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
             </div>
 
             <form onSubmit={handleUploadSubmit} className="space-y-4">
-              {/* Media selector (Standardized to exact vertical 9:16 stories aspect ratio) */}
-              <div 
-                className="w-[270px] h-[480px] bg-[#0c0b11] rounded-[24px] border border-white/5 flex flex-col items-center justify-center overflow-hidden relative mx-auto bg-black shadow-inner shadow-black/80 group"
-                onClick={() => !previewUrl && fileInputRef.current?.click()}
-                onWheel={handleWheel}
-              >
-                {previewUrl ? (
-                  <>
-                    {selectedFile.type.startsWith('video/') ? (
+              {/* Media selector */}
+              {previewUrl ? (
+                <div 
+                  className="w-[270px] h-[480px] bg-[#0c0b11] rounded-[24px] border border-white/5 flex flex-col items-center justify-center overflow-hidden relative mx-auto bg-black shadow-inner shadow-black/80 group"
+                  onWheel={handleWheel}
+                >
+                  {selectedFile.type.startsWith('video/') ? (
+                    <div 
+                      onMouseDown={handlePanStart}
+                      onMouseMove={handlePanMove}
+                      onMouseUp={handlePanEnd}
+                      onMouseLeave={handlePanEnd}
+                      onTouchStart={handlePanStart}
+                      onTouchMove={handlePanMove}
+                      onTouchEnd={handlePanEnd}
+                      className="w-full h-full absolute inset-0 overflow-hidden cursor-move"
+                    >
+                      <video 
+                        src={previewUrl} 
+                        className="w-full h-full object-cover pointer-events-none"
+                        style={{
+                          transform: `translate(${panX}px, ${panY}px) scale(${scale})`,
+                          transformOrigin: 'center center'
+                        }}
+                        muted 
+                        loop 
+                        autoPlay 
+                        playsInline
+                      />
+                      {caption && (
+                        <div className="absolute inset-0 flex items-center justify-center p-6 z-20 pointer-events-none">
+                          <span className="bg-black/60 text-white px-4 py-2 rounded-2xl text-sm font-black text-center shadow-lg border border-white/5 max-w-[85%] leading-snug">
+                            {caption}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
                       <div 
                         onMouseDown={handlePanStart}
                         onMouseMove={handlePanMove}
@@ -439,174 +495,146 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                         onTouchStart={handlePanStart}
                         onTouchMove={handlePanMove}
                         onTouchEnd={handlePanEnd}
-                        className="w-full h-full absolute inset-0 overflow-hidden cursor-move"
+                        className="w-full h-full absolute inset-0 overflow-hidden cursor-move z-0"
+                        style={{ pointerEvents: editMode === 'pan' ? 'auto' : 'none' }}
                       >
-                        <video 
+                        <img 
                           src={previewUrl} 
-                          className="w-full h-full object-cover pointer-events-none"
+                          alt="Preview" 
+                          className="pointer-events-none max-w-none"
                           style={{
+                            width: `${dimensions.w}px`,
+                            height: `${dimensions.h}px`,
                             transform: `translate(${panX}px, ${panY}px) scale(${scale})`,
-                            transformOrigin: 'center center'
+                            transformOrigin: 'center center',
+                            position: 'absolute',
+                            left: `${(270 - dimensions.w) / 2}px`,
+                            top: `${(480 - dimensions.h) / 2}px`
                           }}
-                          muted 
-                          loop 
-                          autoPlay 
-                          playsInline
                         />
-                        {caption && (
-                          <div className="absolute inset-0 flex items-center justify-center p-6 z-20 pointer-events-none">
-                            <span className="bg-black/60 text-white px-4 py-2 rounded-2xl text-sm font-black text-center shadow-lg border border-white/5 max-w-[85%] leading-snug">
-                              {caption}
-                            </span>
+                      </div>
+
+                      <canvas
+                        ref={canvasRef}
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                        onTouchStart={startDrawing}
+                        onTouchMove={draw}
+                        onTouchEnd={stopDrawing}
+                        className="absolute inset-0 w-full h-full z-10"
+                        style={{ 
+                          pointerEvents: editMode === 'draw' ? 'auto' : 'none',
+                          cursor: editMode === 'draw' ? 'crosshair' : 'default'
+                        }}
+                      />
+
+                      {/* Photo edit controls toolbar overlay */}
+                      <div className="flex flex-col gap-2 absolute top-3 left-3 right-3 z-30 pointer-events-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between bg-black/85 p-1.5 rounded-2xl border border-white/5 shadow-xl backdrop-blur-md">
+                          {/* Mode toggle */}
+                          <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5">
+                            <button
+                              type="button"
+                              onClick={() => setEditMode('pan')}
+                              className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
+                                editMode === 'pan' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                              }`}
+                            >
+                              Pan/Zoom
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditMode('draw')}
+                              className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
+                                editMode === 'draw' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                              }`}
+                            >
+                              Draw
+                            </button>
+                          </div>
+                          
+                          {editMode === 'draw' && (
+                            <button
+                              type="button"
+                              onClick={clearCanvas}
+                              className="px-2 py-0.5 rounded-lg bg-red-600/90 hover:bg-red-500 text-white text-[9px] font-bold border border-red-500 active:scale-95 transition-all"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        {editMode === 'draw' && (
+                          <div className="flex items-center justify-between bg-black/85 p-2 rounded-2xl border border-white/5 shadow-xl backdrop-blur-md animate-in slide-in-from-top-2 duration-300 gap-3">
+                            {/* Brush Colors */}
+                            <div className="flex gap-1.5">
+                              {['#ffffff', '#ec4899', '#a855f7', '#eab308', '#ef4444'].map(color => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  onClick={() => setBrushColor(color)}
+                                  className={`w-4.5 h-4.5 rounded-full border transition-all ${
+                                    brushColor === color ? 'scale-110 border-white ring-2 ring-purple-500/50' : 'border-transparent'
+                                  }`}
+                                  style={{ backgroundColor: color }}
+                                />
+                              ))}
+                            </div>
+                            {/* Brush Sizes */}
+                            <div className="flex gap-1">
+                              {[2, 4, 8].map(size => (
+                                <button
+                                  key={size}
+                                  type="button"
+                                  onClick={() => setBrushSize(size)}
+                                  className={`px-1.5 py-0.5 rounded text-[8px] font-black border transition-all ${
+                                    brushSize === size ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-transparent hover:text-white'
+                                  }`}
+                                >
+                                  {size === 2 ? 'Thin' : size === 4 ? 'Med' : 'Thick'}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <>
-                        <div 
-                          onMouseDown={handlePanStart}
-                          onMouseMove={handlePanMove}
-                          onMouseUp={handlePanEnd}
-                          onMouseLeave={handlePanEnd}
-                          onTouchStart={handlePanStart}
-                          onTouchMove={handlePanMove}
-                          onTouchEnd={handlePanEnd}
-                          className="w-full h-full absolute inset-0 overflow-hidden cursor-move z-0"
-                          style={{ pointerEvents: editMode === 'pan' ? 'auto' : 'none' }}
-                        >
-                          <img 
-                            src={previewUrl} 
-                            alt="Preview" 
-                            className="pointer-events-none max-w-none"
-                            style={{
-                              width: `${dimensions.w}px`,
-                              height: `${dimensions.h}px`,
-                              transform: `translate(${panX}px, ${panY}px) scale(${scale})`,
-                              transformOrigin: 'center center',
-                              position: 'absolute',
-                              left: `${(270 - dimensions.w) / 2}px`,
-                              top: `${(480 - dimensions.h) / 2}px`
-                            }}
-                          />
-                        </div>
-
-                        <canvas
-                          ref={canvasRef}
-                          onMouseDown={startDrawing}
-                          onMouseMove={draw}
-                          onMouseUp={stopDrawing}
-                          onMouseLeave={stopDrawing}
-                          onTouchStart={startDrawing}
-                          onTouchMove={draw}
-                          onTouchEnd={stopDrawing}
-                          className="absolute inset-0 w-full h-full z-10"
-                          style={{ 
-                            pointerEvents: editMode === 'draw' ? 'auto' : 'none',
-                            cursor: editMode === 'draw' ? 'crosshair' : 'default'
-                          }}
-                        />
-
-                        {/* Photo edit controls toolbar overlay */}
-                        <div className="flex flex-col gap-2 absolute top-3 left-3 right-3 z-30 pointer-events-auto" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center justify-between bg-black/85 p-1.5 rounded-2xl border border-white/5 shadow-xl backdrop-blur-md">
-                            {/* Mode toggle */}
-                            <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5">
-                              <button
-                                type="button"
-                                onClick={() => setEditMode('pan')}
-                                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
-                                  editMode === 'pan' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-                                }`}
-                              >
-                                Pan/Zoom
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditMode('draw')}
-                                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
-                                  editMode === 'draw' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-                                }`}
-                              >
-                                Draw
-                              </button>
-                            </div>
-                            
-                            {editMode === 'draw' && (
-                              <button
-                                type="button"
-                                onClick={clearCanvas}
-                                className="px-2 py-0.5 rounded-lg bg-red-600/90 hover:bg-red-500 text-white text-[9px] font-bold border border-red-500 active:scale-95 transition-all"
-                              >
-                                Clear
-                              </button>
-                            )}
-                          </div>
-
-                          {editMode === 'draw' && (
-                            <div className="flex items-center justify-between bg-black/85 p-2 rounded-2xl border border-white/5 shadow-xl backdrop-blur-md animate-in slide-in-from-top-2 duration-300 gap-3">
-                              {/* Brush Colors */}
-                              <div className="flex gap-1.5">
-                                {['#ffffff', '#ec4899', '#a855f7', '#eab308', '#ef4444'].map(color => (
-                                  <button
-                                    key={color}
-                                    type="button"
-                                    onClick={() => setBrushColor(color)}
-                                    className={`w-4.5 h-4.5 rounded-full border transition-all ${
-                                      brushColor === color ? 'scale-110 border-white ring-2 ring-purple-500/50' : 'border-transparent'
-                                    }`}
-                                    style={{ backgroundColor: color }}
-                                  />
-                                ))}
-                              </div>
-                              {/* Brush Sizes */}
-                              <div className="flex gap-1">
-                                {[2, 4, 8].map(size => (
-                                  <button
-                                    key={size}
-                                    type="button"
-                                    onClick={() => setBrushSize(size)}
-                                    className={`px-1.5 py-0.5 rounded text-[8px] font-black border transition-all ${
-                                      brushSize === size ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-transparent hover:text-white'
-                                    }`}
-                                  >
-                                    {size === 2 ? 'Thin' : size === 4 ? 'Med' : 'Thick'}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Media Change trigger bubble overlay */}
-                    <div 
-                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                      className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 px-2.5 py-1.5 rounded-xl border border-white/10 text-white text-[9px] font-bold z-20 flex items-center gap-1 transition-all active:scale-95 cursor-pointer backdrop-blur-sm"
-                    >
-                      <ImageIcon className="w-3 h-3" />
-                      <span>Change</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center p-5 space-y-3 cursor-pointer">
+                    </>
+                  )}
+                  
+                  {/* Media Change trigger bubble overlay */}
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                    className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 px-2.5 py-1.5 rounded-xl border border-white/10 text-white text-[9px] font-bold z-20 flex items-center gap-1 transition-all active:scale-95 cursor-pointer backdrop-blur-sm"
+                  >
+                    <ImageIcon className="w-3 h-3" />
+                    <span>Change</span>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="w-full h-64 bg-[#0c0b11] rounded-[24px] border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer hover:border-purple-500/50 hover:bg-white/[0.02] transition-all duration-300 relative group overflow-hidden"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="text-center p-5 space-y-3">
                     <div className="w-11 h-11 rounded-2xl bg-white/5 flex items-center justify-center mx-auto text-purple-400 group-hover:scale-110 transition-transform">
                       <ImageIcon className="w-5 h-5" />
                     </div>
                     <p className="text-xs font-semibold text-gray-300">{t('images_photos')} / Video</p>
-                    <p className="text-[10px] text-gray-500 max-w-[200px] mx-auto leading-relaxed">
+                    <p className="text-[10px] text-gray-500 max-w-[240px] mx-auto leading-relaxed">
                       Upload vertical stories: Pinch/drag to edit frame, draw on photos or add text to video.
                     </p>
                   </div>
-                )}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  accept="image/*,video/*" 
-                  className="hidden" 
-                />
-              </div>
+                </div>
+              )}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="image/*,video/*" 
+                className="hidden" 
+              />
 
               {/* Interactive Zoom range slider */}
               {previewUrl && (
@@ -617,7 +645,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                   </div>
                   <input
                     type="range"
-                    min="1"
+                    min="0.3"
                     max="4"
                     step="0.05"
                     value={scale}
