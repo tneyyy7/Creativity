@@ -207,47 +207,60 @@ END $$;
 -- 6. Notification Center DB Triggers
 -- ==========================================
 
--- Предотвращаем дублирование: принудительно удаляем все триггеры с любыми именами
-DROP TRIGGER IF EXISTS on_like_created ON public.post_likes;
-DROP TRIGGER IF EXISTS on_like_deleted ON public.post_likes;
-DROP TRIGGER IF EXISTS like_trigger ON public.post_likes;
-DROP TRIGGER IF EXISTS like_notification_trigger ON public.post_likes;
+-- 1. Снимаем ограничение NOT NULL с painting_id в таблице notifications (если оно было установлено)
+ALTER TABLE public.notifications ALTER COLUMN painting_id DROP NOT NULL;
 
-DROP TRIGGER IF EXISTS on_comment_created ON public.post_comments;
-DROP TRIGGER IF EXISTS comment_trigger ON public.post_comments;
-DROP TRIGGER IF EXISTS comment_notification_trigger ON public.post_comments;
+-- 2. Динамически удаляем любые CHECK-ограничения на колонку type в notifications для поддержки новых типов уведомлений
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN 
+    SELECT constraint_name 
+    FROM information_schema.constraint_column_usage 
+    WHERE table_name = 'notifications' AND column_name = 'type'
+  LOOP
+    EXECUTE 'ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name) || ' CASCADE;';
+  END LOOP;
+END $$;
 
-DROP TRIGGER IF EXISTS on_bookmark_created ON public.bookmarks;
-DROP TRIGGER IF EXISTS on_bookmark_deleted ON public.bookmarks;
-DROP TRIGGER IF EXISTS bookmark_trigger ON public.bookmarks;
-DROP TRIGGER IF EXISTS bookmark_notification_trigger ON public.bookmarks;
+-- 3. Динамически удаляем ВСЕ существующие триггеры на целевых таблицах для избежания конфликтов и дублирования
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN 
+    SELECT trigger_name, event_object_table 
+    FROM information_schema.triggers 
+    WHERE trigger_schema = 'public' 
+      AND event_object_table IN ('post_likes', 'post_comments', 'bookmarks', 'follows', 'notifications', 'messages', 'friendships')
+  LOOP
+    EXECUTE 'DROP TRIGGER IF EXISTS ' || quote_ident(r.trigger_name) || ' ON public.' || quote_ident(r.event_object_table) || ' CASCADE;';
+  END LOOP;
+END $$;
 
-DROP TRIGGER IF EXISTS on_follow_created ON public.follows;
-DROP TRIGGER IF EXISTS on_follow_deleted ON public.follows;
-DROP TRIGGER IF EXISTS follow_trigger ON public.follows;
-DROP TRIGGER IF EXISTS follow_notification_trigger ON public.follows;
 
-DROP TRIGGER IF EXISTS on_friendship_modified ON public.friendships;
-DROP TRIGGER IF EXISTS friendship_trigger ON public.friendships;
-
-
--- A. Like Notifications Trigger Function
+-- A. Like Notifications Trigger Function (AFTER INSERT/DELETE)
 CREATE OR REPLACE FUNCTION public.handle_like_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
-  IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
-    -- Защита от дублирования
-    IF NOT EXISTS (
-      SELECT 1 FROM public.notifications 
-      WHERE user_id = target_user_id AND actor_id = NEW.user_id AND painting_id = NEW.painting_id AND type = 'like'
-    ) THEN
-      INSERT INTO public.notifications (user_id, actor_id, painting_id, type, is_read, created_at)
-      VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'like', false, now());
+  BEGIN
+    SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
+    IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
+      -- Защита от дублирования
+      IF NOT EXISTS (
+        SELECT 1 FROM public.notifications 
+        WHERE user_id = target_user_id AND actor_id = NEW.user_id AND painting_id = NEW.painting_id AND type = 'like'
+      ) THEN
+        INSERT INTO public.notifications (user_id, actor_id, painting_id, type, is_read, created_at)
+        VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'like', false, now());
+      END IF;
     END IF;
-  END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_like_notification failed: %', SQLERRM;
+  END;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -256,17 +269,21 @@ CREATE TRIGGER on_like_created
   AFTER INSERT ON public.post_likes
   FOR EACH ROW EXECUTE FUNCTION public.handle_like_notification();
 
--- Delete notification when post_like is deleted
+
 CREATE OR REPLACE FUNCTION public.handle_like_deletion_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  SELECT user_id INTO target_user_id FROM public.paintings WHERE id = OLD.painting_id;
-  IF target_user_id IS NOT NULL THEN
-    DELETE FROM public.notifications 
-    WHERE user_id = target_user_id AND actor_id = OLD.user_id AND painting_id = OLD.painting_id AND type = 'like';
-  END IF;
+  BEGIN
+    SELECT user_id INTO target_user_id FROM public.paintings WHERE id = OLD.painting_id;
+    IF target_user_id IS NOT NULL THEN
+      DELETE FROM public.notifications 
+      WHERE user_id = target_user_id AND actor_id = OLD.user_id AND painting_id = OLD.painting_id AND type = 'like';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_like_deletion_notification failed: %', SQLERRM;
+  END;
   RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -276,17 +293,21 @@ CREATE TRIGGER on_like_deleted
   FOR EACH ROW EXECUTE FUNCTION public.handle_like_deletion_notification();
 
 
--- B. Comment Notifications Trigger Function
+-- B. Comment Notifications Trigger Function (AFTER INSERT)
 CREATE OR REPLACE FUNCTION public.handle_comment_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
-  IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
-    INSERT INTO public.notifications (user_id, actor_id, painting_id, type, content, is_read, created_at)
-    VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'comment', substring(NEW.content from 1 for 100), false, now());
-  END IF;
+  BEGIN
+    SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
+    IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
+      INSERT INTO public.notifications (user_id, actor_id, painting_id, type, content, is_read, created_at)
+      VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'comment', substring(NEW.content from 1 for 100), false, now());
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_comment_notification failed: %', SQLERRM;
+  END;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -296,30 +317,34 @@ CREATE TRIGGER on_comment_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_comment_notification();
 
 
--- C. Friendship Notifications Trigger Function
+-- C. Friendship Notifications Trigger Function (AFTER INSERT OR UPDATE)
 CREATE OR REPLACE FUNCTION public.handle_friendship_notification()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF (TG_OP = 'INSERT' AND NEW.status = 'pending') THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.notifications 
-      WHERE user_id = NEW.receiver_id AND actor_id = NEW.sender_id AND type = 'friend_request'
-    ) THEN
-      INSERT INTO public.notifications (user_id, actor_id, type, is_read, created_at)
-      VALUES (NEW.receiver_id, NEW.sender_id, 'friend_request', false, now());
+  BEGIN
+    IF (TG_OP = 'INSERT' AND NEW.status = 'pending') THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM public.notifications 
+        WHERE user_id = NEW.receiver_id AND actor_id = NEW.sender_id AND type = 'friend_request'
+      ) THEN
+        INSERT INTO public.notifications (user_id, actor_id, type, is_read, created_at)
+        VALUES (NEW.receiver_id, NEW.sender_id, 'friend_request', false, now());
+      END IF;
+    ELSIF (TG_OP = 'UPDATE' AND OLD.status = 'pending' AND NEW.status = 'accepted') THEN
+      DELETE FROM public.notifications 
+      WHERE user_id = NEW.receiver_id AND actor_id = NEW.sender_id AND type = 'friend_request';
+      
+      IF NOT EXISTS (
+        SELECT 1 FROM public.notifications 
+        WHERE user_id = NEW.sender_id AND actor_id = NEW.receiver_id AND type = 'friend_accept'
+      ) THEN
+        INSERT INTO public.notifications (user_id, actor_id, type, is_read, created_at)
+        VALUES (NEW.sender_id, NEW.receiver_id, 'friend_accept', false, now());
+      END IF;
     END IF;
-  ELSIF (TG_OP = 'UPDATE' AND OLD.status = 'pending' AND NEW.status = 'accepted') THEN
-    DELETE FROM public.notifications 
-    WHERE user_id = NEW.receiver_id AND actor_id = NEW.sender_id AND type = 'friend_request';
-    
-    IF NOT EXISTS (
-      SELECT 1 FROM public.notifications 
-      WHERE user_id = NEW.sender_id AND actor_id = NEW.receiver_id AND type = 'friend_accept'
-    ) THEN
-      INSERT INTO public.notifications (user_id, actor_id, type, is_read, created_at)
-      VALUES (NEW.sender_id, NEW.receiver_id, 'friend_accept', false, now());
-    END IF;
-  END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_friendship_notification failed: %', SQLERRM;
+  END;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -329,23 +354,27 @@ CREATE TRIGGER on_friendship_modified
   FOR EACH ROW EXECUTE FUNCTION public.handle_friendship_notification();
 
 
--- D. Bookmark Notifications Trigger Function
+-- D. Bookmark Notifications Trigger Function (AFTER INSERT/DELETE)
 CREATE OR REPLACE FUNCTION public.handle_bookmark_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
-  IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
-    -- Защита от дублирования
-    IF NOT EXISTS (
-      SELECT 1 FROM public.notifications 
-      WHERE user_id = target_user_id AND actor_id = NEW.user_id AND painting_id = NEW.painting_id AND type = 'bookmark'
-    ) THEN
-      INSERT INTO public.notifications (user_id, actor_id, painting_id, type, is_read, created_at)
-      VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'bookmark', false, now());
+  BEGIN
+    SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
+    IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
+      -- Защита от дублирования
+      IF NOT EXISTS (
+        SELECT 1 FROM public.notifications 
+        WHERE user_id = target_user_id AND actor_id = NEW.user_id AND painting_id = NEW.painting_id AND type = 'bookmark'
+      ) THEN
+        INSERT INTO public.notifications (user_id, actor_id, painting_id, type, is_read, created_at)
+        VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'bookmark', false, now());
+      END IF;
     END IF;
-  END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_bookmark_notification failed: %', SQLERRM;
+  END;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -354,17 +383,21 @@ CREATE TRIGGER on_bookmark_created
   AFTER INSERT ON public.bookmarks
   FOR EACH ROW EXECUTE FUNCTION public.handle_bookmark_notification();
 
--- Delete notification when bookmark is deleted
+
 CREATE OR REPLACE FUNCTION public.handle_bookmark_deletion_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  SELECT user_id INTO target_user_id FROM public.paintings WHERE id = OLD.painting_id;
-  IF target_user_id IS NOT NULL THEN
-    DELETE FROM public.notifications 
-    WHERE user_id = target_user_id AND actor_id = OLD.user_id AND painting_id = OLD.painting_id AND type = 'bookmark';
-  END IF;
+  BEGIN
+    SELECT user_id INTO target_user_id FROM public.paintings WHERE id = OLD.painting_id;
+    IF target_user_id IS NOT NULL THEN
+      DELETE FROM public.notifications 
+      WHERE user_id = target_user_id AND actor_id = OLD.user_id AND painting_id = OLD.painting_id AND type = 'bookmark';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_bookmark_deletion_notification failed: %', SQLERRM;
+  END;
   RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -374,18 +407,22 @@ CREATE TRIGGER on_bookmark_deleted
   FOR EACH ROW EXECUTE FUNCTION public.handle_bookmark_deletion_notification();
 
 
--- E. Follow Notifications Trigger Function
+-- E. Follow Notifications Trigger Function (AFTER INSERT/DELETE)
 CREATE OR REPLACE FUNCTION public.handle_follow_notification()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Notify the followed user about their new follower
-  IF NOT EXISTS (
-    SELECT 1 FROM public.notifications 
-    WHERE user_id = NEW.following_id AND actor_id = NEW.follower_id AND type = 'follow'
-  ) THEN
-    INSERT INTO public.notifications (user_id, actor_id, type, is_read, created_at)
-    VALUES (NEW.following_id, NEW.follower_id, 'follow', false, now());
-  END IF;
+  BEGIN
+    -- Notify the followed user about their new follower
+    IF NOT EXISTS (
+      SELECT 1 FROM public.notifications 
+      WHERE user_id = NEW.following_id AND actor_id = NEW.follower_id AND type = 'follow'
+    ) THEN
+      INSERT INTO public.notifications (user_id, actor_id, type, is_read, created_at)
+      VALUES (NEW.following_id, NEW.follower_id, 'follow', false, now());
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_follow_notification failed: %', SQLERRM;
+  END;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -394,12 +431,16 @@ CREATE TRIGGER on_follow_created
   AFTER INSERT ON public.follows
   FOR EACH ROW EXECUTE FUNCTION public.handle_follow_notification();
 
--- Delete notification when follow is deleted (unfollowed)
+
 CREATE OR REPLACE FUNCTION public.handle_follow_deletion_notification()
 RETURNS TRIGGER AS $$
 BEGIN
-  DELETE FROM public.notifications 
-  WHERE user_id = OLD.following_id AND actor_id = OLD.follower_id AND type = 'follow';
+  BEGIN
+    DELETE FROM public.notifications 
+    WHERE user_id = OLD.following_id AND actor_id = OLD.follower_id AND type = 'follow';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_follow_deletion_notification failed: %', SQLERRM;
+  END;
   RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -413,7 +454,9 @@ CREATE TRIGGER on_follow_deleted
 -- F. Fault-Tolerant Push Notifications trigger (OneSignal call safety)
 -- ==========================================
 
--- Create the trigger function to call our Edge Function (with exception handling to prevent rollback)
+-- Enable the HTTP extension (if not already enabled)
+CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "extensions";
+
 CREATE OR REPLACE FUNCTION public.handle_onesignal_notification()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -438,3 +481,16 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ТРИГГЕРЫ PUSH-УВЕДОМЛЕНИЙ
+
+-- 1. Для сообщений (messages)
+CREATE TRIGGER on_message_created
+  AFTER INSERT ON public.messages
+  FOR EACH ROW EXECUTE FUNCTION public.handle_onesignal_notification();
+
+-- 2. Для уведомлений об активности (из таблицы notifications)
+CREATE TRIGGER on_notification_created
+  AFTER INSERT ON public.notifications
+  FOR EACH ROW EXECUTE FUNCTION public.handle_onesignal_notification();
+
