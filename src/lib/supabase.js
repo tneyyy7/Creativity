@@ -1569,4 +1569,22 @@ export async function toggleStoryLike(storyId, userId) {
   }
 }
 
+// Delete a story by ID
+export async function deleteStory(storyId) {
+  try {
+    if (!storyId) return false
+    const { error } = await supabase
+      .from('stories')
+      .delete()
+      .eq('id', storyId)
+
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('deleteStory error:', e)
+    throw e
+  }
+}
+
+
 

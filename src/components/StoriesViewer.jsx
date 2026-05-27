@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ChevronLeft, ChevronRight, Play, Pause, Heart, Volume2, VolumeX, Send, Loader2, Check } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Play, Pause, Heart, Volume2, VolumeX, Send, Loader2, Check, MoreVertical, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
-import { checkIfStoryLiked, toggleStoryLike, sendMessage } from '../lib/supabase'
+import { checkIfStoryLiked, toggleStoryLike, sendMessage, deleteStory } from '../lib/supabase'
 
 const isVideo = (url) => {
   if (!url) return false
@@ -39,6 +39,10 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   
+  // More options menu states
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
   const timerRef = useRef(null)
   const PROGRESS_DURATION = 5000 // 5 seconds per story
   const INTERVAL_STEP = 50 // Update progress every 50ms
@@ -47,11 +51,17 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
   const currentStories = currentGroup?.stories || []
   const currentStory = currentStories[currentStoryIdx]
 
-  // Reset slide index when changing user groups
+  // Reset slide index and menu states when changing user groups or stories
   useEffect(() => {
     setCurrentStoryIdx(0)
     setProgress(0)
+    setShowMoreMenu(false)
   }, [currentGroupIdx])
+
+  useEffect(() => {
+    setProgress(0)
+    setShowMoreMenu(false)
+  }, [currentStoryIdx])
 
   // Story playing loop
   useEffect(() => {
@@ -176,6 +186,29 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
     }
   }
 
+  const handleDelete = async (e) => {
+    if (e) e.stopPropagation();
+    if (!currentUser || !currentStory || isDeleting) return
+
+    const confirmMsg = i18n.language === 'ru' 
+      ? 'Вы уверены, что хотите удалить эту историю?' 
+      : 'Are you sure you want to delete this story?'
+      
+    if (window.confirm(confirmMsg)) {
+      setIsDeleting(true)
+      try {
+        await deleteStory(currentStory.id)
+        setShowMoreMenu(false)
+        onClose() // Close story viewer to reload banner groups
+      } catch (err) {
+        console.error("Story deletion error:", err)
+        alert(i18n.language === 'ru' ? 'Не удалось удалить историю' : 'Failed to delete story')
+      } finally {
+        setIsDeleting(false)
+      }
+    }
+  }
+
   if (!currentGroup || !currentStory) return null
 
   // Date parsing safely
@@ -215,11 +248,23 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
       {/* Main player box (Aspect Ratio optimized for Stories) */}
       <div 
         className="relative w-full h-full max-w-[480px] md:h-[85vh] md:max-h-[850px] bg-[#09080d] md:rounded-[32px] overflow-hidden border border-white/5 flex flex-col justify-between shadow-[0_0_50px_rgba(147,51,234,0.15)]"
-        onTouchStart={() => setIsPaused(true)}
-        onTouchEnd={() => setIsPaused(false)}
-        onMouseDown={() => setIsPaused(true)}
-        onMouseUp={() => setIsPaused(false)}
+        onTouchStart={() => { if (!showMoreMenu) setIsPaused(true); }}
+        onTouchEnd={() => { if (!showMoreMenu) setIsPaused(false); }}
+        onMouseDown={() => { if (!showMoreMenu) setIsPaused(true); }}
+        onMouseUp={() => { if (!showMoreMenu) setIsPaused(false); }}
       >
+        
+        {/* Click-away overlay for options menu */}
+        {showMoreMenu && (
+          <div 
+            className="absolute inset-0 bg-transparent z-40 cursor-default" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMoreMenu(false);
+              setIsPaused(false);
+            }}
+          />
+        )}
         
         {/* Top Control Bar & Progress lines */}
         <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-10 space-y-4">
@@ -276,6 +321,41 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
               >
                 {isPaused ? <Play className="w-4 h-4 fill-white" /> : <Pause className="w-4 h-4 fill-white" />}
               </button>
+
+              {/* Options Menu (Three dots) for Story Owner */}
+              {currentUser && currentUser.id === currentGroup.user.id && (
+                <div className="relative z-50">
+                  <button 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setShowMoreMenu(!showMoreMenu); 
+                      setIsPaused(!showMoreMenu); // pause if opening, resume if closing
+                    }}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all text-white ${
+                      showMoreMenu ? 'bg-purple-600 shadow-lg shadow-purple-900/40' : 'bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {showMoreMenu && (
+                    <div className="absolute right-0 top-10 bg-[#12111a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 w-40 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <button
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-black text-red-400 hover:text-white hover:bg-red-500/20 rounded-xl transition-all disabled:opacity-50"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isDeleting ? (i18n.language === 'ru' ? 'Удаление...' : 'Deleting...') : (i18n.language === 'ru' ? 'Удалить' : 'Delete')}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Close Button */}
               <button 
