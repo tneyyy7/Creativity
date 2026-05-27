@@ -44,6 +44,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
   const [isDeleting, setIsDeleting] = useState(false)
   
   const timerRef = useRef(null)
+  const videoRef = useRef(null)
   const PROGRESS_DURATION = 5000 // 5 seconds per story
   const INTERVAL_STEP = 50 // Update progress every 50ms
 
@@ -100,6 +101,33 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
       setIsLiked(false)
     }
   }, [currentStory?.id, currentUser?.id])
+
+  // Track viewed stories in localStorage for read/unread bubble rings
+  useEffect(() => {
+    if (currentStory?.id) {
+      try {
+        const viewedStr = localStorage.getItem('viewed_stories') || '[]'
+        const viewed = JSON.parse(viewedStr)
+        if (!viewed.includes(currentStory.id)) {
+          viewed.push(currentStory.id)
+          localStorage.setItem('viewed_stories', JSON.stringify(viewed))
+        }
+      } catch (e) {
+        console.error("Error saving viewed story ID:", e)
+      }
+    }
+  }, [currentStory?.id])
+
+  // Handle video element play/pause state
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPaused) {
+        videoRef.current.pause()
+      } else {
+        videoRef.current.play().catch(e => console.error("Error playing video:", e))
+      }
+    }
+  }, [isPaused, currentStoryIdx, currentGroupIdx])
 
   const handlePrev = () => {
     setProgress(0)
@@ -393,6 +421,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
               return (
                 <>
                   <video 
+                    ref={videoRef}
                     src={currentStory.image_url} 
                     className="w-full h-full object-cover pointer-events-none"
                     style={transformStyle}

@@ -115,16 +115,34 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
     setScale(newScale)
   }
 
+  const [viewedStoryIds, setViewedStoryIds] = useState([])
+
+  const loadViewedStories = () => {
+    try {
+      const viewedStr = localStorage.getItem('viewed_stories') || '[]'
+      setViewedStoryIds(JSON.parse(viewedStr))
+    } catch (e) {
+      console.error("Error loading viewed stories:", e)
+    }
+  }
+
   const loadStories = async () => {
     setLoadingStories(true)
     const groups = await fetchActiveStories()
     setActiveStoryGroups(groups)
+    loadViewedStories()
     setLoadingStories(false)
   }
 
   useEffect(() => {
     loadStories()
+    loadViewedStories()
   }, [])
+
+  const isGroupFullyViewed = (group) => {
+    if (!group || !group.stories || group.stories.length === 0) return true
+    return group.stories.every(s => viewedStoryIds.includes(s.id))
+  }
 
   // Canvas drawing config effect (Fixed resolution to 270x480 for precise mapping)
   useEffect(() => {
@@ -303,6 +321,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
 
   const handleCloseViewer = () => {
     setSelectedGroupIndex(null)
+    loadViewedStories() // Reload viewed stories list from localStorage
     loadStories() // Reload in case stories were deleted or read
   }
 
@@ -318,10 +337,14 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
         <div className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
           <div className="relative">
             {currentUserGroup ? (
-              // If current user has stories, show with neon glowing gradient ring
+              // If current user has stories, show with neon glowing gradient ring or simple gray border if fully viewed
               <div 
                 onClick={() => handleOpenGroup(activeStoryGroups.indexOf(currentUserGroup))}
-                className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden"
+                className={`w-16 h-16 rounded-full hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden ${
+                  isGroupFullyViewed(currentUserGroup)
+                    ? 'bg-[#181622] p-[1.5px] border border-white/10'
+                    : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px]'
+                }`}
                 style={{
                   clipPath: 'circle(50% at 50% 50%)',
                   WebkitClipPath: 'circle(50% at 50% 50%)'
@@ -394,7 +417,11 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                 className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
               >
                 <div 
-                  className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px] hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden"
+                  className={`w-16 h-16 rounded-full hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden ${
+                    isGroupFullyViewed(group)
+                      ? 'bg-[#181622] p-[1.5px] border border-white/10'
+                      : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px]'
+                  }`}
                   style={{
                     clipPath: 'circle(50% at 50% 50%)',
                     WebkitClipPath: 'circle(50% at 50% 50%)'
