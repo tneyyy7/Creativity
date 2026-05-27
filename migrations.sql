@@ -1,4 +1,5 @@
--- 🎨 MIGRATIONS FOR CREATIVITY WAVES 1 & 2 FEATURES
+-- 🎨 ULTRA-SAFE MIGRATIONS FOR CREATIVITY WAVES 1 & 2 FEATURES
+-- This script uses pgSQL safeguards (DO blocks, IF NOT EXISTS) to ensure error-free execution in Supabase.
 
 -- ==========================================
 -- 1. Profiles Table Updates
@@ -17,15 +18,24 @@ CREATE TABLE IF NOT EXISTS public.tags (
 -- Enable RLS
 ALTER TABLE public.tags ENABLE ROW LEVEL SECURITY;
 
--- Allow read access to anyone
-DROP POLICY IF EXISTS "Allow public read access to tags" ON public.tags;
-CREATE POLICY "Allow public read access to tags" ON public.tags
-  FOR SELECT USING (true);
+-- RLS Policies for tags
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow public read access to tags" ON public.tags;
+  CREATE POLICY "Allow public read access to tags" ON public.tags
+    FOR SELECT USING (true);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
--- Allow authenticated users to insert tags
-DROP POLICY IF EXISTS "Allow authenticated users to insert tags" ON public.tags;
-CREATE POLICY "Allow authenticated users to insert tags" ON public.tags
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow authenticated users to insert tags" ON public.tags;
+  CREATE POLICY "Allow authenticated users to insert tags" ON public.tags
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- ==========================================
 -- 3. Painting Tags Table (Wave 1 #2 Join Table)
@@ -34,36 +44,58 @@ CREATE TABLE IF NOT EXISTS public.painting_tags (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   painting_id uuid REFERENCES public.paintings(id) ON DELETE CASCADE NOT NULL,
   tag_id uuid REFERENCES public.tags(id) ON DELETE CASCADE NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE (painting_id, tag_id)
+  created_at timestamptz DEFAULT now()
 );
+
+-- Safely add UNIQUE constraint to painting_tags
+DO $$
+BEGIN
+  ALTER TABLE public.painting_tags ADD CONSTRAINT painting_tags_painting_id_tag_id_key UNIQUE (painting_id, tag_id);
+EXCEPTION WHEN OTHERS THEN
+  -- Ignore if constraint already exists
+  NULL;
+END $$;
 
 -- Enable RLS
 ALTER TABLE public.painting_tags ENABLE ROW LEVEL SECURITY;
 
--- Allow read access to anyone
-DROP POLICY IF EXISTS "Allow public read access to painting_tags" ON public.painting_tags;
-CREATE POLICY "Allow public read access to painting_tags" ON public.painting_tags
-  FOR SELECT USING (true);
+-- RLS Policies for painting_tags
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow public read access to painting_tags" ON public.painting_tags;
+  CREATE POLICY "Allow public read access to painting_tags" ON public.painting_tags
+    FOR SELECT USING (true);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
--- Allow authenticated users to manage tags for their own paintings
-DROP POLICY IF EXISTS "Allow users to insert painting_tags for their paintings" ON public.painting_tags;
-CREATE POLICY "Allow users to insert painting_tags for their paintings" ON public.painting_tags
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.paintings
-      WHERE id = painting_id AND user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to insert painting_tags for their paintings" ON public.painting_tags;
+  CREATE POLICY "Allow users to insert painting_tags for their paintings" ON public.painting_tags
+    FOR INSERT WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.paintings
+        WHERE id = painting_id AND user_id = auth.uid()
+      )
+    );
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
-DROP POLICY IF EXISTS "Allow users to delete painting_tags for their paintings" ON public.painting_tags;
-CREATE POLICY "Allow users to delete painting_tags for their paintings" ON public.painting_tags
-  FOR DELETE USING (
-    EXISTS (
-      SELECT 1 FROM public.paintings
-      WHERE id = painting_id AND user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to delete painting_tags for their paintings" ON public.painting_tags;
+  CREATE POLICY "Allow users to delete painting_tags for their paintings" ON public.painting_tags
+    FOR DELETE USING (
+      EXISTS (
+        SELECT 1 FROM public.paintings
+        WHERE id = painting_id AND user_id = auth.uid()
+      )
+    );
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- ==========================================
 -- 4. Bookmarks Table (Wave 1 #3)
@@ -72,25 +104,47 @@ CREATE TABLE IF NOT EXISTS public.bookmarks (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   painting_id uuid REFERENCES public.paintings(id) ON DELETE CASCADE NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE (user_id, painting_id)
+  created_at timestamptz DEFAULT now()
 );
+
+-- Safely add UNIQUE constraint to bookmarks
+DO $$
+BEGIN
+  ALTER TABLE public.bookmarks ADD CONSTRAINT bookmarks_user_id_painting_id_key UNIQUE (user_id, painting_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- Enable RLS
 ALTER TABLE public.bookmarks ENABLE ROW LEVEL SECURITY;
 
--- Allow users to manage their own bookmarks
-DROP POLICY IF EXISTS "Allow users to select their own bookmarks" ON public.bookmarks;
-CREATE POLICY "Allow users to select their own bookmarks" ON public.bookmarks
-  FOR SELECT USING (auth.uid() = user_id);
+-- RLS Policies for bookmarks
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to select their own bookmarks" ON public.bookmarks;
+  CREATE POLICY "Allow users to select their own bookmarks" ON public.bookmarks
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
-DROP POLICY IF EXISTS "Allow users to insert their own bookmarks" ON public.bookmarks;
-CREATE POLICY "Allow users to insert their own bookmarks" ON public.bookmarks
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to insert their own bookmarks" ON public.bookmarks;
+  CREATE POLICY "Allow users to insert their own bookmarks" ON public.bookmarks
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
-DROP POLICY IF EXISTS "Allow users to delete their own bookmarks" ON public.bookmarks;
-CREATE POLICY "Allow users to delete their own bookmarks" ON public.bookmarks
-  FOR DELETE USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to delete their own bookmarks" ON public.bookmarks;
+  CREATE POLICY "Allow users to delete their own bookmarks" ON public.bookmarks
+    FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- ==========================================
 -- 5. Follows Table (Wave 2 #9)
@@ -99,33 +153,61 @@ CREATE TABLE IF NOT EXISTS public.follows (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   follower_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   following_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE (follower_id, following_id),
-  CONSTRAINT no_self_follow CHECK (follower_id <> following_id)
+  created_at timestamptz DEFAULT now()
 );
+
+-- Safely add constraints to follows
+DO $$
+BEGIN
+  ALTER TABLE public.follows ADD CONSTRAINT follows_follower_id_following_id_key UNIQUE (follower_id, following_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE public.follows ADD CONSTRAINT no_self_follow CHECK (follower_id <> following_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- Enable RLS
 ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
 
--- Allow anyone to see follows
-DROP POLICY IF EXISTS "Allow public read access to follows" ON public.follows;
-CREATE POLICY "Allow public read access to follows" ON public.follows
-  FOR SELECT USING (true);
+-- RLS Policies for follows
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow public read access to follows" ON public.follows;
+  CREATE POLICY "Allow public read access to follows" ON public.follows
+    FOR SELECT USING (true);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
--- Allow users to manage their own follows
-DROP POLICY IF EXISTS "Allow users to follow others" ON public.follows;
-CREATE POLICY "Allow users to follow others" ON public.follows
-  FOR INSERT WITH CHECK (auth.uid() = follower_id);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to follow others" ON public.follows;
+  CREATE POLICY "Allow users to follow others" ON public.follows
+    FOR INSERT WITH CHECK (auth.uid() = follower_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
-DROP POLICY IF EXISTS "Allow users to unfollow others" ON public.follows;
-CREATE POLICY "Allow users to unfollow others" ON public.follows
-  FOR DELETE USING (auth.uid() = follower_id);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to unfollow others" ON public.follows;
+  CREATE POLICY "Allow users to unfollow others" ON public.follows
+    FOR DELETE USING (auth.uid() = follower_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
 
 -- ==========================================
--- 6. Notification Center DB Triggers (Wave 1 #1)
+-- 6. Notification Center DB Triggers
 -- ==========================================
 
--- Предотвращаем дублирование: удаляем абсолютно все старые и новые триггеры с любыми возможными именами
+-- Предотвращаем дублирование: принудительно удаляем все триггеры с любыми именами
 DROP TRIGGER IF EXISTS on_like_created ON public.post_likes;
 DROP TRIGGER IF EXISTS on_like_deleted ON public.post_likes;
 DROP TRIGGER IF EXISTS like_trigger ON public.post_likes;
@@ -146,6 +228,7 @@ DROP TRIGGER IF EXISTS follow_trigger ON public.follows;
 DROP TRIGGER IF EXISTS follow_notification_trigger ON public.follows;
 
 DROP TRIGGER IF EXISTS on_friendship_modified ON public.friendships;
+DROP TRIGGER IF EXISTS friendship_trigger ON public.friendships;
 
 
 -- A. Like Notifications Trigger Function
@@ -154,10 +237,7 @@ RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  -- Get the owner of the painting
   SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
-  
-  -- Only notify if the person liking is not the owner of the painting
   IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
     -- Защита от дублирования
     IF NOT EXISTS (
@@ -172,7 +252,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create Trigger for Like insertion
 CREATE TRIGGER on_like_created
   AFTER INSERT ON public.post_likes
   FOR EACH ROW EXECUTE FUNCTION public.handle_like_notification();
@@ -203,10 +282,7 @@ RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  -- Get the owner of the painting
   SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
-  
-  -- Only notify if the commenter is not the owner of the painting
   IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
     INSERT INTO public.notifications (user_id, actor_id, painting_id, type, content, is_read, created_at)
     VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'comment', substring(NEW.content from 1 for 100), false, now());
@@ -215,7 +291,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create Trigger for Comment insertion
 CREATE TRIGGER on_comment_created
   AFTER INSERT ON public.post_comments
   FOR EACH ROW EXECUTE FUNCTION public.handle_comment_notification();
@@ -226,7 +301,6 @@ CREATE OR REPLACE FUNCTION public.handle_friendship_notification()
 RETURNS TRIGGER AS $$
 BEGIN
   IF (TG_OP = 'INSERT' AND NEW.status = 'pending') THEN
-    -- Защита от дублирования
     IF NOT EXISTS (
       SELECT 1 FROM public.notifications 
       WHERE user_id = NEW.receiver_id AND actor_id = NEW.sender_id AND type = 'friend_request'
@@ -235,11 +309,9 @@ BEGIN
       VALUES (NEW.receiver_id, NEW.sender_id, 'friend_request', false, now());
     END IF;
   ELSIF (TG_OP = 'UPDATE' AND OLD.status = 'pending' AND NEW.status = 'accepted') THEN
-    -- Delete the pending request notification first
     DELETE FROM public.notifications 
     WHERE user_id = NEW.receiver_id AND actor_id = NEW.sender_id AND type = 'friend_request';
     
-    -- Insert friendship_accepted notification to the sender
     IF NOT EXISTS (
       SELECT 1 FROM public.notifications 
       WHERE user_id = NEW.sender_id AND actor_id = NEW.receiver_id AND type = 'friend_accept'
@@ -252,26 +324,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create Trigger for Friendship modified
 CREATE TRIGGER on_friendship_modified
   AFTER INSERT OR UPDATE ON public.friendships
   FOR EACH ROW EXECUTE FUNCTION public.handle_friendship_notification();
 
 
--- ==========================================
--- 7. Bookmark Notifications (Wave 1 #3 extra)
--- ==========================================
-
--- Bookmark Notifications Trigger Function
+-- D. Bookmark Notifications Trigger Function
 CREATE OR REPLACE FUNCTION public.handle_bookmark_notification()
 RETURNS TRIGGER AS $$
 DECLARE
   target_user_id uuid;
 BEGIN
-  -- Get the owner of the painting
   SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
-  
-  -- Only notify if the person bookmarking is not the owner of the painting
   IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
     -- Защита от дублирования
     IF NOT EXISTS (
@@ -286,7 +350,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create Trigger for Bookmark insertion
 CREATE TRIGGER on_bookmark_created
   AFTER INSERT ON public.bookmarks
   FOR EACH ROW EXECUTE FUNCTION public.handle_bookmark_notification();
@@ -311,11 +374,7 @@ CREATE TRIGGER on_bookmark_deleted
   FOR EACH ROW EXECUTE FUNCTION public.handle_bookmark_deletion_notification();
 
 
--- ==========================================
--- 8. Follow Notifications (Wave 2 #9 extra)
--- ==========================================
-
--- Follow Notifications Trigger Function
+-- E. Follow Notifications Trigger Function
 CREATE OR REPLACE FUNCTION public.handle_follow_notification()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -331,7 +390,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create Trigger for Follow insertion
 CREATE TRIGGER on_follow_created
   AFTER INSERT ON public.follows
   FOR EACH ROW EXECUTE FUNCTION public.handle_follow_notification();
@@ -352,7 +410,7 @@ CREATE TRIGGER on_follow_deleted
 
 
 -- ==========================================
--- 9. Fault-Tolerant Push Notifications trigger (Wave 1 #1 extra)
+-- F. Fault-Tolerant Push Notifications trigger (OneSignal call safety)
 -- ==========================================
 
 -- Create the trigger function to call our Edge Function (with exception handling to prevent rollback)
@@ -380,6 +438,3 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
-

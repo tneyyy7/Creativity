@@ -67,12 +67,16 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
   const loadAll = useCallback(async () => {
     if (!user?.id) return
     try {
-      const [requests, notifs] = await Promise.all([
-        fetchPendingRequests(user.id),
-        fetchPostNotifications(user.id),
-      ])
+      const requests = await fetchPendingRequests(user.id).catch(e => {
+        console.error("fetchPendingRequests error:", e)
+        return []
+      })
+      const notifs = await fetchPostNotifications(user.id).catch(e => {
+        console.error("fetchPostNotifications error:", e)
+        return []
+      })
+      
       setPendingRequests(requests || [])
-      // Use activity notifications (likes/comments) only for postNotifications state
       setPostNotifications((notifs || []).filter(n => n.type !== 'friend_request'))
     } catch (err) {
       console.error("Error fetching notifications:", err)

@@ -723,13 +723,48 @@ export async function fetchPostNotifications(userId) {
   try {
     const { data: notifications, error } = await supabase
       .from('notifications')
-      .select('*, actor:profiles!notifications_actor_id_fkey(id, nickname, avatar_url, finished_work_count), painting:paintings!notifications_painting_id_fkey(id, title, image_url)')
+      .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(30)
     
     if (error) throw error
-    return notifications || []
+    if (!notifications || notifications.length === 0) return []
+
+    // Extract unique actor and painting IDs
+    const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))]
+    const paintingIds = [...new Set(notifications.map(n => n.painting_id).filter(Boolean))]
+
+    // Parallel fetch actor profiles
+    let actorMap = {}
+    if (actorIds.length > 0) {
+      const { data: profiles, error: pError } = await supabase
+        .from('profiles')
+        .select('id, nickname, avatar_url')
+        .in('id', actorIds)
+      if (!pError && profiles) {
+        actorMap = Object.fromEntries(profiles.map(p => [p.id, p]))
+      }
+    }
+
+    // Parallel fetch paintings
+    let paintingMap = {}
+    if (paintingIds.length > 0) {
+      const { data: paintings, error: ptError } = await supabase
+        .from('paintings')
+        .select('id, title, image_url')
+        .in('id', paintingIds)
+      if (!ptError && paintings) {
+        paintingMap = Object.fromEntries(paintings.map(p => [p.id, p]))
+      }
+    }
+
+    // Map profiles and paintings back to notifications
+    return notifications.map(n => ({
+      ...n,
+      actor: actorMap[n.actor_id] || null,
+      painting: paintingMap[n.painting_id] || null
+    }))
   } catch (e) {
     console.error('fetchPostNotifications error:', e)
     return []
