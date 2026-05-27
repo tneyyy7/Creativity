@@ -49,6 +49,15 @@ serve(async (req) => {
       } else if (notifType === 'friend_request') {
         title = "Запрос в друзья 👋"
         message = "хочет добавить вас в друзья"
+      } else if (notifType === 'friend_accept') {
+        title = "Запрос принят 🎉"
+        message = "принял(а) ваш запрос в друзья"
+      } else if (notifType === 'follow') {
+        title = "Новый подписчик 👤"
+        message = "подписался(ась) на ваши обновления"
+      } else if (notifType === 'bookmark') {
+        title = "В избранном ⭐️"
+        message = "добавил(а) вашу работу в избранное"
       } else {
         message = record.content || "У вас новое уведомление"
       }

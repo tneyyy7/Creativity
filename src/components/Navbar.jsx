@@ -1,4 +1,4 @@
-import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle } from 'lucide-react'
+import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -6,6 +6,48 @@ import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, m
 
 export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, onProfileClick, onFriendsClick, isVerified, workCount, onOpenPost }) {
   const { t, i18n } = useTranslation()
+
+  const getNotifConfig = (type) => {
+    switch (type) {
+      case 'like':
+        return {
+          bgClass: 'bg-red-500',
+          icon: <Heart className="w-2.5 h-2.5 text-white fill-white" />,
+          text: t('liked_your_post', 'liked your post')
+        }
+      case 'comment':
+        return {
+          bgClass: 'bg-blue-500',
+          icon: <MessageCircle className="w-2.5 h-2.5 text-white" />,
+          text: t('commented_on_your_post', 'commented on your post')
+        }
+      case 'bookmark':
+        return {
+          bgClass: 'bg-purple-600',
+          icon: <Bookmark className="w-2.5 h-2.5 text-white fill-white" />,
+          text: t('bookmarked_your_post', 'added your work to bookmarks')
+        }
+      case 'follow':
+        return {
+          bgClass: 'bg-green-600',
+          icon: <User className="w-2.5 h-2.5 text-white" />,
+          text: t('followed_you', 'followed you')
+        }
+      case 'friend_accept':
+        return {
+          bgClass: 'bg-amber-500',
+          icon: <Check className="w-2.5 h-2.5 text-white" />,
+          text: t('accepted_friend_request', 'accepted your friend request')
+        }
+      default:
+        return {
+          bgClass: 'bg-gray-500',
+          icon: <Bell className="w-2.5 h-2.5 text-white" />,
+          text: t('new_notification', 'sent you a notification')
+        }
+    }
+  }
+
   const [showLangs, setShowLangs] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [pendingRequests, setPendingRequests] = useState([])
@@ -262,7 +304,8 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                           )
                         }
 
-                        // Like or comment notification
+                        // Activity notification (like, comment, follow, bookmark, friend_accept)
+                        const notifConfig = getNotifConfig(item.type)
                         return (
                           <div
                             key={item.id}
@@ -279,10 +322,8 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                                 )}
                               </div>
                               {/* Type badge */}
-                              <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0c0b11] ${
-                                item.type === 'like' ? 'bg-red-500' : 'bg-blue-500'
-                              }`}>
-                                {item.type === 'like' ? <Heart className="w-2.5 h-2.5 text-white fill-white" /> : <MessageCircle className="w-2.5 h-2.5 text-white" />}
+                              <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0c0b11] ${notifConfig.bgClass}`}>
+                                {notifConfig.icon}
                               </div>
                             </div>
 
@@ -291,9 +332,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                               <p className="text-xs text-white leading-snug">
                                 <span className="font-bold notranslate group-hover:text-purple-400 transition-colors" translate="no">{item.actor?.nickname || 'Someone'}</span>
                                 {' '}
-                                {item.type === 'like'
-                                  ? t('liked_your_post', 'liked your post')
-                                  : t('commented_on_your_post', 'commented on your post')}
+                                {notifConfig.text}
                               </p>
                               {item.type === 'comment' && item.content && (
                                 <p className="text-[10px] text-gray-500 truncate mt-0.5 max-w-[180px]">"{item.content}"</p>

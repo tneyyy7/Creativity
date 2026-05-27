@@ -220,3 +220,90 @@ DROP TRIGGER IF EXISTS on_friendship_modified ON public.friendships;
 CREATE TRIGGER on_friendship_modified
   AFTER INSERT OR UPDATE ON public.friendships
   FOR EACH ROW EXECUTE FUNCTION public.handle_friendship_notification();
+
+
+-- ==========================================
+-- 7. Bookmark Notifications (Wave 1 #3 extra)
+-- ==========================================
+
+-- Bookmark Notifications Trigger Function
+CREATE OR REPLACE FUNCTION public.handle_bookmark_notification()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_user_id uuid;
+BEGIN
+  -- Get the owner of the painting
+  SELECT user_id INTO target_user_id FROM public.paintings WHERE id = NEW.painting_id;
+  
+  -- Only notify if the person bookmarking is not the owner of the painting
+  IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
+    INSERT INTO public.notifications (user_id, actor_id, painting_id, type, is_read, created_at)
+    VALUES (target_user_id, NEW.user_id, NEW.painting_id, 'bookmark', false, now());
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create Trigger for Bookmark insertion
+DROP TRIGGER IF EXISTS on_bookmark_created ON public.bookmarks;
+CREATE TRIGGER on_bookmark_created
+  AFTER INSERT ON public.bookmarks
+  FOR EACH ROW EXECUTE FUNCTION public.handle_bookmark_notification();
+
+-- Delete notification when bookmark is deleted
+CREATE OR REPLACE FUNCTION public.handle_bookmark_deletion_notification()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_user_id uuid;
+BEGIN
+  SELECT user_id INTO target_user_id FROM public.paintings WHERE id = OLD.painting_id;
+  IF target_user_id IS NOT NULL THEN
+    DELETE FROM public.notifications 
+    WHERE user_id = target_user_id AND actor_id = OLD.user_id AND painting_id = OLD.painting_id AND type = 'bookmark';
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_bookmark_deleted ON public.bookmarks;
+CREATE TRIGGER on_bookmark_deleted
+  AFTER DELETE ON public.bookmarks
+  FOR EACH ROW EXECUTE FUNCTION public.handle_bookmark_deletion_notification();
+
+
+-- ==========================================
+-- 8. Follow Notifications (Wave 2 #9 extra)
+-- ==========================================
+
+-- Follow Notifications Trigger Function
+CREATE OR REPLACE FUNCTION public.handle_follow_notification()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Notify the followed user about their new follower
+  INSERT INTO public.notifications (user_id, actor_id, type, is_read, created_at)
+  VALUES (NEW.following_id, NEW.follower_id, 'follow', false, now());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create Trigger for Follow insertion
+DROP TRIGGER IF EXISTS on_follow_created ON public.follows;
+CREATE TRIGGER on_follow_created
+  AFTER INSERT ON public.follows
+  FOR EACH ROW EXECUTE FUNCTION public.handle_follow_notification();
+
+-- Delete notification when follow is deleted (unfollowed)
+CREATE OR REPLACE FUNCTION public.handle_follow_deletion_notification()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM public.notifications 
+  WHERE user_id = OLD.following_id AND actor_id = OLD.follower_id AND type = 'follow';
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_follow_deleted ON public.follows;
+CREATE TRIGGER on_follow_deleted
+  AFTER DELETE ON public.follows
+  FOR EACH ROW EXECUTE FUNCTION public.handle_follow_deletion_notification();
+
