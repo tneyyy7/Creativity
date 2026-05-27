@@ -13,6 +13,11 @@ export function Messages({ currentUser, onViewProfile }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [isMobileView, setIsMobileView] = useState(false)
+
+  const isOnline = (lastSeen) => {
+    if (!lastSeen) return false
+    return (Date.now() - new Date(lastSeen).getTime()) < 5 * 60 * 1000
+  }
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
@@ -254,7 +259,7 @@ export function Messages({ currentUser, onViewProfile }) {
                   }}
                   className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-gray-400 hover:bg-white/5"
                 >
-                  <ProfileAvatar avatarUrl={user.avatar_url} workCount={user.finished_work_count} size="sm" />
+                  <ProfileAvatar avatarUrl={user.avatar_url} workCount={user.finished_work_count} size="sm" isOnline={isOnline(user.last_seen)} />
                   <div className="flex-1 text-left min-w-0">
                     <p className="font-bold text-sm truncate flex items-center gap-1">
                       {user.nickname}
@@ -299,7 +304,7 @@ export function Messages({ currentUser, onViewProfile }) {
                   ${activeChat?.id === conv.id ? 'bg-purple-600/10 text-white' : 'text-gray-400 hover:bg-white/5'}
                 `}
               >
-                <ProfileAvatar avatarUrl={conv.avatar_url} workCount={conv.finished_work_count} size="sm" />
+                <ProfileAvatar avatarUrl={conv.avatar_url} workCount={conv.finished_work_count} size="sm" isOnline={isOnline(conv.last_seen)} />
                 <div className="flex-1 text-left min-w-0">
                   <p className="font-bold text-sm truncate flex items-center gap-1">
                     {conv.nickname}
@@ -357,7 +362,7 @@ export function Messages({ currentUser, onViewProfile }) {
                 onClick={() => onViewProfile(activeChat.id)}
                 className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
               >
-                <ProfileAvatar avatarUrl={activeChat.avatar_url} workCount={activeChat.finished_work_count} size="sm" />
+                <ProfileAvatar avatarUrl={activeChat.avatar_url} workCount={activeChat.finished_work_count} size="sm" isOnline={isOnline(activeChat.last_seen)} />
                 <div className="flex-1 text-left">
                   <h3 className="font-bold text-white flex items-center gap-2">
                     {activeChat.nickname}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
-import { supabase, fetchProfile } from './lib/supabase'
+import { supabase, fetchProfile, updateLastSeen } from './lib/supabase'
 import { Dashboard } from './pages/Dashboard'
 import { Chat } from './pages/Chat'
 import { ImageGen } from './pages/ImageGen'
@@ -15,6 +15,7 @@ import { Messages } from './pages/Messages'
 import { PostViewerModal } from './components/PostViewerModal'
 import { Profile } from './pages/Profile'
 import { Friends } from './pages/Friends'
+import { Bookmarks } from './pages/Bookmarks'
 import { initOneSignal } from './lib/pwa'
 
 function App() {
@@ -80,6 +81,14 @@ function App() {
   useEffect(() => {
     if (user) {
       initOneSignal(user.id)
+      
+      // Update online status immediately and setup interval
+      updateLastSeen(user.id)
+      const interval = setInterval(() => {
+        updateLastSeen(user.id)
+      }, 60000) // 1 minute
+      
+      return () => clearInterval(interval)
     }
   }, [user])
 
@@ -150,6 +159,16 @@ function App() {
                 index: index ?? 0,
                 isOwnGallery: true
               })} 
+            />
+          )}
+          {activeTab === 'bookmarks' && (
+            <Bookmarks 
+              onOpenPost={(id, painting, collection, index, profile) => setPostViewer({ 
+                painting, 
+                paintings: collection || [painting], 
+                index: index ?? 0,
+                externalProfile: profile
+              })}
             />
           )}
           {activeTab === 'productivity' && <Productivity />}

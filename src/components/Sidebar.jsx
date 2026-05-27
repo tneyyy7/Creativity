@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle, Bookmark } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchTotalUnreadCount } from '../lib/supabase'
 
@@ -42,6 +42,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: t('dashboard') },
     { id: 'gallery', icon: Palette, label: t('gallery') },
+    { id: 'bookmarks', icon: Bookmark, label: t('bookmarks') || 'Bookmarks' },
     { id: 'friends', icon: Users, label: t('friends') },
     { id: 'messages', icon: MessageCircle, label: t('messages') || 'Messages' },
     { id: 'ranks', icon: Trophy, label: t('ranks') },

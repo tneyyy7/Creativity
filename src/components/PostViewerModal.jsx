@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes } from 'lucide-react'
+import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage } from '../lib/supabase'
+import { fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 
 export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile }) {
@@ -16,6 +16,10 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const [showShareModal, setShowShareModal] = useState(false)
   const [friends, setFriends] = useState([])
   const [sharingSearch, setSharingSearch] = useState('')
+  const [isSaved, setIsSaved] = useState(false)
+  const [isBookmarking, setIsBookmarking] = useState(false)
+  const [paintingTags, setPaintingTags] = useState([])
+  
   const commentInputRef = useRef(null)
   const commentsEndRef = useRef(null)
 
@@ -26,18 +30,24 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const load = useCallback(async () => {
     if (!painting?.id) return
     try {
-      const [l, c] = await Promise.all([
+      const [l, c, tags, saved] = await Promise.all([
         fetchPostLikes(painting.id),
-        fetchPostComments(painting.id)
+        fetchPostComments(painting.id),
+        fetchPaintingTags(painting.id),
+        isBookmarked(currentUserId, painting.id)
       ])
       setLikes(Array.isArray(l) ? l : [])
       setComments(Array.isArray(c) ? c : [])
+      setPaintingTags(tags || [])
+      setIsSaved(saved)
     } catch (e) {
       console.error('PostViewerModal load error:', e)
       setLikes([])
       setComments([])
+      setPaintingTags([])
+      setIsSaved(false)
     }
-  }, [painting?.id])
+  }, [painting?.id, currentUserId])
 
   useEffect(() => {
     load()
@@ -69,6 +79,19 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       await load()
     } catch (e) { console.error('Like error:', e) }
     finally { setIsLiking(false) }
+  }
+
+  const handleBookmark = async () => {
+    if (!currentUserId || isBookmarking) return
+    setIsBookmarking(true)
+    try {
+      const saved = await toggleBookmark(currentUserId, painting.id)
+      setIsSaved(saved)
+    } catch (e) {
+      console.error('Bookmark error:', e)
+    } finally {
+      setIsBookmarking(false)
+    }
   }
 
   const handleSendComment = async () => {
@@ -114,10 +137,10 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const formatTime = (ts) => {
     try {
       const d = new Date(ts)
-      const diff = Math.floor((Date.now() - d) / 1000)
-      if (diff < 60) return `${diff}s`
-      if (diff < 3600) return `${Math.floor(diff / 60)}m`
-      if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+      const flex = Math.floor((Date.now() - d) / 1000)
+      if (flex < 60) return `${flex}s`
+      if (flex < 3600) return `${Math.floor(flex / 60)}m`
+      if (flex < 86400) return `${Math.floor(flex / 3600)}h`
       return d.toLocaleDateString()
     } catch { return '' }
   }
@@ -182,6 +205,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             topLevel={topLevel}
             getReplies={getReplies}
             isLiked={isLiked}
+            isSaved={isSaved}
             isAuthor={isAuthor}
             currentUserId={currentUserId}
             showLikesPopup={showLikesPopup}
@@ -193,15 +217,18 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             commentInputRef={commentInputRef}
             commentsEndRef={commentsEndRef}
             handleLike={handleLike}
+            handleBookmark={handleBookmark}
             handleSendComment={handleSendComment}
             handleDeleteComment={handleDeleteComment}
             handleShareOpen={handleShareOpen}
             likeSummary={likeSummary}
             formatTime={formatTime}
             isLiking={isLiking}
+            isBookmarking={isBookmarking}
             isSendingComment={isSendingComment}
             onViewProfile={onViewProfile}
             onClose={onClose}
+            paintingTags={paintingTags}
           />
         </div>
       </div>
@@ -227,6 +254,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           topLevel={topLevel}
           getReplies={getReplies}
           isLiked={isLiked}
+          isSaved={isSaved}
           isAuthor={isAuthor}
           currentUserId={currentUserId}
           showLikesPopup={showLikesPopup}
@@ -238,15 +266,18 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           commentInputRef={commentInputRef}
           commentsEndRef={commentsEndRef}
           handleLike={handleLike}
+          handleBookmark={handleBookmark}
           handleSendComment={handleSendComment}
           handleDeleteComment={handleDeleteComment}
           handleShareOpen={handleShareOpen}
           likeSummary={likeSummary}
           formatTime={formatTime}
           isLiking={isLiking}
+          isBookmarking={isBookmarking}
           isSendingComment={isSendingComment}
           onViewProfile={onViewProfile}
           onClose={onClose}
+          paintingTags={paintingTags}
         />
       </div>
 
@@ -282,7 +313,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 }
 
 // Shared info panel used for both mobile and desktop
-function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isSendingComment, onViewProfile, onClose }) {
+function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col h-full">
@@ -306,17 +337,31 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {(painting.title || painting.description || painting.created_at) && (
+        {(painting.title || painting.description || painting.created_at || painting.category) && (
           <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/5 space-y-2">
             <div className="flex items-baseline justify-between gap-4">
-              {painting.title && <h2 className="text-white font-black text-base leading-tight uppercase tracking-tight">{painting.title}</h2>}
+              {painting.title && <h2 className="text-white font-black text-base leading-tight uppercase tracking-tight text-purple-400">{painting.title}</h2>}
               {painting.created_at && (
                 <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest shrink-0">
                   {new Date(painting.created_at).toLocaleDateString()}
                 </span>
               )}
             </div>
+            {painting.category && (
+              <span className="inline-block px-2.5 py-0.5 bg-purple-600/10 text-purple-400 border border-purple-500/20 text-[9px] font-black rounded-md uppercase tracking-wider">
+                {painting.category}
+              </span>
+            )}
             {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description}</p>}
+            {paintingTags && paintingTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1.5">
+                {paintingTags.map(tag => (
+                  <span key={tag.id} className="px-2 py-0.5 bg-white/5 text-gray-400 border border-white/10 text-[10px] font-bold rounded-lg lowercase tracking-tight">
+                    #{tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <div className="px-4 py-4 space-y-4">
@@ -355,6 +400,9 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
           </button>
           <button onClick={handleShareOpen} className="text-gray-400 hover:text-purple-400 transition-colors">
             <Share2 className="w-6 h-6" />
+          </button>
+          <button onClick={handleBookmark} disabled={!currentUserId || isBookmarking} className={`transition-all group disabled:opacity-40 ml-auto ${isSaved ? 'text-purple-500' : 'text-gray-400 hover:text-purple-400'}`}>
+            <Bookmark className={`w-6 h-6 transition-all ${isSaved ? 'fill-purple-500 scale-110' : 'group-hover:scale-110'}`} />
           </button>
         </div>
 

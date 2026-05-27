@@ -12,6 +12,11 @@ export function Friends({ user, onViewProfile }) {
   const [pendingRequests, setPendingRequests] = useState([])
   const [isSearching, setIsSearching] = useState(false)
 
+  const isOnline = (lastSeen) => {
+    if (!lastSeen) return false
+    return (Date.now() - new Date(lastSeen).getTime()) < 5 * 60 * 1000
+  }
+
   // Load friends and requests
   useEffect(() => {
     if (!user) return
@@ -125,6 +130,7 @@ export function Friends({ user, onViewProfile }) {
                   avatarUrl={result.avatar_url} 
                   workCount={result.finished_work_count} 
                   size="md"
+                  isOnline={isOnline(result.last_seen)}
                 />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1" translate="no">
@@ -172,6 +178,7 @@ export function Friends({ user, onViewProfile }) {
                     avatarUrl={req.profile?.avatar_url} 
                     workCount={req.profile?.finished_work_count} 
                     size="md"
+                    isOnline={isOnline(req.profile?.last_seen)}
                   />
                   <div>
                     <h3 className="font-bold text-white group-hover:text-purple-400 notranslate flex items-center gap-2 text-lg" translate="no">
@@ -219,6 +226,7 @@ export function Friends({ user, onViewProfile }) {
                     avatarUrl={friend.profile?.avatar_url} 
                     workCount={friend.profile?.finished_work_count} 
                     size="md"
+                    isOnline={isOnline(friend.profile?.last_seen)}
                   />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1" translate="no">

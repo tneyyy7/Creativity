@@ -94,7 +94,8 @@ function cleanProfile(data) {
   return {
     ...data,
     finished_work_count: data.finished_work_count || 0,
-    specialization: data.specialization || null
+    specialization: data.specialization || null,
+    last_seen: data.last_seen || null
   }
 }
 
@@ -300,8 +301,8 @@ export const fetchFriends = async (userId) => {
         status,
         sender_id,
         receiver_id,
-        sender:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count, specialization),
-        receiver:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count, specialization)
+        sender:profiles!friendships_sender_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count, specialization, last_seen),
+        receiver:profiles!friendships_receiver_id_fkey(id, nickname, avatar_url, is_verified, finished_work_count, specialization, last_seen)
       `)
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .eq('status', 'accepted')
@@ -319,7 +320,7 @@ export const fetchFriends = async (userId) => {
         const profileIds = [...new Set(relations.flatMap(r => [r.sender_id, r.receiver_id]))]
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization')
+          .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization, last_seen')
           .in('id', profileIds)
         
         const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || [])
@@ -476,7 +477,7 @@ export const fetchConversations = async (userId) => {
     // Fetch profiles for these users
     const { data: profiles, error: pError } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization')
+      .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization, last_seen')
       .in('id', otherUserIds)
     
     if (pError) throw pError
@@ -773,3 +774,238 @@ export async function markNotificationAsRead(notifId) {
     console.error('markNotificationAsRead error:', e)
   }
 }
+
+// =============================================
+// Tags & Painting Tags
+// =============================================
+
+export async function fetchAllTags() {
+  try {
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .order('name', { ascending: true })
+    if (error) throw error
+    return data || []
+  } catch (e) {
+    console.error('fetchAllTags error:', e)
+    return []
+  }
+}
+
+export async function fetchPaintingTags(paintingId) {
+  try {
+    const { data, error } = await supabase
+      .from('painting_tags')
+      .select('tag:tags(id, name)')
+      .eq('painting_id', paintingId)
+    if (error) throw error
+    return data?.map(d => d.tag) || []
+  } catch (e) {
+    console.error('fetchPaintingTags error:', e)
+    return []
+  }
+}
+
+export async function savePaintingTags(paintingId, tagNames) {
+  try {
+    // 1. Delete all existing tags for this painting first
+    const { error: deleteError } = await supabase
+      .from('painting_tags')
+      .delete()
+      .eq('painting_id', paintingId)
+    
+    if (deleteError) throw deleteError
+
+    if (!tagNames || tagNames.length === 0) return
+
+    // 2. Clean and deduplicate tag names
+    const cleanTags = [...new Set(tagNames.map(t => t.trim().replace(/^#/, '').toLowerCase()).filter(t => t.length > 0))]
+    if (cleanTags.length === 0) return
+
+    // 3. For each tag, upsert it to ensure it exists in 'tags' table
+    const tagIds = []
+    for (const tagName of cleanTags) {
+      let { data: existingTag } = await supabase
+        .from('tags')
+        .select('id')
+        .eq('name', tagName)
+        .maybeSingle()
+      
+      if (!existingTag) {
+        const { data: newTag, error: insertError } = await supabase
+          .from('tags')
+          .insert({ name: tagName })
+          .select('id')
+          .single()
+        
+        if (insertError && insertError.code === '23505') {
+          const { data: retryTag } = await supabase
+            .from('tags')
+            .select('id')
+            .eq('name', tagName)
+            .maybeSingle()
+          if (retryTag) {
+            tagIds.push(retryTag.id)
+          }
+        } else if (newTag) {
+          tagIds.push(newTag.id)
+        }
+      } else {
+        tagIds.push(existingTag.id)
+      }
+    }
+
+    // 4. Insert new relations
+    if (tagIds.length > 0) {
+      const relations = tagIds.map(tagId => ({
+        painting_id: paintingId,
+        tag_id: tagId
+      }))
+      const { error: relError } = await supabase
+        .from('painting_tags')
+        .insert(relations)
+      if (relError) throw relError
+    }
+  } catch (e) {
+    console.error('savePaintingTags error:', e)
+    throw e
+  }
+}
+
+// =============================================
+// Bookmarks
+// =============================================
+
+export async function fetchBookmarks(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('painting:paintings(*, user:profiles(*))')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data?.map(d => ({ ...d.painting, user: cleanProfile(d.painting.user) })) || []
+  } catch (e) {
+    console.error('fetchBookmarks error:', e)
+    return []
+  }
+}
+
+export async function toggleBookmark(userId, paintingId) {
+  try {
+    const { data: existing, error: checkError } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('painting_id', paintingId)
+      .maybeSingle()
+
+    if (checkError) throw checkError
+
+    if (existing) {
+      const { error } = await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('id', existing.id)
+      if (error) throw error
+      return false // Unbookmarked
+    } else {
+      const { error } = await supabase
+        .from('bookmarks')
+        .insert({ user_id: userId, painting_id: paintingId })
+      if (error) throw error
+      return true // Bookmarked
+    }
+  } catch (e) {
+    console.error('toggleBookmark error:', e)
+    throw e
+  }
+}
+
+export async function isBookmarked(userId, paintingId) {
+  try {
+    if (!userId || !paintingId) return false
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('painting_id', paintingId)
+      .maybeSingle()
+    if (error) throw error
+    return !!data
+  } catch (e) {
+    console.error('isBookmarked error:', e)
+    return false
+  }
+}
+
+// =============================================
+// Online Status
+// =============================================
+
+export async function updateLastSeen(userId) {
+  try {
+    if (!userId) return
+    const { error } = await supabase
+      .from('profiles')
+      .update({ last_seen: new Date().toISOString() })
+      .eq('id', userId)
+    if (error) throw error
+  } catch (e) {
+    console.error('updateLastSeen error:', e)
+  }
+}
+
+// =============================================
+// Follows
+// =============================================
+
+export async function toggleFollow(followerId, followingId) {
+  try {
+    const { data: existing, error: checkError } = await supabase
+      .from('follows')
+      .select('id')
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId)
+      .maybeSingle()
+
+    if (checkError) throw checkError
+
+    if (existing) {
+      const { error } = await supabase
+        .from('follows')
+        .delete()
+        .eq('id', existing.id)
+      if (error) throw error
+      return false // Unfollowed
+    } else {
+      const { error } = await supabase
+        .from('follows')
+        .insert({ follower_id: followerId, following_id: followingId })
+      if (error) throw error
+      return true // Followed
+    }
+  } catch (e) {
+    console.error('toggleFollow error:', e)
+    throw e
+  }
+}
+
+export async function checkFollowStatus(followerId, followingId) {
+  try {
+    if (!followerId || !followingId) return false
+    const { data, error } = await supabase
+      .from('follows')
+      .select('id')
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId)
+      .maybeSingle()
+    if (error) throw error
+    return !!data
+  } catch (e) {
+    console.error('checkFollowStatus error:', e)
+    return false
+  }
+}
+

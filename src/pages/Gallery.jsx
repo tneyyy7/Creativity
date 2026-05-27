@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Search, Trash2, MoreHorizontal, User, Palette, X, Upload, Loader2, Star, Medal, Zap, Crown, Sparkles, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, uploadPainting, fetchPaintings, savePaintingMetadata, deletePainting } from '../lib/supabase'
+import { supabase, uploadPainting, fetchPaintings, savePaintingMetadata, deletePainting, fetchPaintingTags, savePaintingTags } from '../lib/supabase'
 
 export function Gallery({ onOpenPost }) {
   const { t } = useTranslation()
@@ -10,6 +10,8 @@ export function Gallery({ onOpenPost }) {
   const [loading, setLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(null) // null or string status
   const [filter, setFilter] = useState('all') // 'all', 'finished', 'in_progress'
+  const [newCategory, setNewCategory] = useState('Digital')
+  const [newTags, setNewTags] = useState('')
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -115,26 +117,50 @@ export function Gallery({ onOpenPost }) {
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
 
+  const startEditing = async (painting) => {
+    setEditingPainting(painting)
+    setNewTitle(painting.title)
+    setNewDescription(painting.description || '')
+    setNewCategory(painting.category || 'Digital')
+    setNewTags('')
+    try {
+      const tags = await fetchPaintingTags(painting.id)
+      setNewTags(tags.map(t => t.name).join(', '))
+    } catch (err) {
+      console.error("Error fetching tags for editing:", err)
+    }
+  }
+
   const handleUpdateMetadata = async () => {
     if (!editingPainting || !newTitle.trim()) return
     try {
+      const tagNamesArray = newTags
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0)
+
       const { error } = await supabase
         .from('paintings')
         .update({ 
           title: newTitle.trim(),
-          description: newDescription.trim()
+          description: newDescription.trim(),
+          category: newCategory
         })
         .eq('id', editingPainting.id)
       if (error) throw error
+
+      await savePaintingTags(editingPainting.id, tagNamesArray)
+
       setPaintings(paintings.map(p => p.id === editingPainting.id ? { 
         ...p, 
         title: newTitle.trim(), 
-        description: newDescription.trim() 
+        description: newDescription.trim(),
+        category: newCategory
       } : p))
       setEditingPainting(null)
     } catch (err) {
       console.error("Update metadata error:", err)
-      alert("Failed to update")
+      alert("Failed to update: " + (err.message || err))
     }
   }
 
@@ -278,9 +304,7 @@ export function Gallery({ onOpenPost }) {
                    <button 
                     onClick={(e) => { 
                       e.stopPropagation();
-                      setEditingPainting(painting); 
-                      setNewTitle(painting.title);
-                      setNewDescription(painting.description || '');
+                      startEditing(painting);
                     }}
                     className="w-10 h-10 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl text-white flex items-center justify-center hover:bg-purple-600 transition-all shadow-xl"
                     title="Edit Metadata"
@@ -356,8 +380,36 @@ export function Gallery({ onOpenPost }) {
                 <textarea 
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full min-h-[120px] p-6 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-medium transition-all resize-none"
+                  className="w-full min-h-[80px] p-6 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-medium transition-all resize-none"
                   placeholder="Tell the story of this art..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Category</label>
+                <select 
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full h-14 px-6 bg-[#16151c] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all"
+                >
+                  <option value="Digital">Digital Art</option>
+                  <option value="Painting">Oil / Watercolor Painting</option>
+                  <option value="Photography">Photography</option>
+                  <option value="Sculpture">Sculpture</option>
+                  <option value="Design">Design</option>
+                  <option value="3D">3D / CGI</option>
+                  <option value="Sketching">Sketching / Ink</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Tags (comma-separated)</label>
+                <input 
+                  type="text" 
+                  value={newTags}
+                  onChange={(e) => setNewTags(e.target.value)}
+                  className="w-full h-14 px-6 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all"
+                  placeholder="e.g. digital, watercolor, character"
                 />
               </div>
 

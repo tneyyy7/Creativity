@@ -1,6 +1,6 @@
 import { User } from 'lucide-react'
 
-export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className = "" }) {
+export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className = "", isOnline = false }) {
   // Rank thresholds - Lowered for faster progression feedback
   const getRankInfo = (count) => {
     if (count >= 150) return { id: 10, color: 'from-rose-500 to-rose-300', glow: 'shadow-rose-500/50', animate: true }
@@ -42,8 +42,6 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
     xl: "w-12 h-12"
   }
 
-  // Base styling: for higher ranks, use a gradient border (via p-[2px] Trick)
-  // For lower ranks (1-3), just a simple border but thicker
   const isHighRank = rank.id >= 4
   
   return (
@@ -69,6 +67,18 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
           <User className={`${iconSizeClasses[size] || iconSizeClasses.md} text-purple-500/70`} />
         )}
       </div>
+
+      {/* Online indicator dot */}
+      {isOnline && (
+        <span className={`
+          absolute z-10 bg-emerald-500 rounded-full border-2 border-[#0c0b11] shadow-[0_0_8px_rgba(16,185,129,0.8)]
+          ${size === 'xs' ? 'w-2.5 h-2.5 -bottom-0.5 -right-0.5' : 
+            size === 'sm' ? 'w-3 h-3 -bottom-0.5 -right-0.5' : 
+            size === 'md' ? 'w-3.5 h-3.5 -bottom-0.5 -right-0.5' : 
+            size === 'lg' ? 'w-4.5 h-4.5 bottom-0 right-0' : 
+            'w-5.5 h-5.5 bottom-1 right-1'}
+        `} />
+      )}
     </div>
   )
 }
