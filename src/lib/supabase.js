@@ -10,59 +10,55 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 console.log('Supabase client initialized')
 
 export const convertHeicToJpeg = async (file) => {
-  const nameLower = file.name.toLowerCase();
-  const hasHeicExtension = nameLower.endsWith('.heic') || nameLower.endsWith('.heif');
-  
-  // 1. If the browser (e.g. Safari on macOS/iOS) already converted the file to standard format, 
-  // but kept the .HEIC filename extension, just rename the extension to match the mime type.
-  const isAlreadyStandard = file.type && (
-    file.type.startsWith('image/jpeg') || 
-    file.type.startsWith('image/png') || 
-    file.type.startsWith('image/gif') ||
-    file.type.startsWith('image/webp')
-  );
-  
-  if (hasHeicExtension && isAlreadyStandard) {
-    console.log("File has HEIC extension but is already standard type:", file.type);
-    const ext = file.type.split('/').pop() || 'jpg';
-    const newName = file.name.replace(/\.(heic|heif)$/i, `.${ext === 'jpeg' ? 'jpg' : ext}`);
-    return new File([file], newName, { type: file.type });
-  }
-
-  const isHeic = hasHeicExtension || file.type === 'image/heic';
-  if (!isHeic) return file;
-  
   try {
-    console.log("HEIC/HEIF file detected. Converting to JPEG...");
-    const module = await import('heic2any');
-    const heic2any = module.default || module;
+    const nameLower = file.name.toLowerCase();
+    const hasHeicExtension = nameLower.endsWith('.heic') || nameLower.endsWith('.heif');
     
-    if (typeof heic2any !== 'function') {
-      throw new Error("heic2any is not loaded as a function");
+    // 1. If the browser (e.g. Safari on macOS/iOS) already converted the file to standard format, 
+    // but kept the .HEIC filename extension, just rename the extension to match the mime type.
+    const isAlreadyStandard = file.type && (
+      file.type.startsWith('image/jpeg') || 
+      file.type.startsWith('image/png') || 
+      file.type.startsWith('image/gif') ||
+      file.type.startsWith('image/webp')
+    );
+    
+    if (hasHeicExtension && isAlreadyStandard) {
+      console.log("File has HEIC extension but is already standard type:", file.type);
+      const ext = file.type.split('/').pop() || 'jpg';
+      const newName = file.name.replace(/\.(heic|heif)$/i, `.${ext === 'jpeg' ? 'jpg' : ext}`);
+      return new File([file], newName, { type: file.type });
     }
+
+    // Load heic-to dynamically
+    const { heicTo, isHeic: checkIsHeic } = await import('heic-to');
     
-    // Slice file to convert it to a pure Blob, ensuring compatibility with heic2any
+    // Slice file to convert it to a pure Blob, ensuring compatibility
     const cleanBlob = file.slice(0, file.size, file.type);
     
-    const blob = await heic2any({
-      blob: cleanBlob,
-      toType: 'image/jpeg',
-      quality: 0.8
-    });
-    const singleBlob = Array.isArray(blob) ? blob[0] : blob;
-    const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
-    return new File([singleBlob], newName, { type: 'image/jpeg' });
-  } catch (err) {
-    console.error("HEIC conversion failed:", err);
+    // Verify if it is really a HEIC file (by checking binary headers)
+    const isRealHeic = await checkIsHeic(cleanBlob);
     
-    // 2. If libheif says the format is not supported, it means the file is actually a JPEG/PNG 
-    // disguised with a .HEIC extension (very common after AirDrop). Rename it to .jpg and upload.
-    if (err.message && err.message.includes("ERR_LIBHEIF format not supported")) {
-      console.log("File content is not real HEIF, probably a renamed standard image. Renaming to .jpg...");
-      const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
-      return new File([file], newName, { type: 'image/jpeg' });
+    if (!isRealHeic) {
+      if (hasHeicExtension) {
+        console.log("File has HEIC extension but is not a real HEIF file. Renaming to .jpg...");
+        const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+        return new File([file], newName, { type: 'image/jpeg' });
+      }
+      return file;
     }
     
+    console.log("Real HEIC file detected. Converting to JPEG...");
+    const jpegBlob = await heicTo({
+      blob: cleanBlob,
+      type: 'image/jpeg',
+      quality: 0.8
+    });
+    
+    const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+    return new File([jpegBlob], newName, { type: 'image/jpeg' });
+  } catch (err) {
+    console.error("HEIC conversion failed:", err);
     alert("Ошибка конвертации HEIC: " + (err.message || err) + ". Файл будет загружен без изменений.");
     return file;
   }
