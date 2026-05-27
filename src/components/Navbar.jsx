@@ -56,6 +56,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
   
   const notifRef = useRef(null)
   const langRef = useRef(null)
+  const prevShowNotifications = useRef(showNotifications)
 
   const toggleLanguage = (code) => {
     i18n.changeLanguage(code)
@@ -86,14 +87,15 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
 
   // Auto-mark notifications as read when pane closes
   useEffect(() => {
-    if (!showNotifications && user?.id) {
+    if (prevShowNotifications.current && !showNotifications && user?.id) {
       const hasUnread = postNotifications.some(n => !n.is_read)
       if (hasUnread) {
         markAllNotificationsAsRead(user.id)
         setPostNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
       }
     }
-  }, [showNotifications, user?.id, postNotifications])
+    prevShowNotifications.current = showNotifications
+  }, [showNotifications, user?.id])
 
   // Click outside listener
   useEffect(() => {
