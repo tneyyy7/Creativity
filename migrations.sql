@@ -494,3 +494,118 @@ CREATE TRIGGER on_notification_created
   AFTER INSERT ON public.notifications
   FOR EACH ROW EXECUTE FUNCTION public.handle_onesignal_notification();
 
+
+-- ==========================================
+-- 7. Collections & Stories Features (Wave 2)
+-- ==========================================
+
+-- 1. Таблица коллекций (Collections)
+CREATE TABLE IF NOT EXISTS public.collections (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  name text NOT NULL,
+  description text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- RLS для collections
+ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow public read access to collections" ON public.collections;
+  CREATE POLICY "Allow public read access to collections" ON public.collections
+    FOR SELECT USING (true);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to manage their own collections" ON public.collections;
+  CREATE POLICY "Allow users to manage their own collections" ON public.collections
+    FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- 2. Таблица связи картин и коллекций (Collection Paintings)
+CREATE TABLE IF NOT EXISTS public.collection_paintings (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  collection_id uuid REFERENCES public.collections(id) ON DELETE CASCADE NOT NULL,
+  painting_id uuid REFERENCES public.paintings(id) ON DELETE CASCADE NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT collection_paintings_collection_id_painting_id_key UNIQUE (collection_id, painting_id)
+);
+
+-- RLS для collection_paintings
+ALTER TABLE public.collection_paintings ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow public read access to collection_paintings" ON public.collection_paintings;
+  CREATE POLICY "Allow public read access to collection_paintings" ON public.collection_paintings
+    FOR SELECT USING (true);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to manage paintings in their collections" ON public.collection_paintings;
+  CREATE POLICY "Allow users to manage paintings in their collections" ON public.collection_paintings
+    FOR ALL USING (
+      EXISTS (
+        SELECT 1 FROM public.collections
+        WHERE id = collection_id AND user_id = auth.uid()
+      )
+    ) WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.collections
+        WHERE id = collection_id AND user_id = auth.uid()
+      )
+    );
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- 3. Таблица историй (Stories)
+CREATE TABLE IF NOT EXISTS public.stories (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  image_url text NOT NULL,
+  caption text,
+  created_at timestamptz DEFAULT now(),
+  expires_at timestamptz DEFAULT (now() + interval '24 hours')
+);
+
+-- RLS для stories
+ALTER TABLE public.stories ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow public read access to active stories" ON public.stories;
+  CREATE POLICY "Allow public read access to active stories" ON public.stories
+    FOR SELECT USING (expires_at > now());
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to post their own stories" ON public.stories;
+  CREATE POLICY "Allow users to post their own stories" ON public.stories
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to delete their own stories" ON public.stories;
+  CREATE POLICY "Allow users to delete their own stories" ON public.stories
+    FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+

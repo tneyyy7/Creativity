@@ -3,6 +3,7 @@ import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash
 import { useTranslation } from 'react-i18next'
 import { fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
+import { CollectionsModal } from './CollectionsModal'
 
 export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0)
@@ -19,6 +20,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const [isSaved, setIsSaved] = useState(false)
   const [isBookmarking, setIsBookmarking] = useState(false)
   const [paintingTags, setPaintingTags] = useState([])
+  const [showCollectionsModal, setShowCollectionsModal] = useState(false)
   
   const commentInputRef = useRef(null)
   const commentsEndRef = useRef(null)
@@ -87,6 +89,9 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
     try {
       const saved = await toggleBookmark(currentUserId, painting.id)
       setIsSaved(saved)
+      if (saved) {
+        setShowCollectionsModal(true)
+      }
     } catch (e) {
       console.error('Bookmark error:', e)
     } finally {
@@ -307,6 +312,14 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             </div>
           </div>
         </div>
+      )}
+
+      {showCollectionsModal && (
+        <CollectionsModal
+          paintingId={painting.id}
+          currentUserId={currentUserId}
+          onClose={() => setShowCollectionsModal(false)}
+        />
       )}
     </div>
   )

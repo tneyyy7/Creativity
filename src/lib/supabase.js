@@ -1091,3 +1091,378 @@ export async function fetchFollowCounts(userId) {
   }
 }
 
+// =============================================
+// Wave 2: Feed (Лента подписок)
+// =============================================
+
+export async function fetchFeedPaintings(userId) {
+  try {
+    if (!userId) return []
+
+    // 1. Находим ID авторов, на которых подписан пользователь
+    const { data: follows, error: followsError } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', userId)
+
+    if (followsError) throw followsError
+
+    const followingIds = follows?.map(f => f.following_id) || []
+
+    if (followingIds.length > 0) {
+      // 2. Загружаем свежие работы этих авторов
+      const { data: paintings, error: pError } = await supabase
+        .from('paintings')
+        .select('*')
+        .in('user_id', followingIds)
+        .order('created_at', { ascending: false })
+
+      if (pError) throw pError
+
+      if (paintings && paintings.length > 0) {
+        // Загружаем профили авторов
+        const authorIds = [...new Set(paintings.map(p => p.user_id))]
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', authorIds)
+        
+        const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+        return paintings.map(p => ({
+          ...p,
+          profiles: profileMap[p.user_id] || null
+        }))
+      }
+    }
+
+    // 3. ФОЛЛБЭК: Если подписок нет или у них нет постов, возвращаем популярных авторов
+    console.log('Feed is empty, fetching popular creators fallback...')
+    const { data: popularProfiles, error: popError } = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('id', userId)
+      .order('finished_work_count', { ascending: false })
+      .limit(6)
+
+    if (popError) throw popError
+
+    if (!popularProfiles || popularProfiles.length === 0) return []
+
+    const popularIds = popularProfiles.map(p => p.id)
+    const { data: fallbackPaintings, error: fbError } = await supabase
+      .from('paintings')
+      .select('*')
+      .in('user_id', popularIds)
+      .eq('is_finished', true)
+      .order('created_at', { ascending: false })
+
+    if (fbError) throw fbError
+
+    const profileMap = Object.fromEntries(popularProfiles.map(p => [p.id, cleanProfile(p)]))
+    
+    // Возвращаем как картины с профилями, так и список рекомендуемых авторов в специальном поле первого элемента
+    const result = (fallbackPaintings || []).map(p => ({
+      ...p,
+      profiles: profileMap[p.user_id] || null
+    }))
+
+    // Прикрепляем список рекомендованных авторов для отображения во фронтенде
+    if (result.length > 0) {
+      result[0].recommendedCreators = popularProfiles.map(cleanProfile)
+    } else {
+      // Если даже картин нет, вернем пустой список с рекомендованными профилями
+      return [{ id: 'empty-fallback', recommendedCreators: popularProfiles.map(cleanProfile) }]
+    }
+
+    return result
+  } catch (e) {
+    console.error('fetchFeedPaintings error:', e)
+    return []
+  }
+}
+
+// =============================================
+// Wave 2: Explore (Поиск и Интересное)
+// =============================================
+
+export async function fetchExplorePaintings(filters = {}) {
+  try {
+    const { searchQuery, category, onlyFinished, tag, sort } = filters
+
+    let paintingIdsFromTag = null
+
+    // 1. Если выбран тег, сначала находим связанные картины
+    if (tag) {
+      const { data: tagRecord } = await supabase
+        .from('tags')
+        .select('id')
+        .eq('name', tag.toLowerCase().trim())
+        .maybeSingle()
+
+      if (tagRecord) {
+        const { data: pTags } = await supabase
+          .from('painting_tags')
+          .select('painting_id')
+          .eq('tag_id', tagRecord.id)
+        
+        paintingIdsFromTag = pTags?.map(pt => pt.painting_id) || []
+        // Если картин с таким тегом нет, сразу возвращаем пустоту
+        if (paintingIdsFromTag.length === 0) return []
+      } else {
+        return [] // Тег не найден
+      }
+    }
+
+    // 2. Строим запрос к картинам
+    let query = supabase
+      .from('paintings')
+      .select('*, post_likes(count)')
+
+    if (category && category !== 'All' && category !== 'Все') {
+      query = query.eq('category', category)
+    }
+
+    if (onlyFinished) {
+      query = query.eq('is_finished', true)
+    }
+
+    if (paintingIdsFromTag) {
+      query = query.in('id', paintingIdsFromTag)
+    }
+
+    // 3. Текстовый поиск (по названию или описанию)
+    if (searchQuery && searchQuery.trim().length > 0) {
+      const cleanSearch = searchQuery.trim()
+      query = query.or(`title.ilike.%${cleanSearch}%,description.ilike.%${cleanSearch}%`)
+    }
+
+    const { data: paintings, error } = await query
+
+    if (error) throw error
+    if (!paintings || paintings.length === 0) return []
+
+    // 4. Догружаем профили авторов для результатов
+    const authorIds = [...new Set(paintings.map(p => p.user_id))]
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', authorIds)
+
+    const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+    
+    let processed = paintings.map(p => ({
+      ...p,
+      profiles: profileMap[p.user_id] || null,
+      likesCount: p.post_likes?.[0]?.count || 0
+    }))
+
+    // 5. Сортировка на стороне клиента (быстро и надежно)
+    if (sort === 'popular') {
+      processed.sort((a, b) => b.likesCount - a.likesCount)
+    } else {
+      processed.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    }
+
+    return processed
+  } catch (e) {
+    console.error('fetchExplorePaintings error:', e)
+    return []
+  }
+}
+
+// =============================================
+// Wave 2: Collections (Коллекции / Альбомы)
+// =============================================
+
+export async function createCollection(userId, name, description = '') {
+  try {
+    const { data, error } = await supabase
+      .from('collections')
+      .insert({ user_id: userId, name, description })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('createCollection error:', e)
+    throw e
+  }
+}
+
+export async function fetchUserCollections(userId) {
+  try {
+    // Получаем коллекции
+    const { data: collections, error } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    if (!collections || collections.length === 0) return []
+
+    // Для каждой коллекции получаем привязанные картины
+    const enriched = []
+    for (const coll of collections) {
+      const { data: mappings, error: mapErr } = await supabase
+        .from('collection_paintings')
+        .select('painting:paintings(*)')
+        .eq('collection_id', coll.id)
+
+      if (mapErr) throw mapErr
+
+      const items = mappings?.map(m => m.painting).filter(Boolean) || []
+      enriched.push({
+        ...coll,
+        paintings: items
+      })
+    }
+
+    return enriched
+  } catch (e) {
+    console.error('fetchUserCollections error:', e)
+    return []
+  }
+}
+
+export async function addPaintingToCollection(collectionId, paintingId) {
+  try {
+    const { data, error } = await supabase
+      .from('collection_paintings')
+      .insert({ collection_id: collectionId, painting_id: paintingId })
+      .select()
+      .single()
+
+    if (error && error.code !== '23505') throw error // Игнорируем ошибку уникальности
+    return data
+  } catch (e) {
+    console.error('addPaintingToCollection error:', e)
+    throw e
+  }
+}
+
+export async function removePaintingFromCollection(collectionId, paintingId) {
+  try {
+    const { error } = await supabase
+      .from('collection_paintings')
+      .delete()
+      .eq('collection_id', collectionId)
+      .eq('painting_id', paintingId)
+
+    if (error) throw error
+  } catch (e) {
+    console.error('removePaintingFromCollection error:', e)
+    throw e
+  }
+}
+
+export async function fetchPaintingCollectionStatus(paintingId, userId) {
+  try {
+    if (!userId || !paintingId) return []
+    // Возвращает массив ID коллекций пользователя, в которые уже добавлена эта картина
+    const { data: colls } = await supabase
+      .from('collections')
+      .select('id')
+      .eq('user_id', userId)
+
+    if (!colls || colls.length === 0) return []
+    const collIds = colls.map(c => c.id)
+
+    const { data: mappings } = await supabase
+      .from('collection_paintings')
+      .select('collection_id')
+      .in('collection_id', collIds)
+      .eq('painting_id', paintingId)
+
+    return mappings?.map(m => m.collection_id) || []
+  } catch (e) {
+    console.error('fetchPaintingCollectionStatus error:', e)
+    return []
+  }
+}
+
+// =============================================
+// Wave 2: Stories (Истории / WIP)
+// =============================================
+
+export async function fetchActiveStories() {
+  try {
+    const { data: stories, error } = await supabase
+      .from('stories')
+      .select('*')
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    if (!stories || stories.length === 0) return []
+
+    // Подгружаем профили создателей
+    const userIds = [...new Set(stories.map(s => s.user_id))]
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds)
+
+    const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+
+    // Группируем истории по пользователям
+    const userStoriesMap = new Map()
+    stories.forEach(s => {
+      const user = profileMap[s.user_id]
+      if (!user) return
+      
+      if (!userStoriesMap.has(s.user_id)) {
+        userStoriesMap.set(s.user_id, {
+          user,
+          stories: []
+        })
+      }
+      userStoriesMap.get(s.user_id).stories.push(s)
+    })
+
+    return Array.from(userStoriesMap.values())
+  } catch (e) {
+    console.error('fetchActiveStories error:', e)
+    return []
+  }
+}
+
+export async function uploadStory(userId, file, caption = '') {
+  try {
+    // Загружаем картинку в бакет paintings (переиспользуем бакет для удобства)
+    const processedFile = await convertHeicToJpeg(file)
+    const fileExt = processedFile.name.split('.').pop()
+    const fileName = `${userId}/stories/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('paintings')
+      .upload(fileName, processedFile)
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('paintings')
+      .getPublicUrl(fileName)
+
+    // Создаем запись в таблице stories
+    const { data, error } = await supabase
+      .from('stories')
+      .insert({
+        user_id: userId,
+        image_url: publicUrl,
+        caption,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // ровно 24 часа
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('uploadStory error:', e)
+    throw e
+  }
+}
+
+
