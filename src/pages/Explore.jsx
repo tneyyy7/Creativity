@@ -291,7 +291,7 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
           </div>
         ) : feedPosts.length > 0 ? (
           
-          <div className="space-y-6 w-full animate-in fade-in duration-500">
+          <div className="max-w-2xl mx-auto w-full space-y-6 animate-in fade-in duration-500">
             {feedPosts.slice(0, visibleFeedCount).map((post) => {
               const author = post.profiles || {}
               return (
@@ -343,7 +343,7 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                   {/* Main Work image Cover */}
                   <div 
                     onClick={() => onOpenPost?.(post.id, post, feedPosts, feedPosts.indexOf(post))}
-                    className="w-full aspect-[4/3] rounded-2xl overflow-hidden cursor-pointer bg-[#0f0e16] border border-white/5 relative group/img mb-4"
+                    className="w-full h-[280px] sm:h-[380px] md:h-[420px] rounded-2xl overflow-hidden cursor-pointer bg-[#0f0e16] border border-white/5 relative group/img mb-4"
                   >
                     <img 
                       src={post.image_url} 
