@@ -9,9 +9,32 @@ console.log('Supabase Key:', supabaseAnonKey ? 'Found' : 'Missing')
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 console.log('Supabase client initialized')
 
+export const convertHeicToJpeg = async (file) => {
+  const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif') || file.type === 'image/heic';
+  if (!isHeic) return file;
+  
+  try {
+    console.log("HEIC/HEIF file detected. Converting to JPEG...");
+    const heic2any = (await import('heic2any')).default;
+    const blob = await heic2any({
+      blob: file,
+      toType: 'image/jpeg',
+      quality: 0.8
+    });
+    const singleBlob = Array.isArray(blob) ? blob[0] : blob;
+    const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+    return new File([singleBlob], newName, { type: 'image/jpeg' });
+  } catch (err) {
+    console.error("HEIC conversion failed, uploading original file:", err);
+    return file;
+  }
+}
+
 export const uploadPainting = async (file, userId) => {
+  const processedFile = await convertHeicToJpeg(file)
+  
   // Normalize filename: remove special characters, spaces to dashes, etc.
-  const cleanName = file.name
+  const cleanName = processedFile.name
     .replace(/[^\x00-\x7F]/g, "") // remove non-ascii
     .replace(/\s+/g, '-')         // spaces to dashes
     .replace(/[^a-zA-Z0-9.-]/g, '') // remove anything not alphanumeric, dot or dash
@@ -19,7 +42,7 @@ export const uploadPainting = async (file, userId) => {
   const fileName = `${userId}/${Date.now()}-${cleanName || 'image'}`
   const { data, error } = await supabase.storage
     .from('paintings')
-    .upload(fileName, file)
+    .upload(fileName, processedFile)
 
   if (error) throw error
   
@@ -127,13 +150,14 @@ export const deletePainting = async (id) => {
 }
 
 export const uploadAvatar = async (file, userId) => {
-  const fileExt = file.name.split('.').pop()
+  const processedFile = await convertHeicToJpeg(file)
+  const fileExt = processedFile.name.split('.').pop()
   const fileName = `${userId}/${Math.random()}.${fileExt}`
   const filePath = `${fileName}`
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
-    .upload(filePath, file)
+    .upload(filePath, processedFile)
 
   if (uploadError) throw uploadError
 
