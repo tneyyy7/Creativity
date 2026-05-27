@@ -267,7 +267,10 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
         )}
         
         {/* Top Control Bar & Progress lines */}
-        <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-10 space-y-4">
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-30 space-y-4"
+        >
           
           {/* Progress Indicators */}
           <div className="flex gap-1.5 w-full">
