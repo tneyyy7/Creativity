@@ -21,6 +21,11 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
   const [bookmarkedMap, setBookmarkedMap] = useState({})
   const [followingMap, setFollowingMap] = useState({})
 
+  // Pagination & progressive loading states
+  const [visibleFeedCount, setVisibleFeedCount] = useState(10)
+  const [visibleExploreCount, setVisibleExploreCount] = useState(12)
+  const [loadingMore, setLoadingMore] = useState(false)
+
   // Explore search & filter state variables
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -61,23 +66,45 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
         setRecommended([])
       }
       
-      // Pre-fetch likes and bookmark statuses for loaded posts
+      // Pre-fetch likes and bookmark statuses for loaded posts in batch (Optimized: O(1) queries instead of O(N)!)
       if (feedData.length > 0 && feedData[0].id !== 'empty-fallback') {
+        const postIds = feedData.map(p => p.id)
+        
+        // Execute batch queries in parallel
+        const [likesRes, bookmarksRes] = await Promise.all([
+          supabase
+            .from('post_likes')
+            .select('painting_id')
+            .eq('user_id', currentUser.id)
+            .in('painting_id', postIds),
+          supabase
+            .from('bookmarks')
+            .select('painting_id')
+            .eq('user_id', currentUser.id)
+            .in('painting_id', postIds)
+        ])
+
         const likes = {}
         const bookmarks = {}
         
-        for (const post of feedData) {
-          const { data: likeRecord } = await supabase
-            .from('post_likes')
-            .select('id')
-            .eq('painting_id', post.id)
-            .eq('user_id', currentUser.id)
-            .maybeSingle()
-          
-          likes[post.id] = !!likeRecord
+        // Initialize maps
+        postIds.forEach(id => {
+          likes[id] = false
+          bookmarks[id] = false
+        })
 
-          const bookmarked = await isBookmarked(currentUser.id, post.id)
-          bookmarks[post.id] = bookmarked
+        // Map likes status
+        if (!likesRes.error && likesRes.data) {
+          likesRes.data.forEach(like => {
+            likes[like.painting_id] = true
+          })
+        }
+
+        // Map bookmarks status
+        if (!bookmarksRes.error && bookmarksRes.data) {
+          bookmarksRes.data.forEach(bm => {
+            bookmarks[bm.painting_id] = true
+          })
         }
 
         setLikedMap(likes)
@@ -112,11 +139,30 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
     }
   }
 
+  // Load More pagination handlers
+  const handleLoadMoreFeed = () => {
+    setLoadingMore(true)
+    setTimeout(() => {
+      setVisibleFeedCount(prev => prev + 10)
+      setLoadingMore(false)
+    }, 450)
+  }
+
+  const handleLoadMoreExplore = () => {
+    setLoadingMore(true)
+    setTimeout(() => {
+      setVisibleExploreCount(prev => prev + 12)
+      setLoadingMore(false)
+    }, 450)
+  }
+
   // Reload active tab data when active tab or filters change
   useEffect(() => {
     if (activeSubTab === 'feed') {
+      setVisibleFeedCount(10) // Reset pagination count on active subtab switch
       loadFeed()
     } else {
+      setVisibleExploreCount(12) // Reset pagination count on active subtab switch
       const delayDebounce = setTimeout(() => {
         loadExplore()
       }, 400) // 400ms debounce
@@ -245,8 +291,8 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
           </div>
         ) : feedPosts.length > 0 ? (
           
-          <div className="space-y-6 w-full">
-            {feedPosts.map((post) => {
+          <div className="space-y-6 w-full animate-in fade-in duration-500">
+            {feedPosts.slice(0, visibleFeedCount).map((post) => {
               const author = post.profiles || {}
               return (
                 <div key={post.id} className="glass-card p-6 border-white/5 rounded-3xl hover:border-purple-500/10 transition-all duration-300 relative group overflow-hidden w-full">
@@ -347,6 +393,27 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                 </div>
               )
             })}
+
+            {feedPosts.length > visibleFeedCount && (
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={handleLoadMoreFeed}
+                  disabled={loadingMore}
+                  className="glass-card px-8 py-3.5 border-purple-500/20 hover:border-purple-500/50 bg-[#12111a]/80 backdrop-blur-xl text-purple-400 hover:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2.5 active:scale-95 disabled:opacity-50"
+                >
+                  {loadingMore ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 animate-pulse text-purple-400" />
+                  )}
+                  <span>
+                    {loadingMore 
+                      ? (i18n.language === 'ru' ? 'Загрузка...' : 'Loading...') 
+                      : (i18n.language === 'ru' ? 'Показать еще работы' : 'Load More Masterpieces')}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           // Empty State Follow Recommendations fallback
@@ -499,70 +566,93 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
             </div>
           ) : explorePaintings.length > 0 ? (
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full">
-              {explorePaintings.map((painting, index) => {
-                const author = painting.profiles || {}
-                return (
-                  <div 
-                    key={painting.id}
-                    onClick={() => onOpenPost?.(painting.id, painting, explorePaintings, index)}
-                    className="glass-card overflow-hidden rounded-2xl border-white/5 hover:border-purple-500/20 transition-all duration-500 hover:-translate-y-1.5 cursor-pointer group/card flex flex-col justify-between w-full"
-                  >
-                    
-                    {/* Visual media */}
-                    <div className="w-full aspect-[4/3] overflow-hidden relative bg-[#0f0e16]">
-                      <img 
-                        src={painting.image_url} 
-                        alt={painting.title}
-                        className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-700 ease-out" 
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0c0b11] via-transparent to-transparent opacity-60 group-hover/card:opacity-30 transition-opacity" />
+            <div className="space-y-8 w-full animate-in fade-in duration-500">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full">
+                {explorePaintings.slice(0, visibleExploreCount).map((painting, index) => {
+                  const author = painting.profiles || {}
+                  return (
+                    <div 
+                      key={painting.id}
+                      onClick={() => onOpenPost?.(painting.id, painting, explorePaintings.slice(0, visibleExploreCount), index)}
+                      className="glass-card overflow-hidden rounded-2xl border-white/5 hover:border-purple-500/20 transition-all duration-500 hover:-translate-y-1.5 cursor-pointer group/card flex flex-col justify-between w-full"
+                    >
                       
-                      <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[10px] font-black text-white flex items-center gap-1.5 border border-white/5">
-                        <Star className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
-                        <span>{painting.likesCount || 0}</span>
-                      </div>
-                    </div>
-
-                    {/* Meta info */}
-                    <div className="p-4 space-y-3 bg-[#0d0c13]/90">
-                      <div>
-                        <h4 className="text-sm font-bold text-white tracking-tight line-clamp-1 group-hover/card:text-purple-400 transition-colors">
-                          {painting.title}
-                        </h4>
-                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                          {painting.category || 'Digital Art'}
-                        </p>
-                      </div>
-
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (author.id) onViewProfile?.(author.id)
-                        }}
-                        className="flex items-center gap-2 border-t border-white/5 pt-3 group/author"
-                      >
-                        <ProfileAvatar 
-                          avatarUrl={author.avatar_url} 
-                          workCount={author.finished_work_count ?? 0} 
-                          size="xs" 
+                      {/* Visual media */}
+                      <div className="w-full aspect-[4/3] overflow-hidden relative bg-[#0f0e16]">
+                        <img 
+                          src={painting.image_url} 
+                          alt={painting.title}
+                          className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-700 ease-out" 
                         />
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span className="text-[11px] font-bold text-gray-400 group-hover/author:text-white transition-colors truncate max-w-[120px]">
-                            {author.nickname || 'Unknown Artist'}
-                          </span>
-                          {author.is_verified && (
-                            <div className="w-3.5 h-3.5 rounded-full bg-purple-500 flex items-center justify-center text-white text-[7px] font-black flex-shrink-0">
-                              ✓
-                            </div>
-                          )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0c0b11] via-transparent to-transparent opacity-60 group-hover/card:opacity-30 transition-opacity" />
+                        
+                        <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[10px] font-black text-white flex items-center gap-1.5 border border-white/5">
+                          <Star className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
+                          <span>{painting.likesCount || 0}</span>
                         </div>
                       </div>
-                    </div>
 
-                  </div>
-                )
-              })}
+                      {/* Meta info */}
+                      <div className="p-4 space-y-3 bg-[#0d0c13]/90">
+                        <div>
+                          <h4 className="text-sm font-bold text-white tracking-tight line-clamp-1 group-hover/card:text-purple-400 transition-colors">
+                            {painting.title}
+                          </h4>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                            {painting.category || 'Digital Art'}
+                          </p>
+                        </div>
+
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (author.id) onViewProfile?.(author.id)
+                          }}
+                          className="flex items-center gap-2 border-t border-white/5 pt-3 group/author"
+                        >
+                          <ProfileAvatar 
+                            avatarUrl={author.avatar_url} 
+                            workCount={author.finished_work_count ?? 0} 
+                            size="xs" 
+                          />
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-[11px] font-bold text-gray-400 group-hover/author:text-white transition-colors truncate max-w-[120px]">
+                              {author.nickname || 'Unknown Artist'}
+                            </span>
+                            {author.is_verified && (
+                              <div className="w-3.5 h-3.5 rounded-full bg-purple-500 flex items-center justify-center text-white text-[7px] font-black flex-shrink-0">
+                                ✓
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  )
+                })}
+              </div>
+
+              {explorePaintings.length > visibleExploreCount && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={handleLoadMoreExplore}
+                    disabled={loadingMore}
+                    className="glass-card px-8 py-3.5 border-purple-500/20 hover:border-purple-500/50 bg-[#12111a]/80 backdrop-blur-xl text-purple-400 hover:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2.5 active:scale-95 disabled:opacity-50"
+                  >
+                    {loadingMore ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                    ) : (
+                      <Compass className="w-4 h-4 animate-pulse text-purple-400" />
+                    )}
+                    <span>
+                      {loadingMore 
+                        ? (i18n.language === 'ru' ? 'Загрузка...' : 'Loading...') 
+                        : (i18n.language === 'ru' ? 'Показать еще работы' : 'Load More Masterpieces')}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-20 bg-[#12111a]/20 border border-white/5 rounded-3xl p-8 max-w-md mx-auto space-y-4 w-full">
