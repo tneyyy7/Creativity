@@ -426,6 +426,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
         <StoriesViewer 
           groups={activeStoryGroups} 
           initialGroupIndex={selectedGroupIndex}
+          currentUser={currentUser}
           onClose={handleCloseViewer}
         />,
         document.body

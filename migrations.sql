@@ -609,3 +609,108 @@ EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;
 
+
+-- ==========================================
+-- 8. Story Likes & Comments Notifications (Unified Activity & Pushes)
+-- ==========================================
+
+-- 1. Таблица лайков на истории (Story Likes)
+CREATE TABLE IF NOT EXISTS public.story_likes (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  story_id uuid REFERENCES public.stories(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT story_likes_story_id_user_id_key UNIQUE (story_id, user_id)
+);
+
+-- RLS для story_likes
+ALTER TABLE public.story_likes ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow public read access to story_likes" ON public.story_likes;
+  CREATE POLICY "Allow public read access to story_likes" ON public.story_likes
+    FOR SELECT USING (true);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Allow users to manage their own story_likes" ON public.story_likes;
+  CREATE POLICY "Allow users to manage their own story_likes" ON public.story_likes
+    FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- 2. Функция автоматических уведомлений при лайке истории (с поддержкой push-уведомлений)
+CREATE OR REPLACE FUNCTION public.handle_story_like_notification()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_user_id uuid;
+BEGIN
+  BEGIN
+    -- Получаем владельца истории
+    SELECT user_id INTO target_user_id FROM public.stories WHERE id = NEW.story_id;
+    IF target_user_id IS NOT NULL AND target_user_id <> NEW.user_id THEN
+      -- Защита от дублирования
+      IF NOT EXISTS (
+        SELECT 1 FROM public.notifications 
+        WHERE user_id = target_user_id 
+          AND actor_id = NEW.user_id 
+          AND type = 'story_like' 
+          AND content LIKE ('%___STORY_ID:' || NEW.story_id)
+      ) THEN
+        INSERT INTO public.notifications (user_id, actor_id, type, content, is_read, created_at)
+        VALUES (
+          target_user_id, 
+          NEW.user_id, 
+          'story_like', 
+          'оценил(а) вашу историю ❤️___STORY_ID:' || NEW.story_id, 
+          false, 
+          now()
+        );
+      END IF;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_story_like_notification failed: %', SQLERRM;
+  END;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Триггер на создание лайка
+DROP TRIGGER IF EXISTS on_story_like_created ON public.story_likes;
+CREATE TRIGGER on_story_like_created
+  AFTER INSERT ON public.story_likes
+  FOR EACH ROW EXECUTE FUNCTION public.handle_story_like_notification();
+
+-- 3. Функция удаления уведомления при снятии лайка с истории
+CREATE OR REPLACE FUNCTION public.handle_story_like_deletion_notification()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_user_id uuid;
+BEGIN
+  BEGIN
+    SELECT user_id INTO target_user_id FROM public.stories WHERE id = OLD.story_id;
+    IF target_user_id IS NOT NULL THEN
+      DELETE FROM public.notifications 
+      WHERE user_id = target_user_id 
+        AND actor_id = OLD.user_id 
+        AND type = 'story_like' 
+        AND content LIKE ('%___STORY_ID:' || OLD.story_id);
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_story_like_deletion_notification failed: %', SQLERRM;
+  END;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Триггер на удаление лайка
+DROP TRIGGER IF EXISTS on_story_like_deleted ON public.story_likes;
+CREATE TRIGGER on_story_like_deleted
+  AFTER DELETE ON public.story_likes
+  FOR EACH ROW EXECUTE FUNCTION public.handle_story_like_deletion_notification();
+

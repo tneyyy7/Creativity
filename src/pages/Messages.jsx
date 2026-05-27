@@ -511,6 +511,35 @@ export function Messages({ currentUser, onViewProfile }) {
                           } catch (e) {
                             return msg.content
                           }
+                        })() : msg.content?.startsWith('[STORY_SHARE:') ? (() => {
+                          try {
+                            const data = JSON.parse(msg.content.slice('[STORY_SHARE:'.length, -1))
+                            const isVid = data.image_url && ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(data.image_url.split('?')[0].split('.').pop().toLowerCase())
+                            return (
+                              <div className="py-1.5 space-y-2.5 max-w-[260px]">
+                                <div className="bg-black/30 rounded-2xl overflow-hidden border border-white/5 p-2 flex gap-3 items-center backdrop-blur-md">
+                                  {data.image_url && (
+                                    <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-white/10 bg-black flex items-center justify-center">
+                                      {isVid ? (
+                                        <video src={data.image_url} className="w-full h-full object-cover" muted playsInline autoPlay loop />
+                                      ) : (
+                                        <img src={data.image_url} alt="" className="w-full h-full object-cover" />
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[9px] text-purple-300 font-black uppercase tracking-wider">{t('reply_to_story', 'Ответ на историю')}</p>
+                                    {data.caption && <p className="text-gray-400 text-[10px] italic truncate mt-0.5">"{data.caption}"</p>}
+                                  </div>
+                                </div>
+                                {data.comment && (
+                                  <p className="text-white text-xs leading-relaxed px-1 font-medium">{data.comment}</p>
+                                )}
+                              </div>
+                            )
+                          } catch (e) {
+                            return msg.content
+                          }
                         })() : msg.content}
                         <div className="flex items-center justify-between mt-2 gap-4">
                            <span className="text-[9px] opacity-50">

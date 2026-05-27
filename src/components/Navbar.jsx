@@ -39,6 +39,18 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
           icon: <Check className="w-2.5 h-2.5 text-white" />,
           text: t('accepted_friend_request', 'accepted your friend request')
         }
+      case 'story_like':
+        return {
+          bgClass: 'bg-red-500',
+          icon: <Heart className="w-2.5 h-2.5 text-white fill-white" />,
+          text: t('liked_your_story', 'оценил(а) вашу историю ❤️')
+        }
+      case 'story_comment':
+        return {
+          bgClass: 'bg-blue-500',
+          icon: <MessageCircle className="w-2.5 h-2.5 text-white" />,
+          text: t('commented_on_your_story', 'ответил(а) на вашу историю 💬')
+        }
       default:
         return {
           bgClass: 'bg-gray-500',
@@ -340,8 +352,10 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                                 {' '}
                                 {notifConfig.text}
                               </p>
-                              {item.type === 'comment' && item.content && (
-                                <p className="text-[10px] text-gray-500 truncate mt-0.5 max-w-[180px]">"{item.content}"</p>
+                              {((item.type === 'comment' || item.type === 'story_comment') && item.content) && (
+                                <p className="text-[10px] text-gray-500 truncate mt-0.5 max-w-[180px]">
+                                  "{item.content.split('___STORY_ID:')[0]}"
+                                </p>
                               )}
                               <p className="text-[10px] text-gray-600 mt-0.5">{formatTime(item.created_at)}</p>
                             </div>

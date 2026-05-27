@@ -1515,4 +1515,58 @@ export async function uploadStory(userId, file, caption = '') {
   }
 }
 
+// Check if current user liked a story
+export async function checkIfStoryLiked(storyId, userId) {
+  try {
+    const { data, error } = await supabase
+      .from('story_likes')
+      .select('id')
+      .eq('story_id', storyId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    
+    if (error) throw error
+    return !!data
+  } catch (e) {
+    console.error('checkIfStoryLiked error:', e)
+    return false
+  }
+}
+
+// Toggle like state on a story
+export async function toggleStoryLike(storyId, userId) {
+  try {
+    const { data: existing, error: checkError } = await supabase
+      .from('story_likes')
+      .select('id')
+      .eq('story_id', storyId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (checkError) throw checkError
+
+    if (existing) {
+      // Unlike
+      const { error: deleteError } = await supabase
+        .from('story_likes')
+        .delete()
+        .eq('id', existing.id)
+      
+      if (deleteError) throw deleteError
+      return false // unliked
+    } else {
+      // Like
+      const { error: insertError } = await supabase
+        .from('story_likes')
+        .insert({ story_id: storyId, user_id: userId })
+      
+      if (insertError) throw insertError
+      return true // liked
+    }
+  } catch (e) {
+    console.error('toggleStoryLike error:', e)
+    throw e
+  }
+}
+
 
