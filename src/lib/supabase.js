@@ -10,7 +10,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 console.log('Supabase client initialized')
 
 export const convertHeicToJpeg = async (file) => {
-  const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif') || file.type === 'image/heic';
+  const nameLower = file.name.toLowerCase();
+  const hasHeicExtension = nameLower.endsWith('.heic') || nameLower.endsWith('.heif');
+  
+  // 1. If the browser (e.g. Safari on macOS/iOS) already converted the file to standard format, 
+  // but kept the .HEIC filename extension, just rename the extension to match the mime type.
+  const isAlreadyStandard = file.type && (
+    file.type.startsWith('image/jpeg') || 
+    file.type.startsWith('image/png') || 
+    file.type.startsWith('image/gif') ||
+    file.type.startsWith('image/webp')
+  );
+  
+  if (hasHeicExtension && isAlreadyStandard) {
+    console.log("File has HEIC extension but is already standard type:", file.type);
+    const ext = file.type.split('/').pop() || 'jpg';
+    const newName = file.name.replace(/\.(heic|heif)$/i, `.${ext === 'jpeg' ? 'jpg' : ext}`);
+    return new File([file], newName, { type: file.type });
+  }
+
+  const isHeic = hasHeicExtension || file.type === 'image/heic';
   if (!isHeic) return file;
   
   try {
@@ -35,6 +54,15 @@ export const convertHeicToJpeg = async (file) => {
     return new File([singleBlob], newName, { type: 'image/jpeg' });
   } catch (err) {
     console.error("HEIC conversion failed:", err);
+    
+    // 2. If libheif says the format is not supported, it means the file is actually a JPEG/PNG 
+    // disguised with a .HEIC extension (very common after AirDrop). Rename it to .jpg and upload.
+    if (err.message && err.message.includes("ERR_LIBHEIF format not supported")) {
+      console.log("File content is not real HEIF, probably a renamed standard image. Renaming to .jpg...");
+      const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+      return new File([file], newName, { type: 'image/jpeg' });
+    }
+    
     alert("Ошибка конвертации HEIC: " + (err.message || err) + ". Файл будет загружен без изменений.");
     return file;
   }
