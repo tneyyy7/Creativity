@@ -84,7 +84,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
 
   return (
     <div className="w-full py-4 px-2 select-none">
-      <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex flex-row flex-nowrap items-center gap-4 overflow-x-auto pb-2 scrollbar-none w-full">
         
         {/* Current User Upload Bubble */}
         <div className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
@@ -132,7 +132,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
 
         {/* Other Users' Active Stories */}
         {loadingStories ? (
-          <div className="flex gap-4">
+          <div className="flex flex-row flex-nowrap gap-4">
             {[1, 2, 3].map((n) => (
               <div key={n} className="flex flex-col items-center gap-2 flex-shrink-0 animate-pulse">
                 <div className="w-16 h-16 rounded-full bg-[#181622] border border-white/5"></div>

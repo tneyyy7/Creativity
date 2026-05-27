@@ -16,7 +16,6 @@ import { PostViewerModal } from './components/PostViewerModal'
 import { Profile } from './pages/Profile'
 import { Friends } from './pages/Friends'
 import { Bookmarks } from './pages/Bookmarks'
-import { Feed } from './pages/Feed'
 import { Explore } from './pages/Explore'
 import { initOneSignal } from './lib/pwa'
 
@@ -163,25 +162,11 @@ function App() {
           {activeTab === 'dashboard' && <Dashboard nickname={nickname} isVerified={isVerified} onNavigate={setActiveTab} />}
           {/* {activeTab === 'chat' && <Chat />} */}
           {/* {activeTab === 'images' && <ImageGen />} */}
-          {activeTab === 'feed' && (
-            <Feed 
+          {activeTab === 'explore' && (
+            <Explore 
               currentUser={user}
               nickname={nickname}
               avatarUrl={avatarUrl}
-              onNavigate={(tab, targetId) => {
-                if (targetId) setTargetUserId(targetId)
-                setActiveTab(tab)
-              }}
-              onOpenPost={(id, painting, collection, index, profile) => setPostViewer({ 
-                painting, 
-                paintings: collection || [painting], 
-                index: index ?? 0,
-                externalProfile: profile
-              })}
-            />
-          )}
-          {activeTab === 'explore' && (
-            <Explore 
               onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
               onOpenPost={(id, painting, collection, index, profile) => setPostViewer({ 
                 painting, 

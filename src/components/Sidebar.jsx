@@ -41,7 +41,6 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
 
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: t('dashboard') },
-    { id: 'feed', icon: Sparkles, label: t('feed') || 'Feed' },
     { id: 'explore', icon: Compass, label: t('explore') || 'Explore' },
     { id: 'gallery', icon: Palette, label: t('gallery') },
     { id: 'bookmarks', icon: Bookmark, label: t('bookmarks') || 'Bookmarks' },

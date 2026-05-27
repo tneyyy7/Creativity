@@ -13,16 +13,16 @@ export const convertHeicToJpeg = async (file) => {
   try {
     const nameLower = file.name.toLowerCase();
     const hasHeicExtension = nameLower.endsWith('.heic') || nameLower.endsWith('.heif');
-    
+
     // 1. If the browser (e.g. Safari on macOS/iOS) already converted the file to standard format, 
     // but kept the .HEIC filename extension, just rename the extension to match the mime type.
     const isAlreadyStandard = file.type && (
-      file.type.startsWith('image/jpeg') || 
-      file.type.startsWith('image/png') || 
+      file.type.startsWith('image/jpeg') ||
+      file.type.startsWith('image/png') ||
       file.type.startsWith('image/gif') ||
       file.type.startsWith('image/webp')
     );
-    
+
     if (hasHeicExtension && isAlreadyStandard) {
       console.log("File has HEIC extension but is already standard type:", file.type);
       const ext = file.type.split('/').pop() || 'jpg';
@@ -32,13 +32,13 @@ export const convertHeicToJpeg = async (file) => {
 
     // Load heic-to dynamically
     const { heicTo, isHeic: checkIsHeic } = await import('heic-to');
-    
+
     // Slice file to convert it to a pure Blob, ensuring compatibility
     const cleanBlob = file.slice(0, file.size, file.type);
-    
+
     // Verify if it is really a HEIC file (by checking binary headers)
     const isRealHeic = await checkIsHeic(cleanBlob);
-    
+
     if (!isRealHeic) {
       if (hasHeicExtension) {
         console.log("File has HEIC extension but is not a real HEIF file. Renaming to .jpg...");
@@ -47,14 +47,14 @@ export const convertHeicToJpeg = async (file) => {
       }
       return file;
     }
-    
+
     console.log("Real HEIC file detected. Converting to JPEG...");
     const jpegBlob = await heicTo({
       blob: cleanBlob,
       type: 'image/jpeg',
       quality: 0.8
     });
-    
+
     const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
     return new File([jpegBlob], newName, { type: 'image/jpeg' });
   } catch (err) {
@@ -66,20 +66,20 @@ export const convertHeicToJpeg = async (file) => {
 
 export const uploadPainting = async (file, userId) => {
   const processedFile = await convertHeicToJpeg(file)
-  
+
   // Normalize filename: remove special characters, spaces to dashes, etc.
   const cleanName = processedFile.name
     .replace(/[^\x00-\x7F]/g, "") // remove non-ascii
     .replace(/\s+/g, '-')         // spaces to dashes
     .replace(/[^a-zA-Z0-9.-]/g, '') // remove anything not alphanumeric, dot or dash
-  
+
   const fileName = `${userId}/${Date.now()}-${cleanName || 'image'}`
   const { data, error } = await supabase.storage
     .from('paintings')
     .upload(fileName, processedFile)
 
   if (error) throw error
-  
+
   const { data: { publicUrl } } = supabase.storage
     .from('paintings')
     .getPublicUrl(fileName)
@@ -107,7 +107,7 @@ export async function fetchProfile(userId) {
       .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization')
       .eq('id', userId)
       .single()
-    
+
     if (!error) return cleanProfile(data)
 
     // Stage 2: Fallback (removing specialization and count if they cause errors)
@@ -117,7 +117,7 @@ export async function fetchProfile(userId) {
       .select('id, nickname, avatar_url, bio, is_private, is_verified, specialization')
       .eq('id', userId)
       .single()
-    
+
     if (rError) {
       if (rError.code !== 'PGRST116') throw rError
       return null
@@ -138,13 +138,13 @@ export const upsertProfile = async (profile) => {
   if (profile.is_private !== undefined) profileData.is_private = profile.is_private
   if (profile.is_verified !== undefined) profileData.is_verified = profile.is_verified
   if (profile.specialization !== undefined) profileData.specialization = profile.specialization
-  
+
   const { data, error } = await supabase
     .from('profiles')
     .upsert(profileData)
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -155,7 +155,7 @@ export const fetchPaintings = async (userId) => {
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-  
+
   if (error) throw error
   return data
 }
@@ -170,7 +170,7 @@ export const savePaintingMetadata = async (painting) => {
     })
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -180,7 +180,7 @@ export const deletePainting = async (id) => {
     .from('paintings')
     .delete()
     .eq('id', id)
-  
+
   if (error) throw error
 }
 
@@ -214,7 +214,7 @@ export const searchUsers = async (query, currentUserId) => {
       .ilike('nickname', `%${query}%`)
       .neq('id', currentUserId)
       .limit(10)
-    
+
     if (error && error.message?.includes('finished_work_count')) {
       const { data: retry } = await supabase
         .from('profiles')
@@ -261,7 +261,7 @@ export const checkFriendshipStatus = async (user1, user2) => {
     .select('*')
     .or(`and(sender_id.eq.${user1},receiver_id.eq.${user2}),and(sender_id.eq.${user2},receiver_id.eq.${user1})`)
     .single()
-    
+
   if (error && error.code !== 'PGRST116') throw error
   return data // returns null if no relationship exists
 }
@@ -270,7 +270,7 @@ export const sendFriendRequest = async (senderId, receiverId) => {
   const { error } = await supabase
     .from('friendships')
     .insert({ sender_id: senderId, receiver_id: receiverId, status: 'pending' })
-    
+
   if (error) throw error
 }
 
@@ -306,7 +306,7 @@ export const fetchFriends = async (userId) => {
       `)
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .eq('status', 'accepted')
-    
+
     if (error) {
       if (error.message?.includes('relationship') || error.message?.includes('fkey')) {
         const { data: relations, error: relError } = await supabase
@@ -314,17 +314,17 @@ export const fetchFriends = async (userId) => {
           .select('id, sender_id, receiver_id, status')
           .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
           .eq('status', 'accepted')
-        
+
         if (relError || !relations) return []
-        
+
         const profileIds = [...new Set(relations.flatMap(r => [r.sender_id, r.receiver_id]))]
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization, last_seen')
           .in('id', profileIds)
-        
+
         const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || [])
-        
+
         return relations.map(r => {
           const friendId = r.sender_id === userId ? r.receiver_id : r.sender_id
           const profile = profileMap[friendId]
@@ -333,7 +333,7 @@ export const fetchFriends = async (userId) => {
       }
       throw error
     }
-    
+
     return data?.map(f => {
       const friendProfile = f.sender_id === userId ? f.receiver : f.sender
       const friendProfileParsed = friendProfile && Array.isArray(friendProfile) ? friendProfile[0] : friendProfile
@@ -356,31 +356,31 @@ export const fetchPendingRequests = async (userId) => {
       `)
       .eq('receiver_id', userId)
       .eq('status', 'pending')
-    
+
     if (error) {
-       if (error.message?.includes('relationship') || error.message?.includes('fkey')) {
-         const { data: requests, error: reqError } = await supabase
+      if (error.message?.includes('relationship') || error.message?.includes('fkey')) {
+        const { data: requests, error: reqError } = await supabase
           .from('friendships')
           .select('id, sender_id')
           .eq('receiver_id', userId)
           .eq('status', 'pending')
-         
-         if (reqError || !requests) return []
 
-         const senderIds = requests.map(r => r.sender_id)
-         const { data: profiles } = await supabase
+        if (reqError || !requests) return []
+
+        const senderIds = requests.map(r => r.sender_id)
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id, nickname, avatar_url, is_verified, finished_work_count')
           .in('id', senderIds)
-         
-         const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || [])
 
-         return requests.map(r => ({
-           ...r,
-           profile: cleanProfile(profileMap[r.sender_id])
-         }))
-       }
-       throw error
+        const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || [])
+
+        return requests.map(r => ({
+          ...r,
+          profile: cleanProfile(profileMap[r.sender_id])
+        }))
+      }
+      throw error
     }
     return data?.map(r => ({ ...r, profile: cleanProfile(r.profile) })) || []
   } catch (e) {
@@ -396,14 +396,14 @@ export async function fetchProfileMinimal(userId) {
       .select('id, nickname, avatar_url, is_verified, finished_work_count')
       .eq('id', userId)
       .single()
-    
+
     if (error && error.message?.includes('finished_work_count')) {
-       const { data: retryData } = await supabase
+      const { data: retryData } = await supabase
         .from('profiles')
         .select('id, nickname, avatar_url, is_verified')
         .eq('id', userId)
         .single()
-       return cleanProfile(retryData)
+      return cleanProfile(retryData)
     }
     if (error) throw error
     return cleanProfile(data)
@@ -418,15 +418,15 @@ export async function fetchProfileMinimal(userId) {
 export const sendMessage = async (senderId, receiverId, content, replyToId = null) => {
   const { data, error } = await supabase
     .from('messages')
-    .insert([{ 
-      sender_id: senderId, 
-      receiver_id: receiverId, 
+    .insert([{
+      sender_id: senderId,
+      receiver_id: receiverId,
       content,
       reply_to_id: replyToId
     }])
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -437,7 +437,7 @@ export const fetchMessages = async (userId, otherId) => {
     .select('*')
     .or(`and(sender_id.eq.${userId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userId})`)
     .order('created_at', { ascending: true })
-  
+
   if (error) throw error
   return data
 }
@@ -450,13 +450,13 @@ export const fetchConversations = async (userId) => {
       .select('sender_id, receiver_id, created_at, is_read')
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .order('created_at', { ascending: false })
-    
+
     if (mError) throw mError
     if (!messages || messages.length === 0) return []
 
     // Group by other user and store last message timestamp + unread count
     const conversationMap = new Map()
-    
+
     messages.forEach(m => {
       const otherId = m.sender_id === userId ? m.receiver_id : m.sender_id
       if (!conversationMap.has(otherId)) {
@@ -465,7 +465,7 @@ export const fetchConversations = async (userId) => {
           unread_count: 0
         })
       }
-      
+
       // Increment unread count if message is to current user and unread
       if (m.receiver_id === userId && !m.is_read) {
         conversationMap.get(otherId).unread_count++
@@ -479,7 +479,7 @@ export const fetchConversations = async (userId) => {
       .from('profiles')
       .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization, last_seen')
       .in('id', otherUserIds)
-    
+
     if (pError) throw pError
 
     // Combine profiles with conversation metadata and sort
@@ -503,7 +503,7 @@ export const fetchTotalUnreadCount = async (userId) => {
       .select('*', { count: 'exact', head: true })
       .eq('receiver_id', userId)
       .eq('is_read', false)
-    
+
     if (error) throw error
     return count || 0
   } catch (err) {
@@ -519,7 +519,7 @@ export const markAsRead = async (receiverId, senderId) => {
     .eq('receiver_id', receiverId)
     .eq('sender_id', senderId)
     .eq('is_read', false)
-  
+
   if (error) throw error
 }
 
@@ -528,7 +528,7 @@ export const deleteMessage = async (id) => {
     .from('messages')
     .delete()
     .eq('id', id)
-  
+
   if (error) throw error
 }
 
@@ -539,7 +539,7 @@ export const updateMessage = async (id, content) => {
     .eq('id', id)
     .select()
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -568,7 +568,7 @@ export const searchFriends = async (query, currentUserId) => {
       .ilike('nickname', `%${query}%`)
       .in('id', friendIds)
       .limit(10)
-    
+
     if (pError && pError.message?.includes('finished_work_count')) {
       const { data: retry } = await supabase
         .from('profiles')
@@ -617,7 +617,7 @@ export async function fetchPostLikes(paintingId) {
       .select('id, nickname, avatar_url, finished_work_count, specialization')
       .in('id', userIds)
     const profileMap = {}
-    ;(profiles || []).forEach(p => { profileMap[p.id] = p })
+      ; (profiles || []).forEach(p => { profileMap[p.id] = p })
 
     return data.map(l => ({ ...l, profiles: profileMap[l.user_id] || null }))
   } catch (e) {
@@ -670,7 +670,7 @@ export async function fetchPostComments(paintingId) {
       .select('id, nickname, avatar_url, finished_work_count, specialization')
       .in('id', userIds)
     const profileMap = {}
-    ;(profiles || []).forEach(p => { profileMap[p.id] = p })
+      ; (profiles || []).forEach(p => { profileMap[p.id] = p })
 
     return data.map(c => ({ ...c, profiles: profileMap[c.user_id] || null }))
   } catch (e) {
@@ -727,7 +727,7 @@ export async function fetchPostNotifications(userId) {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(30)
-    
+
     if (error) throw error
     if (!notifications || notifications.length === 0) return []
 
@@ -849,7 +849,7 @@ export async function savePaintingTags(paintingId, tagNames) {
       .from('painting_tags')
       .delete()
       .eq('painting_id', paintingId)
-    
+
     if (deleteError) throw deleteError
 
     if (!tagNames || tagNames.length === 0) return
@@ -866,14 +866,14 @@ export async function savePaintingTags(paintingId, tagNames) {
         .select('id')
         .eq('name', tagName)
         .maybeSingle()
-      
+
       if (!existingTag) {
         const { data: newTag, error: insertError } = await supabase
           .from('tags')
           .insert({ name: tagName })
           .select('id')
           .single()
-        
+
         if (insertError && insertError.code === '23505') {
           const { data: retryTag } = await supabase
             .from('tags')
@@ -1069,7 +1069,7 @@ export async function checkFollowStatus(followerId, followingId) {
 export async function fetchFollowCounts(userId) {
   try {
     if (!userId) return { followers: 0, following: 0 }
-    
+
     const [followersRes, followingRes] = await Promise.all([
       supabase
         .from('follows')
@@ -1080,7 +1080,7 @@ export async function fetchFollowCounts(userId) {
         .select('*', { count: 'exact', head: true })
         .eq('follower_id', userId)
     ])
-    
+
     return {
       followers: followersRes.count || 0,
       following: followingRes.count || 0
@@ -1110,11 +1110,12 @@ export async function fetchFeedPaintings(userId) {
     const followingIds = follows?.map(f => f.following_id) || []
 
     if (followingIds.length > 0) {
-      // 2. Загружаем свежие работы этих авторов
+      // 2. Загружаем свежие работы этих авторов (только финишированные)
       const { data: paintings, error: pError } = await supabase
         .from('paintings')
         .select('*')
         .in('user_id', followingIds)
+        .eq('is_finished', true)
         .order('created_at', { ascending: false })
 
       if (pError) throw pError
@@ -1126,7 +1127,7 @@ export async function fetchFeedPaintings(userId) {
           .from('profiles')
           .select('*')
           .in('id', authorIds)
-        
+
         const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
         return paintings.map(p => ({
           ...p,
@@ -1159,7 +1160,7 @@ export async function fetchFeedPaintings(userId) {
     if (fbError) throw fbError
 
     const profileMap = Object.fromEntries(popularProfiles.map(p => [p.id, cleanProfile(p)]))
-    
+
     // Возвращаем как картины с профилями, так и список рекомендуемых авторов в специальном поле первого элемента
     const result = (fallbackPaintings || []).map(p => ({
       ...p,
@@ -1204,7 +1205,7 @@ export async function fetchExplorePaintings(filters = {}) {
           .from('painting_tags')
           .select('painting_id')
           .eq('tag_id', tagRecord.id)
-        
+
         paintingIdsFromTag = pTags?.map(pt => pt.painting_id) || []
         // Если картин с таким тегом нет, сразу возвращаем пустоту
         if (paintingIdsFromTag.length === 0) return []
@@ -1249,7 +1250,7 @@ export async function fetchExplorePaintings(filters = {}) {
       .in('id', authorIds)
 
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
-    
+
     let processed = paintings.map(p => ({
       ...p,
       profiles: profileMap[p.user_id] || null,
@@ -1411,7 +1412,7 @@ export async function fetchActiveStories() {
     stories.forEach(s => {
       const user = profileMap[s.user_id]
       if (!user) return
-      
+
       if (!userStoriesMap.has(s.user_id)) {
         userStoriesMap.set(s.user_id, {
           user,
