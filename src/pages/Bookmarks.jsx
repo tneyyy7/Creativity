@@ -131,7 +131,7 @@ export function Bookmarks({ onOpenPost }) {
         </div>
       ) : (
         <div className="text-center py-20 bg-white/[0.01] border border-white/5 rounded-3xl">
-          <div className="w-16 h-16 bg-white/5 rounded-2.5rem flex items-center justify-center mx-auto mb-6 border border-white/5">
+          <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/5">
             <Bookmark className="w-7 h-7 text-gray-600" />
           </div>
           <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">No bookmarks found</h3>

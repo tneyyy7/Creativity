@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, upsertProfile, uploadAvatar } from '../lib/supabase'
+import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification } from '../lib/pwa'
 
@@ -21,6 +21,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   const [notificationsSupported, setNotificationsSupported] = useState(false)
   const [notificationsGranted, setNotificationsGranted] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
 
   useEffect(() => {
     // Fetch bio when component mounts
@@ -58,6 +59,14 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
           .eq('is_finished', true)
         
         setLocalWorkCount(wCount || 0)
+
+        // Fetch follow counts
+        try {
+          const counts = await fetchFollowCounts(user.id)
+          setFollowCounts(counts)
+        } catch (e) {
+          console.error("Error loading follow counts:", e)
+        }
       }
     }
     fetchProfileData()
@@ -254,17 +263,31 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
             <div className="grid grid-cols-2 gap-3 w-full pt-2">
               <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
                 <div className="flex items-center gap-1.5 text-gray-500">
-                  <Image className="w-3.5 h-3.5" />
+                  <Image className="w-3.5 h-3.5 text-purple-400" />
                   <span className="text-[9px] font-black uppercase tracking-widest">{t('works') || 'Works'}</span>
                 </div>
                 <p className="text-lg font-black text-white leading-none">{localWorkCount}</p>
               </div>
               <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
                 <div className="flex items-center gap-1.5 text-gray-500">
-                  <Users className="w-3.5 h-3.5" />
+                  <Users className="w-3.5 h-3.5 text-purple-400" />
                   <span className="text-[9px] font-black uppercase tracking-widest">{t('friends') || 'Friends'}</span>
                 </div>
                 <p className="text-lg font-black text-white leading-none">{friendCount}</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
+                <div className="flex items-center gap-1.5 text-gray-500">
+                  <Users className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">{t('followers') || 'Followers'}</span>
+                </div>
+                <p className="text-lg font-black text-white leading-none">{followCounts.followers}</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
+                <div className="flex items-center gap-1.5 text-gray-500">
+                  <User className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">{t('following') || 'Following'}</span>
+                </div>
+                <p className="text-lg font-black text-white leading-none">{followCounts.following}</p>
               </div>
             </div>
 

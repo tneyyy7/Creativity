@@ -1031,3 +1031,28 @@ export async function checkFollowStatus(followerId, followingId) {
   }
 }
 
+export async function fetchFollowCounts(userId) {
+  try {
+    if (!userId) return { followers: 0, following: 0 }
+    
+    const [followersRes, followingRes] = await Promise.all([
+      supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', userId),
+      supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', userId)
+    ])
+    
+    return {
+      followers: followersRes.count || 0,
+      following: followingRes.count || 0
+    }
+  } catch (e) {
+    console.error('fetchFollowCounts error:', e)
+    return { followers: 0, following: 0 }
+  }
+}
+

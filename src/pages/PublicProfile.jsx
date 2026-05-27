@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow } from '../lib/supabase'
+import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost }) {
@@ -10,6 +10,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   const [paintings, setPaintings] = useState([])
   const [friendship, setFriendship] = useState(null)
   const [isFollowing, setIsFollowing] = useState(false)
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -35,6 +36,11 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
       // Only show finished works or masterpieces (assuming all are public for now)
       setPaintings((paintingsData || []).filter(p => p && p.is_finished))
 
+      // Load follow counts
+      fetchFollowCounts(targetUserId)
+        .then(setFollowCounts)
+        .catch(e => console.error("Error loading follow counts:", e))
+
       if (currentUserId && currentUserId !== targetUserId) {
         checkFriendshipStatus(currentUserId, targetUserId)
           .then(setFriendship)
@@ -57,6 +63,9 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
     try {
       const followState = await toggleFollow(currentUserId, targetUserId)
       setIsFollowing(followState)
+      
+      const counts = await fetchFollowCounts(targetUserId)
+      setFollowCounts(counts)
     } catch (error) {
       console.error("Error toggling follow:", error)
     } finally {
@@ -225,6 +234,19 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                 )}
                 {isAccepted && <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-purple-500/20"><Check className="w-3 h-3"/> {t('friend')}</span>}
               </div>
+            </div>
+
+            {/* Followers and Following counters */}
+            <div className="flex items-center justify-center md:justify-start gap-6 text-sm py-1 border-t border-b border-white/[0.04] w-fit px-4 bg-white/[0.01] rounded-xl">
+              <span className="text-gray-400">
+                <strong className="text-white font-black">{profile.finished_work_count || 0}</strong> {t('works') || 'Works'}
+              </span>
+              <span className="text-gray-400 border-l border-white/5 pl-6">
+                <strong className="text-white font-black">{followCounts.followers}</strong> {t('followers') || 'Followers'}
+              </span>
+              <span className="text-gray-400 border-l border-white/5 pl-6">
+                <strong className="text-white font-black">{followCounts.following}</strong> {t('following') || 'Following'}
+              </span>
             </div>
 
             {profile.bio ? (
