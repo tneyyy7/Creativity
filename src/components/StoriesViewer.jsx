@@ -4,6 +4,12 @@ import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
 
+const isVideo = (url) => {
+  if (!url) return false
+  const extension = url.split('?')[0].split('.').pop().toLowerCase()
+  return ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(extension)
+}
+
 export function StoriesViewer({ groups, initialGroupIndex, onClose }) {
   const { i18n } = useTranslation()
   const [currentGroupIdx, setCurrentGroupIdx] = useState(initialGroupIndex)
@@ -97,11 +103,22 @@ export function StoriesViewer({ groups, initialGroupIndex, onClose }) {
       
       {/* Background blur container */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <img 
-          src={currentStory.image_url} 
-          alt="Blur Background" 
-          className="w-full h-full object-cover scale-150 blur-3xl opacity-30"
-        />
+        {isVideo(currentStory.image_url) ? (
+          <video 
+            src={currentStory.image_url} 
+            className="w-full h-full object-cover scale-150 blur-3xl opacity-20"
+            muted
+            autoPlay
+            loop
+            playsInline
+          />
+        ) : (
+          <img 
+            src={currentStory.image_url} 
+            alt="Blur Background" 
+            className="w-full h-full object-cover scale-150 blur-3xl opacity-30"
+          />
+        )}
       </div>
 
       {/* Main player box (Aspect Ratio optimized for Stories) */}
@@ -170,7 +187,7 @@ export function StoriesViewer({ groups, initialGroupIndex, onClose }) {
           </div>
         </div>
 
-        {/* Content Box (WIP Image) */}
+        {/* Content Box (WIP Image or Video) */}
         <div className="flex-1 w-full flex items-center justify-center overflow-hidden relative">
           
           {/* Previous Area Trigger (Left 1/3) */}
@@ -185,15 +202,35 @@ export function StoriesViewer({ groups, initialGroupIndex, onClose }) {
             className="absolute right-0 top-0 bottom-0 w-[30%] z-20 cursor-e-resize"
           />
 
-          <img 
-            src={currentStory.image_url} 
-            alt="Story" 
-            className="w-full h-full object-cover pointer-events-none"
-          />
+          {isVideo(currentStory.image_url) ? (
+            <>
+              <video 
+                src={currentStory.image_url} 
+                className="w-full h-full object-cover pointer-events-none"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+              {currentStory.caption && (
+                <div className="absolute inset-0 flex items-center justify-center p-6 z-10 pointer-events-none">
+                  <span className="bg-black/60 text-white px-4 py-2.5 rounded-2xl text-base font-black text-center shadow-2xl border border-white/10 max-w-[85%] leading-snug animate-in zoom-in-50 duration-300">
+                    {currentStory.caption}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <img 
+              src={currentStory.image_url} 
+              alt="Story" 
+              className="w-full h-full object-cover pointer-events-none"
+            />
+          )}
         </div>
 
-        {/* Bottom Description Panel */}
-        {currentStory.caption && (
+        {/* Bottom Description Panel (Only for images) */}
+        {!isVideo(currentStory.image_url) && currentStory.caption && (
           <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-10 text-center">
             <div className="inline-block px-4 py-2.5 rounded-2xl bg-purple-950/20 backdrop-blur-md border border-purple-500/20 max-w-[90%] mx-auto shadow-lg shadow-purple-950/40">
               <p className="text-sm font-semibold text-white tracking-tight leading-relaxed text-pretty">

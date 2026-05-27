@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchActiveStories, uploadStory } from '../lib/supabase'
 import { StoriesViewer } from './StoriesViewer'
 import { ProfileAvatar } from './ProfileAvatar'
+import { createPortal } from 'react-dom'
 
 export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
   const { t } = useTranslation()
@@ -19,6 +20,12 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
   const [caption, setCaption] = useState('')
   const fileInputRef = useRef(null)
 
+  // Drawing states
+  const canvasRef = useRef(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [brushColor, setBrushColor] = useState('#ec4899') // default purple/pink
+  const [brushSize, setBrushSize] = useState(4)
+
   const loadStories = async () => {
     setLoadingStories(true)
     const groups = await fetchActiveStories()
@@ -30,17 +37,72 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
     loadStories()
   }, [])
 
+  // Canvas drawing config effect
+  useEffect(() => {
+    if (previewUrl && canvasRef.current && selectedFile && !selectedFile.type.startsWith('video/')) {
+      const canvas = canvasRef.current
+      canvas.width = canvas.offsetWidth || 480
+      canvas.height = canvas.offsetHeight || 256
+      const ctx = canvas.getContext('2d')
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.strokeStyle = brushColor
+      ctx.lineWidth = brushSize
+    }
+  }, [previewUrl, brushColor, brushSize, selectedFile])
+
+  const startDrawing = (e) => {
+    e.stopPropagation()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const rect = canvas.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    
+    ctx.beginPath()
+    ctx.moveTo(clientX - rect.left, clientY - rect.top)
+    setIsDrawing(true)
+  }
+
+  const draw = (e) => {
+    e.stopPropagation()
+    if (!isDrawing) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const rect = canvas.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    
+    ctx.lineTo(clientX - rect.left, clientY - rect.top)
+    ctx.stroke()
+  }
+
+  const stopDrawing = (e) => {
+    e.stopPropagation()
+    setIsDrawing(false)
+  }
+
+  const clearCanvas = (e) => {
+    if (e) e.stopPropagation()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
+
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      alert(t('invalid_image'))
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      alert('Please select an image or video file.')
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert(t('image_too_large'))
+    if (file.size > 20 * 1024 * 1024) { // 20MB max for video
+      alert('File is too large (max 20MB).')
       return
     }
 
@@ -54,7 +116,37 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
 
     setIsUploading(true)
     try {
-      await uploadStory(currentUser.id, selectedFile, caption)
+      let fileToUpload = selectedFile
+      
+      // If it's an image and drawing canvas is available, merge them
+      if (selectedFile.type.startsWith('image/') && canvasRef.current) {
+        const canvas = canvasRef.current
+        const ctx = canvas.getContext('2d')
+        const buffer = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const hasDrawn = buffer.data.some(channel => channel !== 0)
+        
+        if (hasDrawn) {
+          const mergeCanvas = document.createElement('canvas')
+          const mergeCtx = mergeCanvas.getContext('2d')
+          
+          const img = new Image()
+          img.src = previewUrl
+          await new Promise((resolve) => { img.onload = resolve })
+          
+          mergeCanvas.width = img.naturalWidth
+          mergeCanvas.height = img.naturalHeight
+          
+          // Draw base image
+          mergeCtx.drawImage(img, 0, 0)
+          // Draw drawing scaled
+          mergeCtx.drawImage(canvas, 0, 0, mergeCanvas.width, mergeCanvas.height)
+          
+          const blob = await new Promise(resolve => mergeCanvas.toBlob(resolve, 'image/jpeg', 0.9))
+          fileToUpload = new File([blob], selectedFile.name.replace(/\.[^/.]+$/, "") + "-drawn.jpg", { type: 'image/jpeg' })
+        }
+      }
+
+      await uploadStory(currentUser.id, fileToUpload, caption)
       setUploadModalOpen(false)
       setSelectedFile(null)
       setPreviewUrl(null)
@@ -168,22 +260,24 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
       </div>
 
       {/* Stories Fullscreen Player Modal */}
-      {selectedGroupIndex !== null && (
+      {selectedGroupIndex !== null && createPortal(
         <StoriesViewer 
           groups={activeStoryGroups} 
           initialGroupIndex={selectedGroupIndex}
           onClose={handleCloseViewer}
-        />
+        />,
+        document.body
       )}
 
       {/* Upload WIP Story Modal */}
-      {uploadModalOpen && (
+      {uploadModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-lg p-6 relative overflow-hidden shadow-2xl shadow-purple-500/10">
+          <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-lg p-6 relative overflow-hidden shadow-2xl shadow-purple-500/10" onClick={e => e.stopPropagation()}>
             
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-white tracking-tight">{t('add_to_story')} (WIP)</h3>
               <button 
+                type="button"
                 onClick={() => setUploadModalOpen(false)}
                 className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
               >
@@ -192,32 +286,107 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
             </div>
 
             <form onSubmit={handleUploadSubmit} className="space-y-6">
-              {/* Image selector */}
+              {/* Media selector */}
               <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full h-64 bg-[#181622] rounded-2xl border-2 border-dashed border-white/5 hover:border-purple-500/30 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all duration-300 relative group"
+                className="w-full h-64 bg-[#181622] rounded-2xl border-2 border-dashed border-white/5 hover:border-purple-500/30 flex flex-col items-center justify-center overflow-hidden transition-all duration-300 relative group"
+                onClick={() => !previewUrl && fileInputRef.current?.click()}
               >
                 {previewUrl ? (
                   <>
-                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <ImageIcon className="w-8 h-8 text-white" />
+                    {selectedFile.type.startsWith('video/') ? (
+                      <>
+                        <video 
+                          src={previewUrl} 
+                          className="w-full h-full object-cover" 
+                          muted 
+                          loop 
+                          autoPlay 
+                        />
+                        {caption && (
+                          <div className="absolute inset-0 flex items-center justify-center p-6 z-20 pointer-events-none">
+                            <span className="bg-black/60 text-white px-4 py-2 rounded-2xl text-base font-black text-center shadow-lg border border-white/5 max-w-[85%] leading-snug">
+                              {caption}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover pointer-events-none" />
+                        <canvas
+                          ref={canvasRef}
+                          onMouseDown={startDrawing}
+                          onMouseMove={draw}
+                          onMouseUp={stopDrawing}
+                          onMouseLeave={stopDrawing}
+                          onTouchStart={startDrawing}
+                          onTouchMove={draw}
+                          onTouchEnd={stopDrawing}
+                          className="absolute inset-0 w-full h-full cursor-crosshair z-10"
+                        />
+                        {/* Drawing controls */}
+                        <div className="flex items-center justify-between bg-black/70 p-2 rounded-xl backdrop-blur-sm absolute top-3 left-3 z-20 gap-3 border border-white/5" onClick={e => e.stopPropagation()}>
+                          <div className="flex gap-1.5">
+                            {['#ffffff', '#ec4899', '#a855f7', '#eab308', '#ef4444'].map(color => (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => setBrushColor(color)}
+                                className={`w-5 h-5 rounded-full border transition-all ${
+                                  brushColor === color ? 'scale-110 border-white ring-2 ring-purple-500/50' : 'border-transparent'
+                                }`}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex gap-1">
+                            {[2, 4, 8].map(size => (
+                              <button
+                                key={size}
+                                type="button"
+                                onClick={() => setBrushSize(size)}
+                                className={`px-2 py-0.5 rounded text-[10px] font-black border transition-all ${
+                                  brushSize === size ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-transparent hover:text-white'
+                                }`}
+                              >
+                                {size === 2 ? 'Thin' : size === 4 ? 'Med' : 'Thick'}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={clearCanvas}
+                            className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold border border-red-500 active:scale-95 transition-all"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Change media option */}
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                      className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 px-3 py-1.5 rounded-xl border border-white/10 text-white text-[10px] font-bold z-20 flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Change</span>
                     </div>
                   </>
                 ) : (
-                  <div className="text-center p-6 space-y-3">
+                  <div className="text-center p-6 space-y-3 cursor-pointer">
                     <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mx-auto text-purple-400 group-hover:scale-110 transition-transform">
                       <ImageIcon className="w-6 h-6" />
                     </div>
-                    <p className="text-sm font-semibold text-gray-300">{t('images_photos')}</p>
-                    <p className="text-xs text-gray-500">{t('composition_guide_hint')}</p>
+                    <p className="text-sm font-semibold text-gray-300">{t('images_photos')} / Video</p>
+                    <p className="text-xs text-gray-500">Select photos to draw or videos to overlay text</p>
                   </div>
                 )}
                 <input 
                   type="file" 
                   ref={fileInputRef} 
                   onChange={handleFileChange} 
-                  accept="image/*" 
+                  accept="image/*,video/*" 
                   className="hidden" 
                 />
               </div>
@@ -225,7 +394,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
               {/* Caption */}
               <div className="space-y-2">
                 <label className="text-[11px] font-bold text-purple-400 uppercase tracking-widest px-1">
-                  {t('story_caption')}
+                  {selectedFile?.type.startsWith('video/') ? 'Text Overlay (Текст на видео)' : t('story_caption')}
                 </label>
                 <textarea
                   value={caption}
@@ -233,7 +402,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                   maxLength={120}
                   rows={2}
                   className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-2xl px-4 py-3 text-sm text-white placeholder-gray-600 transition-all resize-none"
-                  placeholder="e.g. Sketching the background details..."
+                  placeholder={selectedFile?.type.startsWith('video/') ? "Type text to overlay on the video..." : "e.g. Sketching the background details..."}
                 />
                 <div className="text-right text-[10px] text-gray-500 font-bold px-1">
                   {caption.length}/120
@@ -257,7 +426,8 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

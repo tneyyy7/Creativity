@@ -1477,8 +1477,11 @@ export async function fetchActiveStories() {
 
 export async function uploadStory(userId, file, caption = '') {
   try {
-    // Загружаем картинку в бакет paintings (переиспользуем бакет для удобства)
-    const processedFile = await convertHeicToJpeg(file)
+    // Загружаем картинку/видео в бакет paintings (переиспользуем бакет для удобства)
+    let processedFile = file
+    if (file.type && file.type.startsWith('image/')) {
+      processedFile = await convertHeicToJpeg(file)
+    }
     const fileExt = processedFile.name.split('.').pop()
     const fileName = `${userId}/stories/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
 
