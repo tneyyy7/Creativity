@@ -351,3 +351,35 @@ CREATE TRIGGER on_follow_deleted
   FOR EACH ROW EXECUTE FUNCTION public.handle_follow_deletion_notification();
 
 
+-- ==========================================
+-- 9. Fault-Tolerant Push Notifications trigger (Wave 1 #1 extra)
+-- ==========================================
+
+-- Create the trigger function to call our Edge Function (with exception handling to prevent rollback)
+CREATE OR REPLACE FUNCTION public.handle_onesignal_notification()
+RETURNS TRIGGER AS $$
+BEGIN
+  BEGIN
+    PERFORM
+      net.http_post(
+        url := 'https://mutrphgzoczcitnmpxsm.supabase.co/functions/v1/onesignal-notify',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json'
+        ),
+        body := jsonb_build_object(
+          'record', row_to_json(NEW),
+          'table', TG_TABLE_NAME,
+          'type', TG_OP,
+          'schema', TG_TABLE_SCHEMA
+        )
+      );
+  EXCEPTION WHEN OTHERS THEN
+    -- Prevent transaction rollbacks on network/HTTP failures
+    RAISE WARNING 'OneSignal Push Notification HTTP failed: %', SQLERRM;
+  END;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+

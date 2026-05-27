@@ -1,23 +1,28 @@
 -- 1. Enable the HTTP extension (if not already enabled)
 CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "extensions";
 
--- 2. Create the trigger function to call our Edge Function
+-- 2. Create the trigger function to call our Edge Function (with exception handling to prevent rollback)
 CREATE OR REPLACE FUNCTION public.handle_onesignal_notification()
 RETURNS TRIGGER AS $$
 BEGIN
-  PERFORM
-    net.http_post(
-      url := 'https://mutrphgzoczcitnmpxsm.supabase.co/functions/v1/onesignal-notify',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json'
-      ),
-      body := jsonb_build_object(
-        'record', row_to_json(NEW),
-        'table', TG_TABLE_NAME,
-        'type', TG_OP,
-        'schema', TG_TABLE_SCHEMA
-      )
-    );
+  BEGIN
+    PERFORM
+      net.http_post(
+        url := 'https://mutrphgzoczcitnmpxsm.supabase.co/functions/v1/onesignal-notify',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json'
+        ),
+        body := jsonb_build_object(
+          'record', row_to_json(NEW),
+          'table', TG_TABLE_NAME,
+          'type', TG_OP,
+          'schema', TG_TABLE_SCHEMA
+        )
+      );
+  EXCEPTION WHEN OTHERS THEN
+    -- Prevent transaction rollbacks on network/HTTP failures
+    RAISE WARNING 'OneSignal Push Notification HTTP failed: %', SQLERRM;
+  END;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
