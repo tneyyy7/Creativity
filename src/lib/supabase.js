@@ -15,9 +15,18 @@ export const convertHeicToJpeg = async (file) => {
   
   try {
     console.log("HEIC/HEIF file detected. Converting to JPEG...");
-    const heic2any = (await import('heic2any')).default;
+    const module = await import('heic2any');
+    const heic2any = module.default || module;
+    
+    if (typeof heic2any !== 'function') {
+      throw new Error("heic2any is not loaded as a function");
+    }
+    
+    // Slice file to convert it to a pure Blob, ensuring compatibility with heic2any
+    const cleanBlob = file.slice(0, file.size, file.type);
+    
     const blob = await heic2any({
-      blob: file,
+      blob: cleanBlob,
       toType: 'image/jpeg',
       quality: 0.8
     });
@@ -25,7 +34,8 @@ export const convertHeicToJpeg = async (file) => {
     const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
     return new File([singleBlob], newName, { type: 'image/jpeg' });
   } catch (err) {
-    console.error("HEIC conversion failed, uploading original file:", err);
+    console.error("HEIC conversion failed:", err);
+    alert("Ошибка конвертации HEIC: " + (err.message || err) + ". Файл будет загружен без изменений.");
     return file;
   }
 }
