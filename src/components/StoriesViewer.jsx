@@ -372,7 +372,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
         </div>
 
         {/* Content Box (WIP Image or Video) */}
-        <div className="flex-1 w-full flex items-center justify-center overflow-hidden relative">
+        <div className="flex-1 w-full flex items-center justify-center overflow-hidden relative z-10">
           
           {/* Previous Area Trigger (Left 1/3) */}
           <div 
