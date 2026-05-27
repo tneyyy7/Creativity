@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage } from '../lib/supabase'
+import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost }) {
@@ -9,6 +9,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   const [profile, setProfile] = useState(null)
   const [paintings, setPaintings] = useState([])
   const [friendship, setFriendship] = useState(null)
+  const [isFollowing, setIsFollowing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -35,13 +36,31 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
       setPaintings((paintingsData || []).filter(p => p && p.is_finished))
 
       if (currentUserId && currentUserId !== targetUserId) {
-        const relation = await checkFriendshipStatus(currentUserId, targetUserId)
-        setFriendship(relation)
+        checkFriendshipStatus(currentUserId, targetUserId)
+          .then(setFriendship)
+          .catch(e => console.error("Error checking friendship:", e))
+        
+        checkFollowStatus(currentUserId, targetUserId)
+          .then(setIsFollowing)
+          .catch(e => console.error("Error checking follow:", e))
       }
     } catch (error) {
       console.error("Error loading public profile:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFollowToggle = async () => {
+    if (!currentUserId) return
+    setActionLoading(true)
+    try {
+      const followState = await toggleFollow(currentUserId, targetUserId)
+      setIsFollowing(followState)
+    } catch (error) {
+      console.error("Error toggling follow:", error)
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -216,6 +235,20 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
 
             {!isSelf && (
               <div className="pt-4 flex flex-wrap gap-3 items-center justify-center md:justify-start">
+                    {/* Follow Button */}
+                    <button 
+                      onClick={handleFollowToggle}
+                      disabled={actionLoading}
+                      className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 border shadow-lg ${
+                        isFollowing 
+                          ? 'bg-white/5 hover:bg-red-500/10 text-gray-300 hover:text-red-400 border-white/10' 
+                          : 'bg-purple-600 hover:bg-purple-500 text-white border-purple-500 shadow-purple-900/20'
+                      }`}
+                    >
+                      <User className="w-5 h-5" />
+                      {isFollowing ? t('unfollow', 'Unfollow') : t('follow', 'Follow')}
+                    </button>
+
                     {isAccepted && (
                       <button 
                         onClick={() => onMessage?.(profile)}

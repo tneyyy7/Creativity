@@ -99,6 +99,16 @@ function App() {
   // const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark')
   
   const handleLogout = async () => {
+    try {
+      if (user?.id) {
+        await supabase
+          .from('profiles')
+          .update({ last_seen: new Date(Date.now() - 15 * 60 * 1000).toISOString() })
+          .eq('id', user.id)
+      }
+    } catch (e) {
+      console.error("Error setting offline status:", e)
+    }
     await supabase.auth.signOut()
     setUser(null)
   }

@@ -881,11 +881,33 @@ export async function fetchBookmarks(userId) {
   try {
     const { data, error } = await supabase
       .from('bookmarks')
-      .select('painting:paintings(*, user:profiles(*))')
+      .select('*, painting:paintings(*)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
     if (error) throw error
-    return data?.map(d => ({ ...d.painting, user: cleanProfile(d.painting.user) })) || []
+    if (!data || data.length === 0) return []
+
+    // Fetch profiles for all bookmarked paintings
+    const userIds = [...new Set(data.map(d => d.painting?.user_id).filter(Boolean))]
+    let profileMap = {}
+    if (userIds.length > 0) {
+      const { data: profiles, error: pError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds)
+      if (pError) throw pError
+      profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+    }
+
+    return data.map(d => {
+      if (d.painting) {
+        return {
+          ...d.painting,
+          user: profileMap[d.painting.user_id] || null
+        }
+      }
+      return null
+    }).filter(Boolean)
   } catch (e) {
     console.error('fetchBookmarks error:', e)
     return []

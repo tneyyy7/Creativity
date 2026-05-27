@@ -14,7 +14,7 @@ export function Friends({ user, onViewProfile }) {
 
   const isOnline = (lastSeen) => {
     if (!lastSeen) return false
-    return (Date.now() - new Date(lastSeen).getTime()) < 5 * 60 * 1000
+    return (Date.now() - new Date(lastSeen).getTime()) < 2 * 60 * 1000
   }
 
   // Load friends and requests
