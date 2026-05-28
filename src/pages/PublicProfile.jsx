@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -210,18 +210,26 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
           <Share2 className="w-5 h-5" />
         </button>
 
-        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-10">
+        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
           <ProfileAvatar 
             avatarUrl={profile.avatar_url} 
             workCount={profile.finished_work_count} 
-            size="xl"
+            size="profile"
+            isPro={profile.isPro}
+            avatarFrame={profile.avatar_frame}
           />
           
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2" translate="no">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2 flex-wrap" translate="no" style={profile.nickname_color ? { color: profile.nickname_color } : {}}>
                 {profile.nickname || 'Unknown Artist'}
                 {profile.is_verified && <BadgeCheck className="w-6 h-6 text-purple-400 fill-purple-400/20" />}
+                {profile.isPro && (
+                  <span className="pro-badge">
+                    <Gem className="pro-badge-icon" />
+                    <span className="pro-badge-text">Pro</span>
+                  </span>
+                )}
               </h1>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
                 {profile.specialization && (
@@ -410,8 +418,19 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
               {friends.filter(f => f?.profile && (f.profile.nickname || '').toLowerCase().includes((sharingSearch || '').toLowerCase())).map(friendItem => (
                 <div key={friendItem.id} className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all group">
                   <div className="flex items-center gap-3">
-                    <ProfileAvatar avatarUrl={friendItem.profile?.avatar_url} workCount={friendItem.profile?.finished_work_count} size="sm" />
-                    <span className="text-white font-bold">{friendItem.profile?.nickname || 'Unknown'}</span>
+                    <ProfileAvatar avatarUrl={friendItem.profile?.avatar_url} workCount={friendItem.profile?.finished_work_count} size="sm" isPro={friendItem.profile?.isPro} avatarFrame={friendItem.profile?.avatar_frame} />
+                     <span className="text-white font-bold flex items-center gap-1.5" style={{ color: friendItem.profile?.nickname_color || undefined }}>
+                      {friendItem.profile?.nickname || 'Unknown'}
+                      {friendItem.profile?.is_verified && (
+                        <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                      )}
+                      {friendItem.profile?.isPro && (
+                        <span className="pro-badge">
+                          <Gem className="pro-badge-icon" />
+                          <span className="pro-badge-text">Pro</span>
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <button 
                     onClick={() => sendShareMessage(friendItem.profile)}

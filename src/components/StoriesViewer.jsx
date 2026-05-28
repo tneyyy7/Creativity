@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ChevronLeft, ChevronRight, Play, Pause, Heart, Volume2, VolumeX, Send, Loader2, Check, MoreVertical, Trash2 } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Play, Pause, Heart, Volume2, VolumeX, Send, Loader2, Check, MoreVertical, Trash2, BadgeCheck, Gem } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
@@ -329,7 +329,22 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
                 />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white tracking-tight">{currentGroup.user.nickname}</h4>
+                <h4 
+                  className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 notranslate animate-in fade-in duration-300"
+                  translate="no"
+                  style={currentGroup.user.nickname_color ? { color: currentGroup.user.nickname_color } : {}}
+                >
+                  {currentGroup.user.nickname}
+                  {currentGroup.user.is_verified && (
+                    <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                  )}
+                  {currentGroup.user.isPro && (
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/40 flex-shrink-0">
+                      <Gem className="w-2.5 h-2.5 text-cyan-300 fill-cyan-300" />
+                      <span className="text-[8px] font-black text-cyan-300 uppercase">Pro</span>
+                    </span>
+                  )}
+                </h4>
                 <p className="text-[10px] text-gray-400 font-bold">{getRelativeTime(currentStory.created_at)}</p>
               </div>
             </div>

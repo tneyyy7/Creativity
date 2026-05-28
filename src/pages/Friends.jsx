@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck, Palette, Camera, Shapes } from 'lucide-react'
+import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck, Palette, Camera, Shapes, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -104,7 +104,6 @@ export function Friends({ user, onViewProfile }) {
         </div>
       </div>
 
-      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
         <input 
@@ -118,6 +117,11 @@ export function Friends({ user, onViewProfile }) {
           <div className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
         )}
       </div>
+      {searchQuery.length > 0 && searchQuery.length < 3 && (
+        <p className="text-xs text-gray-500 pl-2 -mt-2">
+          {t('min_chars_hint') || 'Введите минимум 3 символа для поиска'}
+        </p>
+      )}
 
       {/* Search Results */}
       {searchResults.length > 0 && (
@@ -131,11 +135,19 @@ export function Friends({ user, onViewProfile }) {
                   workCount={result.finished_work_count} 
                   size="md"
                   isOnline={isOnline(result.last_seen)}
+                  isPro={result.isPro}
+                  avatarFrame={result.avatar_frame}
                 />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1" translate="no">
+                  <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={result.nickname_color ? { color: result.nickname_color } : { color: '#fff' }}>
                     {result.nickname || 'Unknown Artist'}
                     {result.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
+                    {result.isPro && (
+                      <span className="pro-badge">
+                        <Gem className="pro-badge-icon" />
+                        <span className="pro-badge-text">Pro</span>
+                      </span>
+                    )}
                   </h3>
                   <div className="flex items-center gap-2">
                     <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
@@ -179,11 +191,19 @@ export function Friends({ user, onViewProfile }) {
                     workCount={req.profile?.finished_work_count} 
                     size="md"
                     isOnline={isOnline(req.profile?.last_seen)}
+                    isPro={req.profile?.isPro}
+                    avatarFrame={req.profile?.avatar_frame}
                   />
                   <div>
-                    <h3 className="font-bold text-white group-hover:text-purple-400 notranslate flex items-center gap-2 text-lg" translate="no">
+                    <h3 className="font-bold hover:text-purple-400 notranslate flex items-center gap-2 text-lg" translate="no" style={req.profile?.nickname_color ? { color: req.profile.nickname_color } : { color: '#fff' }}>
                       {req.profile?.nickname || 'Unknown'}
                       {req.profile?.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
+                      {req.profile?.isPro && (
+                        <span className="pro-badge">
+                          <Gem className="pro-badge-icon" />
+                          <span className="pro-badge-text">Pro</span>
+                        </span>
+                      )}
                     </h3>
                     <p className="text-xs text-gray-500 font-medium">{t('wants_to_be_friends') || 'wants to be friends'}</p>
                   </div>
@@ -227,11 +247,19 @@ export function Friends({ user, onViewProfile }) {
                     workCount={friend.profile?.finished_work_count} 
                     size="md"
                     isOnline={isOnline(friend.profile?.last_seen)}
+                    isPro={friend.profile?.isPro}
+                    avatarFrame={friend.profile?.avatar_frame}
                   />
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1" translate="no">
+                    <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={friend.profile?.nickname_color ? { color: friend.profile.nickname_color } : { color: '#fff' }}>
                       {friend.profile?.nickname || 'Unknown'}
                       {friend.profile?.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
+                      {friend.profile?.isPro && (
+                        <span className="pro-badge">
+                          <Gem className="pro-badge-icon" />
+                          <span className="pro-badge-text">Pro</span>
+                        </span>
+                      )}
                     </h3>
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">

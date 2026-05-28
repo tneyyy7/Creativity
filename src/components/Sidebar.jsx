@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle, Bookmark, Compass, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle, Bookmark, Compass, Sparkles, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchTotalUnreadCount } from '../lib/supabase'
 
-export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, currentUser }) {
+export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, currentUser, isPro }) {
   const { t } = useTranslation()
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -47,6 +47,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
     { id: 'friends', icon: Users, label: t('friends') },
     { id: 'messages', icon: MessageCircle, label: t('messages') || 'Messages' },
     { id: 'ranks', icon: Trophy, label: t('ranks') },
+    { id: 'subscription', icon: Gem, label: 'Creativity Pro', isProItem: true },
     { id: 'productivity', icon: BarChart3, label: t('productivity') },
   ]
 
@@ -66,7 +67,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
         transition-transform duration-500 ease-out lg:translate-x-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="px-8 mb-12 flex items-center justify-between">
+        <div className="px-8 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-900/40">
               <Palette className="text-white w-7 h-7" />
@@ -81,20 +82,33 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
-          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em] px-4 mb-6">{t('menu')}</p>
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto no-scrollbar">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em] px-4 mb-3">{t('menu')}</p>
           {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
+              className={`w-full flex items-center gap-4 px-4 py-2.5 rounded-2xl transition-all duration-300 group ${
                 activeTab === item.id 
                   ? "bg-purple-600/10 text-purple-500 shadow-[inset_0_0_0_1px_rgba(147,51,234,0.2)]" 
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
+                  : item.isProItem && isPro
+                    ? "text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/5"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <item.icon className={`w-5 h-5 ${activeTab === item.id ? "text-purple-500" : "text-gray-500 group-hover:text-gray-300"}`} />
+              <item.icon className={`w-5 h-5 ${
+                activeTab === item.id 
+                  ? "text-purple-500" 
+                  : item.isProItem
+                    ? isPro ? "text-cyan-400 animate-pulse" : "text-amber-400 group-hover:text-amber-300"
+                    : "text-gray-500 group-hover:text-gray-300"
+              }`} />
               <span className="font-semibold text-[15px]">{item.label}</span>
+              {item.isProItem && isPro && (
+                <div className="ml-2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                  Active
+                </div>
+              )}
               {item.id === 'messages' && unreadCount > 0 && (
                 <div className="ml-2 px-2 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-lg shadow-red-500/40 animate-pulse">
                   {unreadCount > 99 ? '99+' : unreadCount}
@@ -105,18 +119,18 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
           ))}
         </nav>
 
-        <div className="mt-auto px-4 space-y-2">
-           <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em] px-4 mb-4">{t('general')}</p>
+        <div className="mt-auto px-4 space-y-1">
+           <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em] px-4 mb-2">{t('general')}</p>
            <button 
             onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${activeTab === 'settings' ? 'bg-purple-600/10 text-purple-500 shadow-[inset_0_0_0_1px_rgba(147,51,234,0.2)]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            className={`w-full flex items-center gap-4 px-4 py-2.5 rounded-2xl transition-all duration-300 group ${activeTab === 'settings' ? 'bg-purple-600/10 text-purple-500 shadow-[inset_0_0_0_1px_rgba(147,51,234,0.2)]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
            >
             <SettingsIcon className="w-5 h-5 text-gray-500" />
             <span className="font-semibold text-[15px]">{t('settings')}</span>
           </button>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
+            className="w-full flex items-center gap-4 px-4 py-2.5 rounded-2xl text-gray-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
           >
             <LogOut className="w-5 h-5 text-gray-500" />
             <span className="font-semibold text-[15px]">{t('logout')}</span>

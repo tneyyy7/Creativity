@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus } from 'lucide-react'
+import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus, Gem, X, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchBookmarks, fetchUserCollections, createCollection } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -237,11 +237,22 @@ export function Bookmarks({ onOpenPost }) {
                     <ProfileAvatar 
                       avatarUrl={painting.user?.avatar_url} 
                       workCount={painting.user?.finished_work_count ?? 0} 
-                      size="xs" 
+                      size="xs"
+                      isPro={painting.user?.isPro}
+                      avatarFrame={painting.user?.avatar_frame}
                     />
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-gray-300 truncate">
+                      <span className="text-xs font-bold truncate flex items-center gap-1.5 notranslate" translate="no" style={painting.user?.nickname_color ? { color: painting.user.nickname_color } : { color: '#d1d5db' }}>
                         {painting.user?.nickname || 'Unknown Artist'}
+                        {painting.user?.is_verified && (
+                          <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                        )}
+                        {painting.user?.isPro && (
+                          <span className="pro-badge">
+                            <Gem className="pro-badge-icon" />
+                            <span className="pro-badge-text">Pro</span>
+                          </span>
+                        )}
                       </span>
                       {painting.user?.specialization && (
                         <span className="flex items-center gap-1 text-purple-500 text-[8px] font-black uppercase tracking-wider mt-0.5">

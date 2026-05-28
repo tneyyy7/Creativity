@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, X, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Plus, X, Image as ImageIcon, Loader2, Gem, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchActiveStories, uploadStory } from '../lib/supabase'
 import { StoriesViewer } from './StoriesViewer'
 import { ProfileAvatar } from './ProfileAvatar'
 import { createPortal } from 'react-dom'
 
-export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
+export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
   const { t } = useTranslation()
   const [activeStoryGroups, setActiveStoryGroups] = useState([])
   const [loadingStories, setLoadingStories] = useState(true)
@@ -296,7 +296,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
         }
       }
 
-      await uploadStory(currentUser.id, fileToUpload, captionToUpload)
+      await uploadStory(currentUser.id, fileToUpload, captionToUpload, isPro)
       setUploadModalOpen(false)
       setSelectedFile(null)
       setPreviewUrl(null)
@@ -331,7 +331,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
 
   return (
     <div className="w-full py-4 px-2 select-none">
-      <div className="flex flex-row flex-nowrap items-center gap-4 overflow-x-auto pb-2 scrollbar-none w-full">
+      <div className="flex flex-row flex-nowrap items-start gap-4 overflow-x-auto pb-2 scrollbar-none w-full">
         
         {/* Current User Upload Bubble */}
         <div className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
@@ -439,9 +439,25 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname }) {
                     />
                   </div>
                 </div>
-                <span className="text-[11px] font-semibold text-gray-400 group-hover:text-white transition-colors tracking-tight text-center max-w-[70px] truncate">
-                  {group.user.nickname}
-                </span>
+                <div className="flex flex-col items-center max-w-[76px] w-full">
+                  <span 
+                    className="text-[11px] font-semibold text-gray-400 group-hover:text-white transition-colors tracking-tight text-center truncate w-full"
+                    style={group.user.nickname_color ? { color: group.user.nickname_color } : {}}
+                  >
+                    {group.user.nickname}
+                  </span>
+                  <div className="flex items-center justify-center gap-0.5 mt-0.5 min-h-[16px]">
+                    {group.user.is_verified && (
+                      <BadgeCheck className="w-2.5 h-2.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                    )}
+                    {group.user.isPro && (
+                      <span className="pro-badge">
+                        <Gem className="pro-badge-icon" />
+                        <span className="pro-badge-text">Pro</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )
           })

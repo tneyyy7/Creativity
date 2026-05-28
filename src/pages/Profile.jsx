@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar } from 'lucide-react'
+import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification } from '../lib/pwa'
 
-export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount }) {
+export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
   
@@ -230,6 +230,8 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                 avatarUrl={avatarUrl} 
                 workCount={workCount} 
                 size="xl" 
+                isPro={isPro}
+                avatarFrame={avatarFrame}
               />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[2rem]">
                 <Camera className="w-8 h-8 text-white drop-shadow-lg" />
@@ -245,7 +247,16 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
             />
 
             <div>
-              <h2 className="text-2xl font-black text-white notranslate" translate="no">{nickname}</h2>
+              <h2 className="text-2xl font-black text-white notranslate flex items-center justify-center gap-2 animate-in fade-in duration-300" translate="no" style={nicknameColor ? { color: nicknameColor } : {}}>
+                {nickname}
+                {isVerified && <BadgeCheck className="w-5 h-5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
+                {isPro && (
+                  <span className="pro-badge pro-badge-lg">
+                    <Gem className="pro-badge-icon" />
+                    <span className="pro-badge-text">Pro</span>
+                  </span>
+                )}
+              </h2>
               <div className="flex items-center justify-center gap-2 mt-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-purple-500/20">
                   <RoleIcon className="w-3 h-3" />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark } from 'lucide-react'
+import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
@@ -28,6 +28,8 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const painting = paintings?.[currentIndex] ?? null
   const isLiked = likes.some(l => l.user_id === currentUserId)
   const isAuthor = currentUserId === authorProfile?.id
+  // Pro status comes from enrichProfilesWithProData via the caller
+  const authorIsPro = !!authorProfile?.isPro
 
   const load = useCallback(async () => {
     if (!painting?.id) return
@@ -169,14 +171,14 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
         <X className="w-5 h-5" />
       </button>
 
-      {/* Navigation arrows — hidden on mobile, shown on desktop */}
+      {/* Navigation arrows — left/right edges of image area (before right panel) */}
       {currentIndex > 0 && (
         <button onClick={() => setCurrentIndex(i => i - 1)} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
           <ChevronLeft className="w-5 h-5" />
         </button>
       )}
       {currentIndex < (paintings?.length ?? 1) - 1 && (
-        <button onClick={() => setCurrentIndex(i => i + 1)} className="hidden md:flex absolute left-16 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
+        <button onClick={() => setCurrentIndex(i => i + 1)} className="hidden md:flex absolute right-[336px] lg:right-[396px] top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
           <ChevronRight className="w-5 h-5" />
         </button>
       )}
@@ -184,8 +186,18 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       {/* MOBILE LAYOUT: vertical scroll */}
       <div className="md:hidden absolute inset-0 z-10 overflow-y-auto">
         {/* Image */}
-        <div className="w-full min-h-[50vh] flex items-center justify-center bg-black pt-12 pb-2 px-2">
-          <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
+        <div className="w-full min-h-[50vh] flex items-center justify-center bg-black pt-12 pb-2 px-2 relative">
+          <div className="relative">
+            <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
+            {authorIsPro && (
+              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md border border-white/10 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-white select-none pointer-events-none z-30 shadow-lg">
+                <Gem className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400/10 animate-pulse flex-shrink-0" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-gray-200">
+                  Protected by Creativity Pro
+                </span>
+              </div>
+            )}
+          </div>
         </div>
         {/* Mobile nav arrows */}
         <div className="flex justify-center gap-4 py-2">
@@ -238,13 +250,19 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
         </div>
       </div>
 
-      {/* DESKTOP LAYOUT: side-by-side */}
-      {/* Image — fills all space except right panel */}
       <div className="hidden md:flex absolute inset-0 right-[320px] lg:right-[380px] items-center justify-center p-6" onClick={onClose}>
+        {authorIsPro && (
+          <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3.5 py-2 rounded-xl flex items-center gap-2 text-white select-none pointer-events-none z-30 shadow-xl" onClick={e => e.stopPropagation()}>
+            <Gem className="w-4 h-4 text-cyan-400 fill-cyan-400/10 animate-pulse flex-shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-200">
+              Protected by Creativity Pro
+            </span>
+          </div>
+        )}
         <img
           src={painting.image_url}
           alt={painting.title ?? ''}
-          className="max-w-full max-h-full object-contain rounded-lg"
+          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
           onClick={e => e.stopPropagation()}
         />
       </div>
@@ -300,8 +318,8 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
               {friends.filter(f => f?.profile && (f.profile.nickname ?? '').toLowerCase().includes(sharingSearch.toLowerCase())).map(f => (
                 <div key={f.id} className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/8 rounded-xl group">
                   <div className="flex items-center gap-3">
-                    <ProfileAvatar avatarUrl={f.profile?.avatar_url} workCount={f.profile?.finished_work_count ?? 0} size="sm" />
-                    <span className="text-white font-bold text-sm notranslate" translate="no">{f.profile?.nickname}</span>
+                    <ProfileAvatar avatarUrl={f.profile?.avatar_url} workCount={f.profile?.finished_work_count ?? 0} size="sm" isPro={f.profile?.isPro} avatarFrame={f.profile?.avatar_frame} />
+                    <span className="text-white font-bold text-sm notranslate" translate="no" style={f.profile?.nickname_color ? { color: f.profile.nickname_color } : {}}>{f.profile?.nickname}</span>
                   </div>
                   <button onClick={() => handleShareSend(f.profile)} className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all">
                     <Send className="w-4 h-4" />
@@ -332,10 +350,16 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
     <div className="flex flex-col h-full">
       {/* Author */}
       <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/5 flex items-center gap-3 shrink-0">
-        <ProfileAvatar avatarUrl={authorProfile?.avatar_url} workCount={authorProfile?.finished_work_count ?? 0} size="sm" />
+        <ProfileAvatar avatarUrl={authorProfile?.avatar_url} workCount={authorProfile?.finished_work_count ?? 0} size="sm" isPro={authorProfile?.isPro} avatarFrame={authorProfile?.avatar_frame} />
         <div className="flex flex-col">
-          <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black text-white hover:text-purple-400 transition-colors notranslate text-sm text-left" translate="no">
+          <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black hover:text-purple-400 transition-colors notranslate text-sm text-left flex items-center gap-1.5" translate="no" style={authorProfile?.nickname_color ? { color: authorProfile.nickname_color } : { color: '#fff' }}>
             {authorProfile?.nickname ?? 'Unknown'}
+            {authorProfile?.isPro && (
+              <span className="pro-badge">
+                <Gem className="pro-badge-icon" />
+                <span className="pro-badge-text">Pro</span>
+              </span>
+            )}
           </button>
           {authorProfile?.specialization && (
             <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest mt-0.5">
@@ -405,11 +429,13 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
       {/* Bottom bar */}
       <div className="border-t border-white/5 shrink-0">
         <div className="px-4 sm:px-5 pt-3 pb-2 flex items-center gap-5">
-          <button onClick={handleLike} disabled={!currentUserId || isLiking} className={`transition-all group disabled:opacity-40 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}`}>
+          <button onClick={handleLike} disabled={!currentUserId || isLiking} className={`transition-all group disabled:opacity-40 flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}`}>
             <Heart className={`w-6 h-6 transition-all ${isLiked ? 'fill-red-500 scale-110' : 'group-hover:scale-110'}`} />
+            {likes.length > 0 && <span className="text-sm font-black">{likes.length}</span>}
           </button>
-          <button onClick={() => commentInputRef.current?.focus()} className="text-gray-400 hover:text-white transition-colors">
+          <button onClick={() => commentInputRef.current?.focus()} className="text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
             <MessageCircle className="w-6 h-6" />
+            {comments.length > 0 && <span className="text-sm font-black text-gray-400">{comments.length}</span>}
           </button>
           <button onClick={handleShareOpen} className="text-gray-400 hover:text-purple-400 transition-colors">
             <Share2 className="w-6 h-6" />
@@ -430,8 +456,16 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
               <div className="flex flex-wrap gap-2">
                 {likes.slice(0, 10).map(l => (
                   <button key={l.id} onClick={() => { onViewProfile?.(l.user_id); onClose?.() }} className="flex items-center gap-1.5 bg-white/5 hover:bg-purple-500/20 rounded-xl px-2 py-1 transition-all">
-                    <ProfileAvatar avatarUrl={l.profiles?.avatar_url} workCount={l.profiles?.finished_work_count ?? 0} size="xs" />
-                    <span className="text-xs text-white font-bold notranslate max-w-[70px] truncate" translate="no">{l.profiles?.nickname ?? '?'}</span>
+                    <ProfileAvatar avatarUrl={l.profiles?.avatar_url} workCount={l.profiles?.finished_work_count ?? 0} size="xs" isPro={l.profiles?.isPro} avatarFrame={l.profiles?.avatar_frame} />
+                    <span className="text-xs font-bold notranslate max-w-[70px] truncate flex items-center gap-0.5" translate="no" style={l.profiles?.nickname_color ? { color: l.profiles.nickname_color } : { color: '#fff' }}>
+                      {l.profiles?.nickname ?? '?'}
+                      {l.profiles?.isPro && (
+                        <span className="pro-badge">
+                          <Gem className="pro-badge-icon" />
+                          <span className="pro-badge-text">Pro</span>
+                        </span>
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -473,12 +507,18 @@ function CommentItem({ comment, currentUserId, isAuthor, formatTime, onReply, on
   return (
     <div className="flex gap-2.5 group">
       <button onClick={() => onViewProfile?.(comment.user_id)} className="shrink-0 mt-0.5">
-        <ProfileAvatar avatarUrl={comment.profiles?.avatar_url} workCount={comment.profiles?.finished_work_count ?? 0} size="xs" />
+        <ProfileAvatar avatarUrl={comment.profiles?.avatar_url} workCount={comment.profiles?.finished_work_count ?? 0} size="xs" isPro={comment.profiles?.isPro} avatarFrame={comment.profiles?.avatar_frame} />
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <button onClick={() => onViewProfile?.(comment.user_id)} className="font-black text-white text-sm hover:text-purple-400 transition-colors notranslate" translate="no">
+          <button onClick={() => onViewProfile?.(comment.user_id)} className="font-black text-sm hover:text-purple-400 transition-colors notranslate flex items-center gap-1.5" translate="no" style={comment.profiles?.nickname_color ? { color: comment.profiles.nickname_color } : { color: '#fff' }}>
             {comment.profiles?.nickname ?? 'Unknown'}
+            {comment.profiles?.isPro && (
+              <span className="pro-badge">
+                <Gem className="pro-badge-icon" />
+                <span className="pro-badge-text">Pro</span>
+              </span>
+            )}
           </button>
           <span className="text-[10px] text-gray-600">{formatTime(comment.created_at)}</span>
         </div>

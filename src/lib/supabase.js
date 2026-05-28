@@ -99,16 +99,81 @@ function cleanProfile(data) {
   }
 }
 
+export async function enrichProfilesWithProData(profiles) {
+  if (!profiles) return []
+  const isArray = Array.isArray(profiles)
+  const profileList = isArray ? profiles : [profiles]
+  if (profileList.length === 0) return profiles
+
+  try {
+    const profileIds = profileList.map(p => p?.id).filter(Boolean)
+    if (profileIds.length === 0) return profiles
+
+    // Fetch both in parallel.
+    // NOTE: subscriptions has RLS "own row only" — for other users this may return [].
+    // pro_profile_settings has RLS USING(true) — always readable.
+    const [subResult, settingsResult] = await Promise.all([
+      supabase.from('subscriptions').select('user_id, status, current_period_end').in('user_id', profileIds),
+      supabase.from('pro_profile_settings').select('user_id, avatar_frame, nickname_color, chat_theme').in('user_id', profileIds)
+    ])
+
+    const now = new Date()
+    const subMap = {}
+    if (subResult.data) {
+      subResult.data.forEach(s => {
+        const isPro = s.status === 'active' || (s.status === 'cancelled' && s.current_period_end && new Date(s.current_period_end) > now)
+        subMap[s.user_id] = isPro
+      })
+    }
+
+    const settingsMap = {}
+    if (settingsResult.data) {
+      settingsResult.data.forEach(s => {
+        settingsMap[s.user_id] = s
+      })
+    }
+
+    const enrichedList = profileList.map(p => {
+      if (!p) return p
+      const settings = settingsMap[p.id] || {}
+      // Primary: use subscription status if available (own profile / public RLS)
+      // Fallback: if a pro_profile_settings row exists → user is/was Pro
+      let isPro = false
+      if (p.id in subMap) {
+        isPro = !!subMap[p.id]
+      } else if (settings.user_id) {
+        // settings exist → user has (or had) Pro; treat as Pro to show their customizations
+        isPro = true
+      }
+      return {
+        ...p,
+        isPro,
+        avatar_frame: settings.avatar_frame || 'default',
+        nickname_color: settings.nickname_color || '',
+        chat_theme: settings.chat_theme || 'default'
+      }
+    })
+
+    return isArray ? enrichedList : enrichedList[0]
+  } catch (err) {
+    console.error('Error enriching profiles with Pro data:', err)
+    return profiles
+  }
+}
+
 export async function fetchProfile(userId) {
   try {
     // Stage 1: Try full fetch
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization, last_seen')
       .eq('id', userId)
       .single()
 
-    if (!error) return cleanProfile(data)
+    if (!error) {
+      const cleaned = cleanProfile(data)
+      return await enrichProfilesWithProData(cleaned)
+    }
 
     // Stage 2: Fallback (removing specialization and count if they cause errors)
     console.warn("Retrying profile fetch without extra columns...")
@@ -122,7 +187,8 @@ export async function fetchProfile(userId) {
       if (rError.code !== 'PGRST116') throw rError
       return null
     }
-    return cleanProfile(retry)
+    const cleaned = cleanProfile(retry)
+    return await enrichProfilesWithProData(cleaned)
   } catch (e) {
     console.error("fetchProfile error:", e)
     return null
@@ -222,10 +288,12 @@ export const searchUsers = async (query, currentUserId) => {
         .ilike('nickname', `%${query}%`)
         .neq('id', currentUserId)
         .limit(10)
-      return cleanProfile(retry)
+      const cleaned = (retry || []).map(p => cleanProfile(p))
+      return await enrichProfilesWithProData(cleaned)
     }
     if (error) throw error
-    return cleanProfile(data)
+    const cleaned = (data || []).map(p => cleanProfile(p))
+    return await enrichProfilesWithProData(cleaned)
   } catch (e) {
     console.error("searchUsers error:", e)
     return []
@@ -245,10 +313,12 @@ export const fetchPublicProfile = async (userId) => {
         .select('nickname, avatar_url, bio, is_private, is_verified, specialization')
         .eq('id', userId)
         .single()
-      return cleanProfile(retry)
+      const cleaned = cleanProfile(retry)
+      return await enrichProfilesWithProData(cleaned)
     }
     if (error) throw error
-    return cleanProfile(data)
+    const cleaned = cleanProfile(data)
+    return await enrichProfilesWithProData(cleaned)
   } catch (e) {
     console.error("fetchPublicProfile error:", e)
     return null
@@ -323,22 +393,33 @@ export const fetchFriends = async (userId) => {
           .select('id, nickname, avatar_url, is_verified, finished_work_count, specialization, last_seen')
           .in('id', profileIds)
 
-        const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || [])
+        const cleanedProfiles = (profiles || []).map(p => cleanProfile(p))
+        const enrichedProfiles = await enrichProfilesWithProData(cleanedProfiles)
+        const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
 
         return relations.map(r => {
           const friendId = r.sender_id === userId ? r.receiver_id : r.sender_id
           const profile = profileMap[friendId]
-          return { ...r, profile: cleanProfile(profile) }
+          return { ...r, profile: profile || null }
         })
       }
       throw error
     }
 
-    return data?.map(f => {
+    const friends = data?.map(f => {
       const friendProfile = f.sender_id === userId ? f.receiver : f.sender
       const friendProfileParsed = friendProfile && Array.isArray(friendProfile) ? friendProfile[0] : friendProfile
       return { ...f, profile: cleanProfile(friendProfileParsed) }
     }) || []
+
+    const profilesOnly = friends.map(f => f.profile).filter(Boolean)
+    const enrichedProfiles = await enrichProfilesWithProData(profilesOnly)
+    const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
+
+    return friends.map(f => ({
+      ...f,
+      profile: f.profile ? profileMap[f.profile.id] : null
+    }))
   } catch (e) {
     console.error("fetchFriends error:", e)
     return []
@@ -368,21 +449,27 @@ export const fetchPendingRequests = async (userId) => {
         if (reqError || !requests) return []
 
         const senderIds = requests.map(r => r.sender_id)
-        const { data: profiles } = await supabase
+        const { data: rawProfiles } = await supabase
           .from('profiles')
           .select('id, nickname, avatar_url, is_verified, finished_work_count')
           .in('id', senderIds)
 
-        const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || [])
+        const enriched = await enrichProfilesWithProData((rawProfiles || []).map(p => cleanProfile(p)))
+        const profileMap = Object.fromEntries(enriched.map(p => [p.id, p]))
 
         return requests.map(r => ({
           ...r,
-          profile: cleanProfile(profileMap[r.sender_id])
+          profile: profileMap[r.sender_id] || null
         }))
       }
       throw error
     }
-    return data?.map(r => ({ ...r, profile: cleanProfile(r.profile) })) || []
+
+    const rawRequests = data?.map(r => ({ ...r, profile: cleanProfile(r.profile) })) || []
+    const profiles = rawRequests.map(r => r.profile).filter(Boolean)
+    const enriched = await enrichProfilesWithProData(profiles)
+    const profileMap = Object.fromEntries(enriched.map(p => [p.id, p]))
+    return rawRequests.map(r => ({ ...r, profile: r.profile ? profileMap[r.profile.id] || r.profile : null }))
   } catch (e) {
     console.error("fetchPendingRequests error:", e)
     return []
@@ -403,10 +490,12 @@ export async function fetchProfileMinimal(userId) {
         .select('id, nickname, avatar_url, is_verified')
         .eq('id', userId)
         .single()
-      return cleanProfile(retryData)
+      const cleaned = cleanProfile(retryData)
+      return await enrichProfilesWithProData(cleaned)
     }
     if (error) throw error
-    return cleanProfile(data)
+    const cleaned = cleanProfile(data)
+    return await enrichProfilesWithProData(cleaned)
   } catch (e) {
     console.error("fetchProfileMinimal error:", e)
     return null
@@ -483,13 +572,13 @@ export const fetchConversations = async (userId) => {
     if (pError) throw pError
 
     // Combine profiles with conversation metadata and sort
-    return profiles
-      .map(p => ({
-        ...cleanProfile(p),
-        unread_count: conversationMap.get(p.id).unread_count,
-        last_message_at: conversationMap.get(p.id).last_message_at
-      }))
-      .sort((a, b) => new Map(conversationMap).get(b.id).last_message_at.localeCompare(conversationMap.get(a.id).last_message_at))
+    const cleaned = profiles.map(p => ({
+      ...cleanProfile(p),
+      unread_count: conversationMap.get(p.id).unread_count,
+      last_message_at: conversationMap.get(p.id).last_message_at
+    }))
+    const enriched = await enrichProfilesWithProData(cleaned)
+    return enriched.sort((a, b) => conversationMap.get(b.id).last_message_at.localeCompare(conversationMap.get(a.id).last_message_at))
   } catch (err) {
     console.error("fetchConversations error:", err)
     return []
@@ -576,20 +665,22 @@ export const searchFriends = async (query, currentUserId) => {
         .ilike('nickname', `%${query}%`)
         .in('id', friendIds)
         .limit(10)
-      return (retry || []).map(p => ({
+      const cleaned = (retry || []).map(p => ({
         ...p,
         nickname: p.nickname || 'Unknown Artist',
         avatar_url: p.avatar_url || null,
         is_verified: p.is_verified || false
       }))
+      return await enrichProfilesWithProData(cleaned)
     }
     if (pError) throw pError
-    return (profiles || []).map(p => ({
+    const cleaned = (profiles || []).map(p => ({
       ...p,
       nickname: p.nickname || 'Unknown Artist',
       avatar_url: p.avatar_url || null,
       is_verified: p.is_verified || false
     }))
+    return await enrichProfilesWithProData(cleaned)
   } catch (e) {
     console.error("searchFriends error:", e)
     return []
@@ -612,12 +703,13 @@ export async function fetchPostLikes(paintingId) {
 
     // Fetch profiles for all user_ids
     const userIds = [...new Set(data.map(l => l.user_id))]
-    const { data: profiles } = await supabase
+    const { data: rawProfiles } = await supabase
       .from('profiles')
       .select('id, nickname, avatar_url, finished_work_count, specialization')
       .in('id', userIds)
+    const enriched = await enrichProfilesWithProData((rawProfiles || []).map(p => cleanProfile(p)))
     const profileMap = {}
-      ; (profiles || []).forEach(p => { profileMap[p.id] = p })
+    enriched.forEach(p => { profileMap[p.id] = p })
 
     return data.map(l => ({ ...l, profiles: profileMap[l.user_id] || null }))
   } catch (e) {
@@ -665,12 +757,13 @@ export async function fetchPostComments(paintingId) {
     if (!data || data.length === 0) return []
 
     const userIds = [...new Set(data.map(c => c.user_id))]
-    const { data: profiles } = await supabase
+    const { data: rawProfiles } = await supabase
       .from('profiles')
       .select('id, nickname, avatar_url, finished_work_count, specialization')
       .in('id', userIds)
+    const enriched = await enrichProfilesWithProData((rawProfiles || []).map(p => cleanProfile(p)))
     const profileMap = {}
-      ; (profiles || []).forEach(p => { profileMap[p.id] = p })
+    enriched.forEach(p => { profileMap[p.id] = p })
 
     return data.map(c => ({ ...c, profiles: profileMap[c.user_id] || null }))
   } catch (e) {
@@ -735,15 +828,16 @@ export async function fetchPostNotifications(userId) {
     const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))]
     const paintingIds = [...new Set(notifications.map(n => n.painting_id).filter(Boolean))]
 
-    // Parallel fetch actor profiles
+    // Parallel fetch and enrich actor profiles
     let actorMap = {}
     if (actorIds.length > 0) {
-      const { data: profiles, error: pError } = await supabase
+      const { data: rawProfiles, error: pError } = await supabase
         .from('profiles')
-        .select('id, nickname, avatar_url')
+        .select('id, nickname, avatar_url, finished_work_count')
         .in('id', actorIds)
-      if (!pError && profiles) {
-        actorMap = Object.fromEntries(profiles.map(p => [p.id, p]))
+      if (!pError && rawProfiles) {
+        const enriched = await enrichProfilesWithProData(rawProfiles.map(p => cleanProfile(p)))
+        actorMap = Object.fromEntries(enriched.map(p => [p.id, p]))
       }
     }
 
@@ -922,16 +1016,17 @@ export async function fetchBookmarks(userId) {
     if (error) throw error
     if (!data || data.length === 0) return []
 
-    // Fetch profiles for all bookmarked paintings
+    // Fetch and enrich profiles for all bookmarked paintings
     const userIds = [...new Set(data.map(d => d.painting?.user_id).filter(Boolean))]
     let profileMap = {}
     if (userIds.length > 0) {
-      const { data: profiles, error: pError } = await supabase
+      const { data: rawProfiles, error: pError } = await supabase
         .from('profiles')
         .select('*')
         .in('id', userIds)
       if (pError) throw pError
-      profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+      const enriched = await enrichProfilesWithProData((rawProfiles || []).map(p => cleanProfile(p)))
+      profileMap = Object.fromEntries(enriched.map(p => [p.id, p]))
     }
 
     return data.map(d => {
@@ -1113,7 +1208,7 @@ export async function fetchFeedPaintings(userId) {
       // 2. Загружаем свежие работы этих авторов (только финишированные)
       const { data: paintings, error: pError } = await supabase
         .from('paintings')
-        .select('*')
+        .select('*, post_likes(count), post_comments(count)')
         .in('user_id', followingIds)
         .eq('is_finished', true)
         .order('created_at', { ascending: false })
@@ -1128,10 +1223,14 @@ export async function fetchFeedPaintings(userId) {
           .select('*')
           .in('id', authorIds)
 
-        const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+        const cleanedProfiles = (profiles || []).map(p => cleanProfile(p))
+        const enrichedProfiles = await enrichProfilesWithProData(cleanedProfiles)
+        const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
         return paintings.map(p => ({
           ...p,
-          profiles: profileMap[p.user_id] || null
+          profiles: profileMap[p.user_id] || null,
+          likes_count: p.post_likes?.[0]?.count || 0,
+          comments_count: p.post_comments?.[0]?.count || 0
         }))
       }
     }
@@ -1152,27 +1251,31 @@ export async function fetchFeedPaintings(userId) {
     const popularIds = popularProfiles.map(p => p.id)
     const { data: fallbackPaintings, error: fbError } = await supabase
       .from('paintings')
-      .select('*')
+      .select('*, post_likes(count), post_comments(count)')
       .in('user_id', popularIds)
       .eq('is_finished', true)
       .order('created_at', { ascending: false })
 
     if (fbError) throw fbError
 
-    const profileMap = Object.fromEntries(popularProfiles.map(p => [p.id, cleanProfile(p)]))
+    const cleanedPopular = popularProfiles.map(p => cleanProfile(p))
+    const enrichedPopular = await enrichProfilesWithProData(cleanedPopular)
+    const profileMap = Object.fromEntries(enrichedPopular.map(p => [p.id, p]))
 
     // Возвращаем как картины с профилями, так и список рекомендуемых авторов в специальном поле первого элемента
     const result = (fallbackPaintings || []).map(p => ({
       ...p,
-      profiles: profileMap[p.user_id] || null
+      profiles: profileMap[p.user_id] || null,
+      likes_count: p.post_likes?.[0]?.count || 0,
+      comments_count: p.post_comments?.[0]?.count || 0
     }))
 
     // Прикрепляем список рекомендованных авторов для отображения во фронтенде
     if (result.length > 0) {
-      result[0].recommendedCreators = popularProfiles.map(cleanProfile)
+      result[0].recommendedCreators = enrichedPopular
     } else {
       // Если даже картин нет, вернем пустой список с рекомендованными профилями
-      return [{ id: 'empty-fallback', recommendedCreators: popularProfiles.map(cleanProfile) }]
+      return [{ id: 'empty-fallback', recommendedCreators: enrichedPopular }]
     }
 
     return result
@@ -1295,7 +1398,9 @@ export async function fetchExplorePaintings(filters = {}) {
       .select('*')
       .in('id', authorIds)
 
-    const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+    const cleanedProfiles = (profiles || []).map(p => cleanProfile(p))
+    const enrichedProfiles = await enrichProfilesWithProData(cleanedProfiles)
+    const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
 
     let processed = paintings.map(p => ({
       ...p,
@@ -1444,14 +1549,16 @@ export async function fetchActiveStories() {
     if (error) throw error
     if (!stories || stories.length === 0) return []
 
-    // Подгружаем профили создателей
+    // Подгружаем профили создателей с Pro-данными
     const userIds = [...new Set(stories.map(s => s.user_id))]
     const { data: profiles } = await supabase
       .from('profiles')
       .select('*')
       .in('id', userIds)
 
-    const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, cleanProfile(p)]))
+    const cleanedProfiles = (profiles || []).map(p => cleanProfile(p))
+    const enrichedProfiles = await enrichProfilesWithProData(cleanedProfiles)
+    const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
 
     // Группируем истории по пользователям
     const userStoriesMap = new Map()
@@ -1468,14 +1575,23 @@ export async function fetchActiveStories() {
       userStoriesMap.get(s.user_id).stories.push(s)
     })
 
-    return Array.from(userStoriesMap.values())
+    const result = Array.from(userStoriesMap.values())
+
+    // Сортируем: Pro-пользователи в начало!
+    result.sort((a, b) => {
+      const aPro = a.user?.isPro ? 1 : 0
+      const bPro = b.user?.isPro ? 1 : 0
+      return bPro - aPro // 1 перед 0
+    })
+
+    return result
   } catch (e) {
     console.error('fetchActiveStories error:', e)
     return []
   }
 }
 
-export async function uploadStory(userId, file, caption = '') {
+export async function uploadStory(userId, file, caption = '', isPro = false) {
   try {
     // Загружаем картинку/видео в бакет paintings (переиспользуем бакет для удобства)
     let processedFile = file
@@ -1495,6 +1611,8 @@ export async function uploadStory(userId, file, caption = '') {
       .from('paintings')
       .getPublicUrl(fileName)
 
+    const durationHours = isPro ? 48 : 24
+
     // Создаем запись в таблице stories
     const { data, error } = await supabase
       .from('stories')
@@ -1502,7 +1620,7 @@ export async function uploadStory(userId, file, caption = '') {
         user_id: userId,
         image_url: publicUrl,
         caption,
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // ровно 24 часа
+        expires_at: new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString()
       })
       .select()
       .single()
@@ -1585,6 +1703,188 @@ export async function deleteStory(storyId) {
     throw e
   }
 }
+
+// =============================================
+// Wave 3: Subscriptions, Custom Emojis & Pro Profile Settings
+// =============================================
+
+export async function fetchSubscriptionStatus(userId) {
+  try {
+    if (!userId) return { plan: 'free', status: 'inactive', isPro: false }
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) return { plan: 'free', status: 'inactive', isPro: false }
+
+    const now = new Date()
+    const isPro = data.status === 'active' || (data.status === 'cancelled' && data.current_period_end && new Date(data.current_period_end) > now)
+
+    return {
+      ...data,
+      isPro
+    }
+  } catch (e) {
+    console.error('fetchSubscriptionStatus error:', e)
+    return { plan: 'free', status: 'inactive', isPro: false }
+  }
+}
+
+export async function fetchProProfileSettings(userId) {
+  try {
+    if (!userId) return null
+    const { data, error } = await supabase
+      .from('pro_profile_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('fetchProProfileSettings error:', e)
+    return null
+  }
+}
+
+export async function updateProProfileSettings(userId, settings) {
+  try {
+    if (!userId) return null
+    const { data, error } = await supabase
+      .from('pro_profile_settings')
+      .upsert({
+        user_id: userId,
+        avatar_frame: settings.avatar_frame || 'default',
+        nickname_color: settings.nickname_color || '',
+        chat_theme: settings.chat_theme || 'default',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('updateProProfileSettings error:', e)
+    throw e
+  }
+}
+
+export async function fetchCustomEmojis(userId) {
+  try {
+    if (!userId) return []
+    const { data, error } = await supabase
+      .from('custom_emojis')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (e) {
+    console.error('fetchCustomEmojis error:', e)
+    return []
+  }
+}
+
+export async function uploadCustomEmoji(userId, name, croppedFile) {
+  try {
+    if (!userId || !croppedFile) throw new Error('Missing user ID or file')
+
+    const fileExt = croppedFile.name ? croppedFile.name.split('.').pop() : 'png'
+    const fileName = `${userId}/emojis/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('paintings')
+      .upload(fileName, croppedFile)
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('paintings')
+      .getPublicUrl(fileName)
+
+    const { data, error } = await supabase
+      .from('custom_emojis')
+      .insert({
+        user_id: userId,
+        name: name.replace(/:/g, ''),
+        image_url: publicUrl
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('uploadCustomEmoji error:', e)
+    throw e
+  }
+}
+
+export async function deleteCustomEmoji(emojiId) {
+  try {
+    if (!emojiId) return false
+    
+    const { error } = await supabase
+      .from('custom_emojis')
+      .delete()
+      .eq('id', emojiId)
+
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('deleteCustomEmoji error:', e)
+    throw e
+  }
+}
+
+export async function fetchChatTheme(userId, friendId) {
+  try {
+    if (!userId || !friendId) return 'default'
+    const { data, error } = await supabase
+      .from('user_chat_themes')
+      .select('theme')
+      .eq('user_id', userId)
+      .eq('friend_id', friendId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data?.theme || 'default'
+  } catch (e) {
+    console.error('fetchChatTheme error:', e)
+    return 'default'
+  }
+}
+
+export async function saveChatTheme(userId, friendId, theme) {
+  try {
+    if (!userId || !friendId) return null
+    const { data, error } = await supabase
+      .from('user_chat_themes')
+      .upsert(
+        {
+          user_id: userId,
+          friend_id: friendId,
+          theme,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id,friend_id' }
+      )
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('saveChatTheme error:', e)
+    throw e
+  }
+}
+
 
 
 

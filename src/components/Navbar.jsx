@@ -1,10 +1,10 @@
-import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark } from 'lucide-react'
+import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../lib/supabase'
 
-export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, onProfileClick, onFriendsClick, isVerified, workCount, onOpenPost }) {
+export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, onProfileClick, onFriendsClick, isVerified, workCount, onOpenPost, isPro, avatarFrame, nicknameColor }) {
   const { t, i18n } = useTranslation()
 
   const getNotifConfig = (type) => {
@@ -293,15 +293,26 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                           // Friend request
                           return (
                             <div key={item.id} className="p-3 flex items-center gap-3 hover:bg-white/[0.02] transition-colors border-b border-white/[0.03] last:border-0">
-                              <div className="w-10 h-10 rounded-xl bg-white/5 flex-shrink-0 overflow-hidden border border-white/10 flex items-center justify-center">
-                                {item.profile?.avatar_url ? (
-                                  <img src={item.profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <User className="w-5 h-5 text-gray-600" />
-                                )}
-                              </div>
+                              <ProfileAvatar
+                                avatarUrl={item.profile?.avatar_url}
+                                workCount={item.profile?.finished_work_count ?? 0}
+                                size="sm"
+                                isPro={item.profile?.isPro}
+                                avatarFrame={item.profile?.avatar_frame}
+                              />
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-white truncate notranslate">{item.profile?.nickname}</p>
+                                <p className="text-xs font-bold truncate notranslate flex items-center gap-1.5" translate="no" style={item.profile?.nickname_color ? { color: item.profile.nickname_color } : { color: '#fff' }}>
+                                  {item.profile?.nickname}
+                                  {item.profile?.is_verified && (
+                                    <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                                  )}
+                                  {item.profile?.isPro && (
+                                    <span className="pro-badge">
+                                      <Gem className="pro-badge-icon" />
+                                      <span className="pro-badge-text">Pro</span>
+                                    </span>
+                                  )}
+                                </p>
                                 <p className="text-[10px] text-gray-500 font-medium truncate">{t('wants_to_be_friends')}</p>
                               </div>
                               <div className="flex items-center gap-1">
@@ -332,13 +343,13 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                           >
                             {/* Actor avatar */}
                             <div className="relative flex-shrink-0">
-                              <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 bg-white/5 flex items-center justify-center">
-                                {item.actor?.avatar_url ? (
-                                  <img src={item.actor.avatar_url} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <User className="w-5 h-5 text-gray-600" />
-                                )}
-                              </div>
+                              <ProfileAvatar
+                                avatarUrl={item.actor?.avatar_url}
+                                workCount={item.actor?.finished_work_count ?? 0}
+                                size="sm"
+                                isPro={item.actor?.isPro}
+                                avatarFrame={item.actor?.avatar_frame}
+                              />
                               {/* Type badge */}
                               <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0c0b11] ${notifConfig.bgClass}`}>
                                 {notifConfig.icon}
@@ -347,10 +358,21 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
 
                             {/* Text */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-white leading-snug">
-                                <span className="font-bold notranslate group-hover:text-purple-400 transition-colors" translate="no">{item.actor?.nickname || 'Someone'}</span>
+                              <p className="text-xs leading-snug">
+                                <span className="font-bold notranslate group-hover:text-purple-400 transition-colors flex items-center gap-1.5 inline-flex" translate="no" style={item.actor?.nickname_color ? { color: item.actor.nickname_color } : { color: '#fff' }}>
+                                  {item.actor?.nickname || 'Someone'}
+                                  {item.actor?.is_verified && (
+                                    <BadgeCheck className="w-3 h-3 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                                  )}
+                                  {item.actor?.isPro && (
+                                    <span className="pro-badge">
+                                      <Gem className="pro-badge-icon" />
+                                      <span className="pro-badge-text">Pro</span>
+                                    </span>
+                                  )}
+                                </span>
                                 {' '}
-                                {notifConfig.text}
+                                <span className="text-white">{notifConfig.text}</span>
                               </p>
                               {((item.type === 'comment' || item.type === 'story_comment') && item.content) && (
                                 <p className="text-[10px] text-gray-500 truncate mt-0.5 max-w-[180px]">
@@ -416,9 +438,19 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
             className="flex items-center gap-3 pl-3 py-1.5 pr-1.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer group"
           >
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-xs font-black text-white notranslate flex items-center gap-1" translate="no">
+              <span 
+                className="text-xs font-black text-white notranslate flex items-center gap-1.5" 
+                translate="no"
+                style={nicknameColor ? { color: nicknameColor } : {}}
+              >
                 {nickname}
                 {isVerified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
+                {isPro && (
+                  <span className="pro-badge">
+                    <Gem className="pro-badge-icon" />
+                    <span className="pro-badge-text">Pro</span>
+                  </span>
+                )}
               </span>
               <span className="text-[10px] font-bold text-gray-500 truncate max-w-[120px]">{userEmail}</span>
             </div>
@@ -427,6 +459,8 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
               avatarUrl={avatarUrl}
               workCount={workCount}
               size="md"
+              isPro={isPro}
+              avatarFrame={avatarFrame}
             />
           </div>
         </div>

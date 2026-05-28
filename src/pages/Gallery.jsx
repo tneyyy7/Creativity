@@ -320,27 +320,27 @@ export function Gallery({ onOpenPost }) {
                    </button>
                  </div>
               </div>
-              <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black via-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end">
-                <div className="grid grid-cols-3 gap-4">
+              <div className="absolute inset-x-0 bottom-0 p-3.5 bg-gradient-to-t from-black via-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end">
+                <div className="grid grid-cols-3 gap-2">
                   <button 
                     onClick={() => onOpenPost?.(painting.id, painting, filteredPaintings, filteredPaintings.indexOf(painting))}
-                    className="aspect-square bg-white text-purple-900 rounded-2xl flex flex-col items-center justify-center gap-1.5 hover:bg-purple-50 transition-all shadow-xl active:scale-95 group/btn"
+                    className="bg-white text-purple-900 rounded-xl flex flex-col items-center justify-center py-2 px-1 hover:bg-purple-50 transition-all shadow-md active:scale-95 group/btn w-full"
                   >
-                    <User className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
+                    <User className="w-4 h-4 group-hover/btn:scale-110 transition-transform mb-0.5" />
                     <span className="text-[9px] font-black uppercase tracking-tighter">View</span>
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); toggleFinished(painting); }}
-                    className={`aspect-square rounded-2xl transition-all border flex flex-col items-center justify-center gap-1.5 shadow-xl active:scale-95 group/btn ${painting.is_finished ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-500' : 'bg-purple-600 border-purple-500 text-white hover:bg-purple-500'}`}
+                    className={`rounded-xl transition-all border flex flex-col items-center justify-center py-2 px-1 shadow-md active:scale-95 group/btn w-full ${painting.is_finished ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-500' : 'bg-purple-600 border-purple-500 text-white hover:bg-purple-500'}`}
                   >
-                    {painting.is_finished ? <Loader2 className="w-5 h-5 group-hover/btn:rotate-180 transition-transform" /> : <Star className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />}
+                    {painting.is_finished ? <Loader2 className="w-4 h-4 group-hover/btn:rotate-180 transition-transform mb-0.5" /> : <Star className="w-4 h-4 group-hover/btn:scale-110 transition-transform mb-0.5" />}
                     <span className="text-[9px] font-black uppercase tracking-tighter">{painting.is_finished ? t('edit') : t('finish')}</span>
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDelete(painting.id); }}
-                    className="aspect-square bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-2xl text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-xl active:scale-95 flex flex-col items-center justify-center gap-1.5 group/btn"
+                    className="bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-xl text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-md active:scale-95 flex flex-col items-center justify-center py-2 px-1 group/btn w-full"
                   >
-                    <Trash2 className="w-5 h-5 group-hover/btn:shake transition-transform" />
+                    <Trash2 className="w-4 h-4 group-hover/btn:shake transition-transform mb-0.5" />
                     <span className="text-[9px] font-black uppercase tracking-tighter">Delete</span>
                   </button>
                 </div>

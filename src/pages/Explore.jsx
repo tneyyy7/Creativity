@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, SlidersHorizontal, Grid, Star, Tag, X, Flame, Calendar, BadgeCheck, Loader2, Sparkles, Heart, MessageSquare, Bookmark, Compass, UserPlus, Check } from 'lucide-react'
+import { Search, SlidersHorizontal, Grid, Star, Tag, X, Flame, Calendar, BadgeCheck, Loader2, Sparkles, Heart, MessageSquare, Bookmark, Compass, UserPlus, Check, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchExplorePaintings, fetchFeedPaintings, togglePostLike, toggleBookmark, toggleFollow, isBookmarked } from '../lib/supabase'
 import { StoriesBanner } from '../components/StoriesBanner'
@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 
-export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewProfile }) {
+export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile }) {
   const { t, i18n } = useTranslation()
   const [activeSubTab, setActiveSubTab] = useState('feed') // 'feed' (subscriptions) or 'explore' (global search)
   
@@ -212,6 +212,7 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
           currentUser={currentUser}
           avatarUrl={avatarUrl}
           nickname={nickname}
+          isPro={isPro}
         />
       </div>
 
@@ -307,17 +308,26 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                         avatarUrl={author.avatar_url} 
                         workCount={author.finished_work_count ?? 0} 
                         size="md" 
+                        isPro={author.isPro}
+                        avatarFrame={author.avatar_frame}
                       />
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors">
+                          <span 
+                            className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors flex items-center gap-1.5"
+                            style={author.nickname_color ? { color: author.nickname_color } : {}}
+                          >
                             {author.nickname || 'Unknown Artist'}
+                            {author.is_verified && (
+                              <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                            )}
+                            {author.isPro && (
+                              <span className="pro-badge">
+                                <Gem className="pro-badge-icon" />
+                                <span className="pro-badge-text">Pro</span>
+                              </span>
+                            )}
                           </span>
-                          {author.is_verified && (
-                            <div className="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center text-white text-[9px] font-black">
-                              ✓
-                            </div>
-                          )}
                         </div>
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
                           {author.specialization || 'Painter'} • {getRelativeTime(post.created_at)}
@@ -367,7 +377,7 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                         }`}
                       >
                         <Heart className={`w-4 h-4 ${likedMap[post.id] ? 'fill-red-500' : ''}`} />
-                        <span>{likedMap[post.id] ? 'Liked' : 'Like'}</span>
+                        <span>{post.likes_count ?? 0}</span>
                       </button>
 
                       <button 
@@ -375,7 +385,7 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                         className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-white transition-colors"
                       >
                         <MessageSquare className="w-4 h-4" />
-                        <span>Comment</span>
+                        <span>{post.comments_count ?? 0}</span>
                       </button>
                     </div>
 
@@ -442,20 +452,31 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                   return (
                     <div key={creator.id} className="glass-card p-6 border-white/5 rounded-3xl flex flex-col justify-between hover:border-purple-500/10 transition-all duration-300 w-full">
                       
-                      <div className="flex items-start gap-4">
+                      <div className="flex items-center gap-4">
                         <ProfileAvatar 
                           avatarUrl={creator.avatar_url} 
                           workCount={creator.finished_work_count ?? 0} 
                           size="md" 
+                          isPro={creator.isPro}
+                          avatarFrame={creator.avatar_frame}
                         />
                         <div className="flex-1 space-y-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-bold text-white truncate">{creator.nickname}</span>
-                            {creator.is_verified && (
-                              <div className="w-3.5 h-3.5 rounded-full bg-purple-500 flex items-center justify-center text-white text-[8px] font-black flex-shrink-0">
-                                ✓
-                              </div>
-                            )}
+                            <span 
+                              className="text-sm font-bold text-white flex items-center gap-1.5 min-w-0"
+                              style={creator.nickname_color ? { color: creator.nickname_color } : {}}
+                            >
+                              <span className="truncate max-w-[150px]">{creator.nickname}</span>
+                              {creator.is_verified && (
+                                <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                              )}
+                              {creator.isPro && (
+                                <span className="pro-badge">
+                                  <Gem className="pro-badge-icon" />
+                                  <span className="pro-badge-text">Pro</span>
+                                </span>
+                              )}
+                            </span>
                           </div>
                           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">
                             {creator.specialization || 'Painter'}
@@ -614,16 +635,25 @@ export function Explore({ currentUser, nickname, avatarUrl, onOpenPost, onViewPr
                             avatarUrl={author.avatar_url} 
                             workCount={author.finished_work_count ?? 0} 
                             size="xs" 
+                            isPro={author.isPro}
+                            avatarFrame={author.avatar_frame}
                           />
                           <div className="flex items-center gap-1 min-w-0">
-                            <span className="text-[11px] font-bold text-gray-400 group-hover/author:text-white transition-colors truncate max-w-[120px]">
-                              {author.nickname || 'Unknown Artist'}
+                            <span 
+                              className="text-[11px] font-bold text-gray-400 group-hover/author:text-white transition-colors flex items-center gap-1.5 min-w-0"
+                              style={author.nickname_color ? { color: author.nickname_color } : {}}
+                            >
+                              <span className="truncate max-w-[100px]">{author.nickname || 'Unknown Artist'}</span>
+                              {author.is_verified && (
+                                <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                              )}
+                              {author.isPro && (
+                                <span className="pro-badge">
+                                  <Gem className="pro-badge-icon" />
+                                  <span className="pro-badge-text">Pro</span>
+                                </span>
+                              )}
                             </span>
-                            {author.is_verified && (
-                              <div className="w-3.5 h-3.5 rounded-full bg-purple-500 flex items-center justify-center text-white text-[7px] font-black flex-shrink-0">
-                                ✓
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>

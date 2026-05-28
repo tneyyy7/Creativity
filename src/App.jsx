@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
-import { supabase, fetchProfile, updateLastSeen } from './lib/supabase'
+import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus } from './lib/supabase'
 import { Dashboard } from './pages/Dashboard'
 import { Chat } from './pages/Chat'
 import { ImageGen } from './pages/ImageGen'
@@ -17,6 +17,7 @@ import { Profile } from './pages/Profile'
 import { Friends } from './pages/Friends'
 import { Bookmarks } from './pages/Bookmarks'
 import { Explore } from './pages/Explore'
+import { Subscription } from './pages/Subscription'
 import { initOneSignal } from './lib/pwa'
 
 function App() {
@@ -32,6 +33,9 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [targetUserId, setTargetUserId] = useState(null) // Used for viewing public profiles
   const [postViewer, setPostViewer] = useState(null)
+  const [isPro, setIsPro] = useState(false)
+  const [avatarFrame, setAvatarFrame] = useState('default')
+  const [nicknameColor, setNicknameColor] = useState('')
 
   useEffect(() => {
     const syncUser = (currUser) => {
@@ -48,8 +52,17 @@ function App() {
               setIsVerified(data.is_verified || false)
               setSpecialization(data.specialization || 'painter')
               setWorkCount(data.finished_work_count || 0)
+              setAvatarFrame(data.avatar_frame || 'default')
+              setNicknameColor(data.nickname_color || '')
             }
           })
+
+        // Fetch subscription status
+        fetchSubscriptionStatus(currUser.id)
+          .then((sub) => {
+            setIsPro(sub.isPro)
+          })
+          .catch(err => console.error('Subscription status fetch error:', err))
       } else {
         setUser(null)
         setNickname('Artist User')
@@ -57,6 +70,9 @@ function App() {
         setIsVerified(false)
         setSpecialization('painter')
         setWorkCount(0)
+        setIsPro(false)
+        setAvatarFrame('default')
+        setNicknameColor('')
       }
       setLoading(false)
     }
@@ -138,6 +154,7 @@ function App() {
         isOpen={isSidebarOpen}
         onClose={closeSidebar}
         currentUser={user}
+        isPro={isPro}
       />
       <div className="main-content">
         <Navbar 
@@ -146,6 +163,9 @@ function App() {
           nickname={nickname}
           avatarUrl={avatarUrl}
           isVerified={isVerified}
+          isPro={isPro}
+          avatarFrame={avatarFrame}
+          nicknameColor={nicknameColor}
           workCount={workCount}
           userEmail={user?.email} 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
@@ -159,7 +179,7 @@ function App() {
           })}
         />
         <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden' : 'overflow-y-auto'} p-4 md:p-10 custom-scrollbar flex flex-col`}>
-          {activeTab === 'dashboard' && <Dashboard nickname={nickname} isVerified={isVerified} onNavigate={setActiveTab} />}
+          {activeTab === 'dashboard' && <Dashboard nickname={nickname} isVerified={isVerified} isPro={isPro} onNavigate={setActiveTab} />}
           {/* {activeTab === 'chat' && <Chat />} */}
           {/* {activeTab === 'images' && <ImageGen />} */}
           {activeTab === 'explore' && (
@@ -167,6 +187,7 @@ function App() {
               currentUser={user}
               nickname={nickname}
               avatarUrl={avatarUrl}
+              isPro={isPro}
               onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
               onOpenPost={(id, painting, collection, index, profile) => setPostViewer({ 
                 painting, 
@@ -208,6 +229,9 @@ function App() {
             specialization={specialization}
             setSpecialization={setSpecialization}
             workCount={workCount}
+            isPro={isPro}
+            avatarFrame={avatarFrame}
+            nicknameColor={nicknameColor}
           />}
           {activeTab === 'friends' && <Friends 
             user={user} 
@@ -228,8 +252,10 @@ function App() {
           />}
           {activeTab === 'messages' && <Messages 
             currentUser={user} 
+            isPro={isPro}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
           />}
+          {activeTab === 'subscription' && <Subscription />}
           {activeTab === 'settings' && <Settings userEmail={user?.email} />}
         </main>
       </div>

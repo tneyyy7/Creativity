@@ -21,12 +21,12 @@ console.log("Supabase URL:", supabaseUrl);
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkTable() {
-  console.log("Testing story_likes...");
-  const { data, error } = await supabase.from('story_likes').select('*').limit(1);
+  console.log("Querying profiles table for tney...");
+  const { data, error } = await supabase.from('profiles').select('id, nickname, is_verified').ilike('nickname', '%tney%');
   if (error) {
-    console.error("story_likes table check failed:", error);
+    console.error("profiles check failed:", error);
   } else {
-    console.log("story_likes table exists! Rows:", data);
+    console.log("Profiles matching tney:", data);
   }
 }
 
