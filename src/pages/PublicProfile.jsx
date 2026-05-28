@@ -225,7 +225,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                 {profile.nickname || 'Unknown Artist'}
                 {profile.is_verified && <BadgeCheck className="w-6 h-6 text-purple-400 fill-purple-400/20" />}
                 {profile.isPro && (
-                  <span className="pro-badge">
+                  <span className="pro-badge pro-badge-lg">
                     <Gem className="pro-badge-icon" />
                     <span className="pro-badge-text">Pro</span>
                   </span>
