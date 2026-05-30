@@ -424,7 +424,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
 
   return (
     <>
-      <div className="h-full flex flex-col md:flex-row gap-4 md:gap-6 max-w-6xl mx-auto w-full min-h-0">
+      <div className="h-full flex flex-col md:flex-row gap-4 md:gap-6 max-w-none w-full min-h-0">
         {/* Conversations List */}
         <div className={`
         flex-col w-full md:w-80 glass-card p-4 space-y-4
@@ -699,7 +699,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
               {/* Messages Area */}
               <div
                 ref={scrollRef}
-                className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 custom-scrollbar transition-all duration-500 ${activeTheme.bg}`}
+                className={`flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 custom-scrollbar transition-all duration-500 ${activeTheme.bg}`}
               >
                 {messages.map((msg, i) => (
                   <div
@@ -707,7 +707,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                     className={`flex group ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`
-                    max-w-[85%] sm:max-w-[70%] md:max-w-[55%] relative pt-2.5 pb-1.5 px-3.5 sm:pt-3 sm:pb-2 sm:px-4 rounded-2xl md:rounded-[1.5rem] text-sm md:text-[15px] font-medium shadow-xl transition-all
+                    max-w-[85%] sm:max-w-[75%] md:max-w-[70%] relative pt-2.5 pb-1.5 px-3.5 sm:pt-3 sm:pb-2 sm:px-4 rounded-2xl md:rounded-[1.5rem] text-sm md:text-[15px] font-medium shadow-xl transition-all
                     ${msg.sender_id === currentUser.id
                         ? `${activeTheme.myBubble} rounded-tr-none ml-auto`
                         : `${activeTheme.theirBubble} rounded-tl-none mr-auto`}
