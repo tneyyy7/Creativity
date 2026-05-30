@@ -201,6 +201,7 @@ input[type="color"]::-moz-color-swatch {
   font-size: 0.5rem; /* text-[8px] */
   font-weight: 900; /* font-black */
   color: #ffffff !important; /* text-white */
+  -webkit-text-fill-color: #ffffff !important; /* reset inherited gradient text transparency */
   text-transform: uppercase;
   letter-spacing: 0.05em;
   line-height: 1;
