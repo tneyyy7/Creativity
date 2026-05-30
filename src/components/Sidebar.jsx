@@ -69,9 +69,11 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
       `}>
         <div className="px-8 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-900/40">
-              <Palette className="text-white w-7 h-7" />
-            </div>
+            <img 
+              src="/pwa-icon.png" 
+              alt="Creativity Logo" 
+              className="w-12 h-12 rounded-2xl object-cover shadow-lg shadow-purple-900/40"
+            />
             <span className="text-2xl font-bold font-outfit text-white tracking-tight">Creativity</span>
           </div>
           <button 
