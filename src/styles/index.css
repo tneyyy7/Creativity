@@ -63,7 +63,7 @@ body {
   .app-container {
     /* Full-bleed on phones, but keep clear of notches / home indicator
        when running as an installed PWA (safe-area insets are 0 in browsers). */
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     gap: 0;
     flex-direction: column;
   }

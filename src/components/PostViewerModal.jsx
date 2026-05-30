@@ -562,7 +562,13 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
         )}
 
         {currentUserId ? (
-          <div className="px-4 py-3 flex items-center gap-3 border-t border-white/5">
+          <div 
+            style={{ 
+              paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)',
+              paddingTop: '0.75rem' 
+            }}
+            className="px-4 flex items-center gap-3 border-t border-white/5"
+          >
             <input ref={commentInputRef} type="text" value={commentText} onChange={e => setCommentText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment() } }}
               placeholder="Add a comment…" className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 outline-none min-w-0" maxLength={500} />
