@@ -84,6 +84,29 @@ serve(async (req) => {
       })
     }
 
+    // For direct messages, don't fire an OS push if the recipient is currently active
+    // in the app — they already see the message in the open chat (delivered via realtime).
+    // Presence comes from `profiles.last_seen`, refreshed by the client roughly every 30s
+    // while the tab is visible. A backgrounded or closed app stops refreshing it, so the
+    // timestamp goes stale and notifications resume normally.
+    if (table === 'messages') {
+      const ACTIVE_WINDOW_MS = 70 * 1000
+      const { data: receiver } = await supabase
+        .from('profiles')
+        .select('last_seen')
+        .eq('id', receiverId)
+        .single()
+
+      if (receiver?.last_seen &&
+          Date.now() - new Date(receiver.last_seen).getTime() < ACTIVE_WINDOW_MS) {
+        console.log(`Skip push: receiver ${receiverId} is active in-app`)
+        return new Response(JSON.stringify({ skipped: true, reason: "Receiver active in app" }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        })
+      }
+    }
+
     // Fetch actor nickname if we have an actorId
     if (actorId) {
       const { data: profile } = await supabase

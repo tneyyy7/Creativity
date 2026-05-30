@@ -15,6 +15,19 @@ export async function initOneSignal(userId) {
       await OneSignal.login(userId);
       console.log('OneSignal initialized and user logged in:', userId);
     }
+
+    // Suppress system push notifications while the user is actively using the app.
+    // Without this, every incoming message (and other events) fires an OS notification
+    // even though the user is already looking at the chat — resulting in notification spam.
+    // The message still arrives via realtime, so the in-app UI stays up to date.
+    OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event) => {
+      // foregroundWillDisplay fires whenever the site is open, including in a background
+      // tab. Only suppress when the tab is actually visible (user is looking at the app);
+      // if it's hidden/minimized we still want the notification to show.
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        event.preventDefault();
+      }
+    });
   } catch (error) {
     console.error('OneSignal Init Error:', error);
   }

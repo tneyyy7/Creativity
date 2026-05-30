@@ -56,11 +56,16 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [editInput, setEditInput] = useState('')
   const [replyingTo, setReplyingTo] = useState(null)
   const [postViewer, setPostViewer] = useState(null) // { paintings, index, authorProfile }
   const scrollRef = useRef(null)
   const [showReactionPickerId, setShowReactionPickerId] = useState(null)
+
+  // Typing indicator (ephemeral, via Supabase Realtime broadcast — no DB writes)
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false)
+  const typingChannelRef = useRef(null)        // shared channel used to broadcast typing events
+  const typingStopTimeoutRef = useRef(null)    // debounce: auto-send "stopped typing" after a pause
+  const partnerTypingTimeoutRef = useRef(null) // safety: auto-hide partner indicator if "stop" is lost
 
   // Emoji States and Functions
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -307,17 +312,98 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     }
   }, [activeChat, currentUser.id])
 
+  // Typing indicator channel. Both participants must join the SAME channel name,
+  // so we build a deterministic name from the sorted pair of user ids.
+  useEffect(() => {
+    if (!activeChat?.id || !currentUser?.id) return
+    setIsPartnerTyping(false)
+
+    const ids = [currentUser.id, activeChat.id].sort()
+    const channel = supabase.channel(`typing_${ids[0]}_${ids[1]}`, {
+      config: { broadcast: { self: false } }
+    })
+
+    const topicName = `typing_${ids[0]}_${ids[1]}`
+    console.log('[typing] subscribing to', topicName, 'me:', currentUser.id, 'partner:', activeChat.id)
+    channel
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        console.log('[typing] RECEIVED', payload)
+        // Only react to the partner's events (ignore anything not from the open chat).
+        if (!payload || payload.userId !== activeChat.id) return
+        setIsPartnerTyping(!!payload.typing)
+        clearTimeout(partnerTypingTimeoutRef.current)
+        if (payload.typing) {
+          // Hide automatically if the "stopped" event never arrives (tab closed, lost packet).
+          partnerTypingTimeoutRef.current = setTimeout(() => setIsPartnerTyping(false), 4000)
+        }
+      })
+      .subscribe((status) => console.log('[typing] subscribe status:', status))
+
+    typingChannelRef.current = channel
+
+    return () => {
+      clearTimeout(partnerTypingTimeoutRef.current)
+      clearTimeout(typingStopTimeoutRef.current)
+      supabase.removeChannel(channel)
+      typingChannelRef.current = null
+      setIsPartnerTyping(false)
+    }
+  }, [activeChat?.id, currentUser?.id])
+
+  const broadcastTyping = (typing) => {
+    const channel = typingChannelRef.current
+    if (!channel) {
+      console.log('[typing] send skipped — no channel')
+      return
+    }
+    channel
+      .send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: currentUser.id, typing }
+      })
+      .then((res) => console.log('[typing] SENT', typing, '->', res))
+  }
+
+  // Called on every keystroke: announce "typing", then schedule a "stopped" after a short pause.
+  const handleInputChange = (e) => {
+    setInput(e.target.value)
+    broadcastTyping(true)
+    clearTimeout(typingStopTimeoutRef.current)
+    typingStopTimeoutRef.current = setTimeout(() => broadcastTyping(false), 2000)
+  }
+
   // Scroll to bottom on new messages and when the keyboard resizes the viewport
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, viewportStyle])
+  }, [messages, viewportStyle, isPartnerTyping])
 
   const handleSend = async () => {
     if (!input.trim() || !activeChat) return
     const content = expandEmojiShortcodes(input.trim())
     setInput('')
+
+    // Stop the typing indicator the moment a message is sent.
+    clearTimeout(typingStopTimeoutRef.current)
+    broadcastTyping(false)
+
+    if (editingId) {
+      const id = editingId
+      setEditingId(null)
+      try {
+        // Optimistic update
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, content, updated_at: new Date().toISOString() } : m))
+        await updateMessage(id, content)
+      } catch (err) {
+        console.error("Error updating message:", err)
+        // Reload messages to restore state
+        const data = await fetchMessages(currentUser.id, activeChat.id)
+        setMessages(data)
+      }
+      return
+    }
 
     // Optimistic update
     const tempId = Date.now().toString()
@@ -392,26 +478,13 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
 
   const handleStartEdit = (msg) => {
     setEditingId(msg.id)
-    setEditInput(msg.content)
+    setInput(msg.content)
+    setReplyingTo(null)
   }
 
-  const handleUpdate = async () => {
-    if (!editInput.trim() || !editingId) return
-    const id = editingId
-    const newContent = expandEmojiShortcodes(editInput.trim())
+  const handleCancelEdit = () => {
     setEditingId(null)
-    setEditInput('')
-
-    try {
-      // Optimistic update
-      setMessages(prev => prev.map(m => m.id === id ? { ...m, content: newContent, updated_at: new Date().toISOString() } : m))
-      await updateMessage(id, newContent)
-    } catch (err) {
-      console.error("Error updating message:", err)
-      // Reload on error
-      const data = await fetchMessages(currentUser.id, activeChat.id)
-      setMessages(data)
-    }
+    setInput('')
   }
 
   if (loading) {
@@ -632,7 +705,18 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                       )}
                     </h3>
                     <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest leading-none">Active Chat</p>
+                      {isPartnerTyping ? (
+                        <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest leading-none flex items-center gap-1.5 animate-in fade-in duration-200">
+                          {t('typing')}
+                          <span className="flex gap-0.5">
+                            <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"></span>
+                            <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest leading-none">Active Chat</p>
+                      )}
                       {activeChat.specialization && (
                         <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
                           {activeChat.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
@@ -717,43 +801,8 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                     ${msg.sender_id === currentUser.id
                         ? `${activeTheme.myBubble} rounded-tr-none ml-auto`
                         : `${activeTheme.theirBubble} rounded-tl-none mr-auto`}
-                    ${editingId === msg.id ? 'ring-2 ring-purple-400/50 min-w-[240px]' : ''}
                   `}>
-                      {editingId === msg.id ? (
-                        <div className="flex flex-col gap-3">
-                          <textarea
-                            value={editInput}
-                            onChange={(e) => setEditInput(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 focus:border-purple-300 focus:ring-0 text-white p-3 min-h-[80px] resize-none rounded-xl text-base md:text-sm leading-relaxed"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleUpdate()
-                              }
-                              if (e.key === 'Escape') setEditingId(null)
-                            }}
-                          />
-                          <div className="flex justify-end items-center gap-3">
-                            <button
-                              onClick={() => setEditingId(null)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-xs font-bold transition-all"
-                            >
-                              <CloseIcon className="w-3.5 h-3.5" />
-                              {t('cancel') || 'Cancel'}
-                            </button>
-                            <button
-                              onClick={handleUpdate}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-purple-600 hover:bg-purple-50 text-xs font-black rounded-lg transition-all shadow-lg"
-                            >
-                              <SaveIcon className="w-3.5 h-3.5" />
-                              {t('save') || 'Save'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {msg.reply_to_id && (
+                      {msg.reply_to_id && (
                             <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-2 border-purple-400/50 text-xs opacity-80 max-w-full truncate flex flex-col">
                               <span className="text-[10px] uppercase font-bold text-purple-300/70 mb-1">{messages.find(m => m.id === msg.reply_to_id)?.sender_id === currentUser.id ? t('you') || 'You' : activeChat.nickname}</span>
                               <span className="truncate italic">"{cleanEmojiTags(messages.find(m => m.id === msg.reply_to_id)?.content) || t('message_deleted')}"</span>
@@ -982,11 +1031,19 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                               </div>
                             )}
                           </div>
-                        </>
-                      )}
                     </div>
                   </div>
                 ))}
+
+                {isPartnerTyping && (
+                  <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className={`${activeTheme.theirBubble} rounded-2xl md:rounded-[1.5rem] rounded-tl-none px-4 py-3 shadow-xl flex items-center gap-1.5`}>
+                      <span className="w-2 h-2 bg-current opacity-60 rounded-full animate-bounce"></span>
+                      <span className="w-2 h-2 bg-current opacity-60 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-2 h-2 bg-current opacity-60 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Input Area */}
@@ -1002,6 +1059,25 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                     </div>
                     <button
                       onClick={() => setReplyingTo(null)}
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                {editingId && (
+                  <div className="mb-3 p-3 bg-cyan-600/10 rounded-xl border border-cyan-500/20 flex items-center justify-between animate-in slide-in-from-bottom-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                        <Edit3 className="w-3 h-3 text-cyan-400" />
+                        {t('editing_message') || 'Editing Message'}
+                      </p>
+                      <p className="text-xs text-gray-300 truncate italic">
+                        "{cleanEmojiTags(messages.find(m => m.id === editingId)?.content || '')}"
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleCancelEdit}
                       className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-colors"
                     >
                       <X className="w-4 h-4" />
@@ -1127,7 +1203,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                     <input
                       type="text"
                       value={input}
-                      onChange={(e) => setInput(e.target.value)}
+                      onChange={handleInputChange}
                       onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                       placeholder={t('type_message') || 'Type a message...'}
                       className="w-full h-14 pl-14 pr-16 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500/30 text-white text-base font-medium placeholder:text-gray-600"
