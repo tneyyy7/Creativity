@@ -1205,15 +1205,23 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                       value={input}
                       onChange={handleInputChange}
                       onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                      placeholder={t('type_message') || 'Type a message...'}
-                      className="w-full h-14 pl-14 pr-16 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500/30 text-white text-base font-medium placeholder:text-gray-600"
+                      placeholder={editingId ? (t('editing_message') || 'Edit Message...') : (t('type_message') || 'Type a message...')}
+                      className={`w-full h-14 pl-14 pr-16 bg-white/5 border rounded-2xl focus:outline-none text-white text-base font-medium placeholder:text-gray-600 transition-all ${
+                        editingId 
+                          ? 'border-cyan-500/30 focus:border-cyan-500/50' 
+                          : 'border-white/5 focus:border-purple-500/30'
+                      }`}
                     />
                     <button
                       onClick={handleSend}
                       disabled={!input.trim()}
-                      className="absolute right-2 top-2 w-10 h-10 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-all shadow-lg z-10"
+                      className={`absolute right-2 top-2 w-10 h-10 disabled:bg-gray-700 disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-all shadow-lg z-10 ${
+                        editingId 
+                          ? 'bg-cyan-600 hover:bg-cyan-500' 
+                          : 'bg-purple-600 hover:bg-purple-500'
+                      }`}
                     >
-                      <Send className="w-5 h-5" />
+                      {editingId ? <SaveIcon className="w-5 h-5" /> : <Send className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
