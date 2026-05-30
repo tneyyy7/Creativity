@@ -84,23 +84,24 @@ serve(async (req) => {
       })
     }
 
-    // For direct messages, don't fire an OS push if the recipient is currently active
-    // in the app — they already see the message in the open chat (delivered via realtime).
-    // Presence comes from `profiles.last_seen`, refreshed by the client roughly every 30s
-    // while the tab is visible. A backgrounded or closed app stops refreshing it, so the
-    // timestamp goes stale and notifications resume normally.
-    if (table === 'messages') {
-      const ACTIVE_WINDOW_MS = 70 * 1000
-      const { data: receiver } = await supabase
-        .from('profiles')
-        .select('last_seen')
-        .eq('id', receiverId)
+    // For direct messages, give the recipient a brief moment to read it in an open chat.
+    // If they're actively viewing the conversation with the sender, the client marks the
+    // message read within ~1s (markAsRead), so we skip the OS push and avoid spamming a
+    // chat they're already looking at. This is per-conversation and works across devices:
+    // only the device with that exact chat open marks it read. Messages from other people,
+    // or while the app is closed/backgrounded, stay unread and still trigger a push.
+    if (table === 'messages' && record.id) {
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+
+      const { data: msg } = await supabase
+        .from('messages')
+        .select('is_read')
+        .eq('id', record.id)
         .single()
 
-      if (receiver?.last_seen &&
-          Date.now() - new Date(receiver.last_seen).getTime() < ACTIVE_WINDOW_MS) {
-        console.log(`Skip push: receiver ${receiverId} is active in-app`)
-        return new Response(JSON.stringify({ skipped: true, reason: "Receiver active in app" }), {
+      if (msg?.is_read) {
+        console.log(`Skip push: message ${record.id} already read (recipient is in the chat)`)
+        return new Response(JSON.stringify({ skipped: true, reason: "Message already read" }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
         })

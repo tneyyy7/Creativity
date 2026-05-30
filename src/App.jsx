@@ -94,26 +94,16 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!user) return
+    if (user) {
+      initOneSignal(user.id)
 
-    initOneSignal(user.id)
+      // Update online status immediately and setup interval
+      updateLastSeen(user.id)
+      const interval = setInterval(() => {
+        updateLastSeen(user.id)
+      }, 60000) // 1 minute
 
-    // Presence heartbeat. Refresh `last_seen` only while the tab is visible, fairly
-    // often (every 30s), so the timestamp is a reliable "active right now" signal.
-    // The push edge function uses it to skip message notifications for users who are
-    // currently in the app. When the app is backgrounded/closed the heartbeat stops,
-    // last_seen goes stale, and notifications resume.
-    const beat = () => {
-      if (document.visibilityState === 'visible') updateLastSeen(user.id)
-    }
-
-    beat()
-    const interval = setInterval(beat, 30000)
-    document.addEventListener('visibilitychange', beat)
-
-    return () => {
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', beat)
+      return () => clearInterval(interval)
     }
   }, [user])
 
