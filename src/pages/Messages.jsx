@@ -33,10 +33,18 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     const vv = window.visualViewport
     if (!vv) return
     const onResize = () => {
-      setViewportStyle({
-        height: `${vv.height}px`,
-        top: `${vv.offsetTop}px`,
-        left: `${vv.offsetLeft}px`
+      setViewportStyle((prev) => {
+        const next = {
+          height: `${vv.height}px`,
+          top: `${vv.offsetTop}px`,
+          left: `${vv.offsetLeft}px`
+        }
+        // Avoid redundant state updates (and the re-renders / scroll jumps they cause):
+        // mobile browsers fire visualViewport "scroll" constantly with identical metrics.
+        if (prev.height === next.height && prev.top === next.top && prev.left === next.left) {
+          return prev
+        }
+        return next
       })
     }
     vv.addEventListener('resize', onResize)
@@ -47,6 +55,21 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
       vv.removeEventListener('scroll', onResize)
     }
   }, [])
+
+  // Lock the document body while the full-screen chat overlay is open, so scrolling the
+  // message list never "leaks" to the page underneath (which would reveal the app header).
+  useEffect(() => {
+    if (!(isMobile && activeChat)) return
+    const body = document.body
+    const prevOverflow = body.style.overflow
+    const prevOverscroll = body.style.overscrollBehavior
+    body.style.overflow = 'hidden'
+    body.style.overscrollBehavior = 'none'
+    return () => {
+      body.style.overflow = prevOverflow
+      body.style.overscrollBehavior = prevOverscroll
+    }
+  }, [isMobile, activeChat])
 
   const isOnline = (lastSeen) => {
     if (!lastSeen) return false
@@ -59,7 +82,18 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
   const [replyingTo, setReplyingTo] = useState(null)
   const [postViewer, setPostViewer] = useState(null) // { paintings, index, authorProfile }
   const scrollRef = useRef(null)
+  // Whether the user is currently parked at (or near) the bottom of the message list.
+  // Only then do we auto-stick to the bottom on new messages / viewport changes — otherwise
+  // scrolling up to read older messages would yank the view back down ("the kick").
+  const shouldAutoScrollRef = useRef(true)
   const [showReactionPickerId, setShowReactionPickerId] = useState(null)
+
+  const handleMessagesScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    shouldAutoScrollRef.current = distanceFromBottom < 120
+  }
 
   // Typing indicator (ephemeral, via Supabase Realtime broadcast — no DB writes)
   const [isPartnerTyping, setIsPartnerTyping] = useState(false)
@@ -373,12 +407,21 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     typingStopTimeoutRef.current = setTimeout(() => broadcastTyping(false), 2000)
   }
 
-  // Scroll to bottom on new messages and when the keyboard resizes the viewport
+  // Stick to the bottom on new messages / typing / keyboard resize — but only if the user
+  // is already near the bottom, so reading older messages isn't interrupted.
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && shouldAutoScrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages, viewportStyle, isPartnerTyping])
+
+  // Always jump to the bottom when a chat is first opened.
+  useEffect(() => {
+    shouldAutoScrollRef.current = true
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [activeChat?.id])
 
   const handleSend = async () => {
     if (!input.trim() || !activeChat) return
@@ -789,7 +832,8 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
               {/* Messages Area */}
               <div
                 ref={scrollRef}
-                className={`flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 custom-scrollbar transition-all duration-500 ${activeTheme.bg}`}
+                onScroll={handleMessagesScroll}
+                className={`flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2 sm:space-y-3 custom-scrollbar transition-all duration-500 ${activeTheme.bg}`}
               >
                 {messages.map((msg, i) => (
                   <div
