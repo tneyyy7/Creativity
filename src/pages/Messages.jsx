@@ -26,16 +26,26 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  // Track the visual viewport height so the full-screen chat shrinks when the
-  // on-screen keyboard opens, keeping the input field visible above it.
-  const [viewportHeight, setViewportHeight] = useState(null)
+  // Track the visual viewport height and offsets so the full-screen chat fits perfectly
+  // when the on-screen keyboard opens, keeping the input field visible above it without zooming.
+  const [viewportStyle, setViewportStyle] = useState({ height: '', top: '', left: '' })
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const onResize = () => setViewportHeight(vv.height)
+    const onResize = () => {
+      setViewportStyle({
+        height: `${vv.height}px`,
+        top: `${vv.offsetTop}px`,
+        left: `${vv.offsetLeft}px`
+      })
+    }
     vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', onResize)
     onResize()
-    return () => vv.removeEventListener('resize', onResize)
+    return () => {
+      vv.removeEventListener('resize', onResize)
+      vv.removeEventListener('scroll', onResize)
+    }
   }, [])
 
   const isOnline = (lastSeen) => {
@@ -301,7 +311,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, viewportHeight])
+  }, [messages, viewportStyle])
 
   const handleSend = async () => {
     if (!input.trim() || !activeChat) return
@@ -410,7 +420,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t('search_friends_only') || 'Search among friends...'}
                   autoFocus
-                  className="w-full h-11 pl-11 pr-4 bg-white/5 border border-white/5 rounded-xl focus:outline-none focus:border-purple-500/30 transition-all text-sm text-white"
+                  className="w-full h-11 pl-11 pr-4 bg-white/5 border border-white/5 rounded-xl focus:outline-none focus:border-purple-500/30 transition-all text-base md:text-sm text-white"
                 />
               </div>
             </div>
@@ -536,10 +546,15 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
           const isFullscreen = isMobile && activeChat
           const panel = (
             <div
-              style={isFullscreen ? { height: viewportHeight ? `${viewportHeight}px` : '100dvh' } : undefined}
+              style={isFullscreen ? { 
+                height: viewportStyle.height || '100dvh',
+                top: viewportStyle.top || '0px',
+                left: viewportStyle.left || '0px',
+                right: isFullscreen ? '0px' : undefined
+              } : undefined}
               className={
                 isFullscreen
-                  ? 'fixed inset-0 z-[90] flex flex-col bg-[#0a0a0a] overscroll-contain'
+                  ? 'fixed z-[90] flex flex-col bg-[#0a0a0a] overscroll-contain'
                   : `flex-1 glass-card flex-col relative overflow-hidden ${activeChat && isMobileView ? 'flex' : 'hidden md:flex'} ${!activeChat ? 'items-center justify-center' : ''}`
               }
             >
@@ -672,7 +687,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                           <textarea
                             value={editInput}
                             onChange={(e) => setEditInput(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 focus:border-purple-300 focus:ring-0 text-white p-3 min-h-[80px] resize-none rounded-xl text-sm leading-relaxed"
+                            className="w-full bg-black/20 border border-white/10 focus:border-purple-300 focus:ring-0 text-white p-3 min-h-[80px] resize-none rounded-xl text-base md:text-sm leading-relaxed"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && !e.shiftKey) {
@@ -986,7 +1001,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                       placeholder={t('type_message') || 'Type a message...'}
-                      className="w-full h-14 pl-14 pr-16 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500/30 text-white font-medium placeholder:text-gray-600"
+                      className="w-full h-14 pl-14 pr-16 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500/30 text-white text-base font-medium placeholder:text-gray-600"
                     />
                     <button
                       onClick={handleSend}

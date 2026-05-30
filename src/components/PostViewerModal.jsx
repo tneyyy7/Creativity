@@ -387,7 +387,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
                 <div key={f.id} className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/8 rounded-xl group">
                   <div className="flex items-center gap-3">
                     <ProfileAvatar avatarUrl={f.profile?.avatar_url} workCount={f.profile?.finished_work_count ?? 0} size="sm" isPro={f.profile?.isPro} avatarFrame={f.profile?.avatar_frame} />
-                    <span className="text-white font-bold text-sm notranslate" translate="no" style={f.profile?.nickname_color ? { color: f.profile.nickname_color } : {}}>{f.profile?.nickname}</span>
+                    <span className="font-bold text-sm notranslate" translate="no" style={getNicknameStyle(f.profile?.nickname_color, '#fff')}>{f.profile?.nickname}</span>
                   </div>
                   <button onClick={() => handleShareSend(f.profile)} className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all">
                     <Send className="w-4 h-4" />
@@ -421,7 +421,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
       <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/5 flex items-center gap-3 shrink-0">
         <ProfileAvatar avatarUrl={authorProfile?.avatar_url} workCount={authorProfile?.finished_work_count ?? 0} size="sm" isPro={authorProfile?.isPro} avatarFrame={authorProfile?.avatar_frame} />
         <div className="flex flex-col">
-          <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black hover:text-purple-400 transition-colors notranslate text-sm text-left flex items-center gap-1.5" translate="no" style={authorProfile?.nickname_color ? { color: authorProfile.nickname_color } : { color: '#fff' }}>
+          <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black hover:text-purple-400 transition-colors notranslate text-sm text-left flex items-center gap-1.5" translate="no" style={getNicknameStyle(authorProfile?.nickname_color, '#fff')}>
             {authorProfile?.nickname ?? 'Unknown'}
             {authorProfile?.is_verified && (
               <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20 flex-shrink-0" />
@@ -531,7 +531,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
                 {likes.slice(0, 10).map(l => (
                   <button key={l.id} onClick={() => { onViewProfile?.(l.user_id); onClose?.() }} className="flex items-center gap-1.5 bg-white/5 hover:bg-purple-500/20 rounded-xl px-2 py-1 transition-all">
                     <ProfileAvatar avatarUrl={l.profiles?.avatar_url} workCount={l.profiles?.finished_work_count ?? 0} size="xs" isPro={l.profiles?.isPro} avatarFrame={l.profiles?.avatar_frame} />
-                    <span className="text-xs font-bold notranslate max-w-[70px] truncate flex items-center gap-0.5" translate="no" style={l.profiles?.nickname_color ? { color: l.profiles.nickname_color } : { color: '#fff' }}>
+                    <span className="text-xs font-bold notranslate max-w-[70px] truncate flex items-center gap-0.5" translate="no" style={getNicknameStyle(l.profiles?.nickname_color, '#fff')}>
                       {l.profiles?.nickname ?? '?'}
                       {l.profiles?.isPro && (
                         <span className="pro-badge">
@@ -585,8 +585,11 @@ function CommentItem({ comment, currentUserId, isAuthor, formatTime, onReply, on
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <button onClick={() => onViewProfile?.(comment.user_id)} className="font-black text-sm hover:text-purple-400 transition-colors notranslate flex items-center gap-1.5" translate="no" style={comment.profiles?.nickname_color ? { color: comment.profiles.nickname_color } : { color: '#fff' }}>
+          <button onClick={() => onViewProfile?.(comment.user_id)} className="font-black text-sm hover:text-purple-400 transition-colors notranslate flex items-center gap-1.5" translate="no" style={getNicknameStyle(comment.profiles?.nickname_color, '#fff')}>
             {comment.profiles?.nickname ?? 'Unknown'}
+            {comment.profiles?.is_verified && (
+              <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+            )}
             {comment.profiles?.isPro && (
               <span className="pro-badge">
                 <Gem className="pro-badge-icon" />

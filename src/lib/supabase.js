@@ -759,7 +759,7 @@ export async function fetchPostComments(paintingId) {
     const userIds = [...new Set(data.map(c => c.user_id))]
     const { data: rawProfiles } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, finished_work_count, specialization')
+      .select('id, nickname, avatar_url, finished_work_count, specialization, is_verified')
       .in('id', userIds)
     const enriched = await enrichProfilesWithProData((rawProfiles || []).map(p => cleanProfile(p)))
     const profileMap = {}
@@ -784,11 +784,14 @@ export async function addPostComment(paintingId, userId, content, parentId = nul
     // Fetch the user's profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, finished_work_count')
+      .select('id, nickname, avatar_url, finished_work_count, specialization, is_verified')
       .eq('id', userId)
       .single()
 
-    return { ...data, profiles: profile || null }
+    const cleaned = cleanProfile(profile)
+    const enriched = await enrichProfilesWithProData(cleaned)
+
+    return { ...data, profiles: enriched || null }
   } catch (e) {
     console.error('addPostComment error:', e)
     throw e
