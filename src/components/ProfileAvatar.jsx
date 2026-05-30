@@ -1,6 +1,6 @@
 import { User } from 'lucide-react'
 
-export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className = "", isOnline = false, isPro = false, avatarFrame = "default" }) {
+export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className = "", isOnline = false, isPro = false, avatarFrame = "default", children }) {
   const getRankInfo = (count) => {
     if (count >= 150) return { id: 10, color: 'from-rose-500 to-rose-300', glow: 'shadow-rose-500/25', animate: true }
     if (count >= 100) return { id: 9, color: 'from-amber-400 to-yellow-200', glow: 'shadow-amber-500/20', animate: true }
@@ -124,6 +124,7 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
         ) : (
           <User className={`${iconSize} text-purple-500/70`} />
         )}
+        {children}
       </div>
 
       {/* Online indicator */}

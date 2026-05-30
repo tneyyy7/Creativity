@@ -254,10 +254,11 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                 size="xl" 
                 isPro={isPro}
                 avatarFrame={avatarFrame}
-              />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[2rem]">
-                <Camera className="w-8 h-8 text-white drop-shadow-lg" />
-              </div>
+              >
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <Camera className="w-8 h-8 text-white drop-shadow-lg" />
+                </div>
+              </ProfileAvatar>
             </div>
             
             <input 
