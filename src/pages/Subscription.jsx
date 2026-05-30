@@ -194,7 +194,7 @@ export function Subscription() {
               </div>
               <div>
                 <a
-                  href="https://billing.stripe.com/p/session/your_portal_session" // Fallback Stripe customer portal
+                  href="https://billing.stripe.com/p/login/3cI7sF5kP0lBcll3io4ko00" // Real Stripe customer portal
                   target="_blank"
                   rel="noreferrer"
                   className="bg-white/5 hover:bg-white/10 text-white font-bold px-6 py-3 rounded-xl border border-white/10 transition-all text-sm block text-center no-underline hover:no-underline"
