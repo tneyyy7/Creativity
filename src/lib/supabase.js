@@ -1901,6 +1901,18 @@ export async function saveChatTheme(userId, friendId, theme) {
   }
 }
 
+export async function updateMessageReactions(messageId, reactions) {
+  const { data, error } = await supabase
+    .from('messages')
+    .update({ reactions })
+    .eq('id', messageId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 
 
 

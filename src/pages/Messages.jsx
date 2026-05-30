@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme } from '../lib/supabase'
+import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, updateMessageReactions } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { PostViewerModal } from '../components/PostViewerModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
@@ -60,6 +60,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
   const [replyingTo, setReplyingTo] = useState(null)
   const [postViewer, setPostViewer] = useState(null) // { paintings, index, authorProfile }
   const scrollRef = useRef(null)
+  const [showReactionPickerId, setShowReactionPickerId] = useState(null)
 
   // Emoji States and Functions
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -342,6 +343,23 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
       console.error("Error sending message:", err)
       // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== tempId))
+    }
+  }
+
+  const handleToggleReaction = async (msg, emoji) => {
+    const currentReactions = msg.reactions && typeof msg.reactions === 'object' ? { ...msg.reactions } : {}
+    
+    if (currentReactions[currentUser.id] === emoji) {
+      delete currentReactions[currentUser.id]
+    } else {
+      currentReactions[currentUser.id] = emoji
+    }
+    
+    try {
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, reactions: currentReactions } : m))
+      await updateMessageReactions(msg.id, currentReactions)
+    } catch (e) {
+      console.error('Error toggling reaction:', e)
     }
   }
 
@@ -676,7 +694,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                     className={`flex group ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`
-                    max-w-[85%] sm:max-w-[70%] md:max-w-[55%] relative p-4 rounded-2xl md:rounded-[1.5rem] text-sm md:text-[15px] font-medium shadow-xl transition-all
+                    max-w-[85%] sm:max-w-[70%] md:max-w-[55%] relative px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-2xl md:rounded-[1.5rem] text-sm md:text-[15px] font-medium shadow-xl transition-all
                     ${msg.sender_id === currentUser.id
                         ? `${activeTheme.myBubble} rounded-tr-none ml-auto`
                         : `${activeTheme.theirBubble} rounded-tl-none mr-auto`}
@@ -826,13 +844,76 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                               return msg.content
                             }
                           })() : parseMessageContent(msg.content)}
+
+                          {/* Message Reactions */}
+                          {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2 mb-1 justify-start">
+                              {Object.entries(
+                                Object.entries(msg.reactions).reduce((acc, [uid, emo]) => {
+                                  acc[emo] = acc[emo] || []
+                                  acc[emo].push(uid)
+                                  return acc
+                                }, {})
+                              ).map(([emo, uids]) => {
+                                const hasReacted = uids.includes(currentUser.id)
+                                return (
+                                  <button
+                                    key={emo}
+                                    onClick={() => handleToggleReaction(msg, emo)}
+                                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] border transition-all ${
+                                      hasReacted
+                                        ? 'bg-purple-600/20 border-purple-500/30 text-purple-300'
+                                        : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
+                                    }`}
+                                  >
+                                    <span className="shrink-0 flex items-center">
+                                      {emo.startsWith('[EMOJI:') ? parseMessageContent(emo) : emo}
+                                    </span>
+                                    <span className="font-bold">{uids.length}</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between mt-2 gap-4">
-                            <span className="text-[9px] opacity-50">
-                              {msg.updated_at && msg.updated_at !== msg.created_at ? `(${t('edited')}) ` : ''}
-                              {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            <div className="flex items-center gap-1 opacity-50">
+                              <span className="text-[9px]">
+                                {msg.updated_at && msg.updated_at !== msg.created_at ? `(${t('edited')}) ` : ''}
+                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {msg.sender_id === currentUser.id && (
+                                <span className="text-[10px] font-bold tracking-tighter">
+                                  {msg.is_read ? '✓✓' : '✓'}
+                                </span>
+                              )}
+                            </div>
                             {msg.sender_id === currentUser.id ? (
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="relative">
+                                  <button onClick={() => setShowReactionPickerId(showReactionPickerId === msg.id ? null : msg.id)} className="p-1 hover:text-purple-300 transition-colors" title={t('add_reaction', 'Добавить реакцию')}>
+                                    <Smile className="w-3.5 h-3.5" />
+                                  </button>
+                                  {showReactionPickerId === msg.id && (
+                                    <div className="absolute bottom-full right-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-2 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
+                                      {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
+                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all text-sm">
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                      {isPro && customEmojis.length > 0 && (
+                                        <>
+                                          <div className="w-px h-5 bg-white/10 self-center mx-1" />
+                                          {customEmojis.slice(0, 10).map(emoji => (
+                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all">
+                                              <img src={emoji.image_url} alt={emoji.name} className="w-5 h-5 object-contain" />
+                                            </button>
+                                          ))}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                                 <button onClick={() => setReplyingTo(msg)} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
                                   <Reply className="w-3.5 h-3.5" />
                                 </button>
@@ -847,6 +928,30 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                               </div>
                             ) : (
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="relative">
+                                  <button onClick={() => setShowReactionPickerId(showReactionPickerId === msg.id ? null : msg.id)} className="p-1 hover:text-purple-300 transition-colors" title={t('add_reaction', 'Добавить реакцию')}>
+                                    <Smile className="w-3.5 h-3.5" />
+                                  </button>
+                                  {showReactionPickerId === msg.id && (
+                                    <div className="absolute bottom-full left-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-2 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
+                                      {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
+                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all text-sm">
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                      {isPro && customEmojis.length > 0 && (
+                                        <>
+                                          <div className="w-px h-5 bg-white/10 self-center mx-1" />
+                                          {customEmojis.slice(0, 10).map(emoji => (
+                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all">
+                                              <img src={emoji.image_url} alt={emoji.name} className="w-5 h-5 object-contain" />
+                                            </button>
+                                          ))}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                                 <button onClick={() => setReplyingTo(msg)} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
                                   <Reply className="w-3.5 h-3.5" />
                                 </button>
