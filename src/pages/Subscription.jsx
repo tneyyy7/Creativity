@@ -26,11 +26,11 @@ const PRESETS = {
   colors: [
     { id: 'default', name: 'Стандартный', value: '' },
     { id: 'royal_purple', name: 'Королевский Пурпурный 💜', value: 'linear-gradient(90deg, #A855F7, #EC4899)' },
-    { id: 'blazing_orange', name: 'Пылающий Оранжевый 🔥', value: 'linear-gradient(90deg, #F97316, #EF4444)' },
+    { id: 'blazing_orange', name: 'Пылающий Оранжевый 🔥', value: 'linear-gradient(135deg, #FF9F43, #FF5252, #FFC048)' },
     { id: 'emerald_neon', name: 'Изумрудный Неон 💚', value: 'linear-gradient(90deg, #10B981, #06B6D4)' },
     { id: 'sky_azure', name: 'Небесный Лазурный 💙', value: 'linear-gradient(90deg, #06B6D4, #8B5CF6)' },
-    { id: 'bloody_rose', name: 'Кровавая Роза 🌹', value: 'linear-gradient(90deg, #F43F5E, #F97316)' },
-    { id: 'gold_sand', name: 'Золотой Песок ✨', value: 'linear-gradient(90deg, #F59E0B, #EF4444)' },
+    { id: 'bloody_rose', name: 'Кровавая Роза 🌹', value: 'linear-gradient(135deg, #9E1B32, #F43F5E, #4A0E17)' },
+    { id: 'gold_sand', name: 'Золотой Песок ✨', value: 'linear-gradient(135deg, #FFE066, #F59E0B, #FFF3BF)' },
     { id: 'arctic_aurora', name: 'Полярное Сияние 🌌', value: 'linear-gradient(90deg, #22D3EE, #A855F7, #EC4899)' },
     { id: 'sunset_fire', name: 'Закатный Огонь 🌅', value: 'linear-gradient(90deg, #F43F5E, #F59E0B, #10B981)' },
     { id: 'ice_crystal', name: 'Ледяной Кристалл ❄️', value: 'linear-gradient(90deg, #67E8F9, #A5F3FC, #E0F2FE)' }
@@ -42,6 +42,27 @@ const PRESETS = {
     { id: 'rose_gold', name: 'Розовое Золото 🌸' },
     { id: 'sunset_glow', name: 'Закатное Сияние 🌅' }
   ]
+}
+
+function renderColorName(translatedName, colorValue) {
+  if (!translatedName) return '';
+  
+  // Regex to match an emoji or symbol at the very end of the string, optional spaces
+  const emojiRegex = /(.*?)\s*([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDC00-\uDFFF])$/;
+  const match = translatedName.match(emojiRegex);
+  
+  if (match) {
+    const text = match[1];
+    const emoji = match[2];
+    return (
+      <span className="inline-flex items-center gap-1">
+        <span style={getNicknameStyle(colorValue, '#fff')}>{text}</span>
+        <span className="text-xs shrink-0 notranslate" translate="no" style={{ WebkitTextFillColor: 'initial', color: '#fff' }}>{emoji}</span>
+      </span>
+    );
+  }
+  
+  return <span style={getNicknameStyle(colorValue, '#fff')}>{translatedName}</span>;
 }
 
 export function Subscription() {
@@ -261,9 +282,7 @@ export function Subscription() {
                             : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
                         }`}
                       >
-                        <span style={getNicknameStyle(color.value, '#fff')}>
-                          {t('color_' + color.id, color.name)}
-                        </span>
+                        {renderColorName(t('color_' + color.id, color.name), color.value)}
                       </button>
                     ))}
                   </div>

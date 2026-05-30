@@ -21,6 +21,8 @@ export function getNicknameStyle(nicknameColor, fallback) {
       WebkitBackgroundClip: 'text',
       WebkitTextFillColor: 'transparent',
       backgroundClip: 'text',
+      color: 'transparent',
+      display: 'inline-block',
     }
   }
 
