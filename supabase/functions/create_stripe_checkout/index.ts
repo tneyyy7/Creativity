@@ -30,6 +30,8 @@ serve(async (req) => {
       })
     }
 
+    const origin = req.headers.get('origin') || CLIENT_URL
+
     // Create a Checkout Session
     const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
@@ -41,8 +43,8 @@ serve(async (req) => {
         mode: "subscription",
         "line_items[0][price]": priceId,
         "line_items[0][quantity]": "1",
-        success_url: `${CLIENT_URL}/subscription?success=true`,
-        cancel_url: `${CLIENT_URL}/subscription?cancelled=true`,
+        success_url: `${origin}/subscription?success=true`,
+        cancel_url: `${origin}/subscription?cancelled=true`,
         "metadata[user_id]": userId,
         "subscription_data[metadata][user_id]": userId,
       }),
