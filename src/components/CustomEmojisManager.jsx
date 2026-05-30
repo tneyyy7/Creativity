@@ -56,7 +56,7 @@ export function CustomEmojisManager({ userId, isPro }) {
       let processedFile = file
 
       if (isHeic) {
-        setMessage({ type: 'success', text: 'Конвертация HEIC-изображения...' })
+        setMessage({ type: 'success', text: t('heic_converting') })
         processedFile = await convertHeicToJpeg(file)
         setMessage({ type: '', text: '' })
       }
@@ -66,14 +66,14 @@ export function CustomEmojisManager({ userId, isPro }) {
       const reader = new FileReader()
       reader.onerror = (err) => {
         console.error('FileReader error:', err)
-        setMessage({ type: 'error', text: `Ошибка чтения файла: ${err.message || err}` })
+        setMessage({ type: 'error', text: `${t('file_read_error')}: ${err.message || err}` })
       }
       reader.onload = (event) => {
         try {
           const img = new Image()
           img.onerror = (err) => {
             console.error('Image load error:', err)
-            setMessage({ type: 'error', text: 'Ошибка загрузки изображения в браузер. Убедитесь, что файл не поврежден.' })
+            setMessage({ type: 'error', text: t('image_load_error') })
           }
           img.onload = () => {
             try {
@@ -81,7 +81,7 @@ export function CustomEmojisManager({ userId, isPro }) {
               const canvas = document.createElement('canvas')
               const ctx = canvas.getContext('2d')
               if (!ctx) {
-                setMessage({ type: 'error', text: 'Не удалось инициализировать контекст рисования холста.' })
+                setMessage({ type: 'error', text: t('canvas_context_error') })
                 return
               }
               
@@ -128,19 +128,19 @@ export function CustomEmojisManager({ userId, isPro }) {
               setEmojiName(suggestedName)
             } catch (canvasErr) {
               console.error('Canvas processing error:', canvasErr)
-              setMessage({ type: 'error', text: `Ошибка обработки изображения на холсте: ${canvasErr.message || canvasErr}` })
+              setMessage({ type: 'error', text: `${t('canvas_process_error')}: ${canvasErr.message || canvasErr}` })
             }
           }
           img.src = event.target.result
         } catch (readerOnloadErr) {
           console.error('Reader onload error:', readerOnloadErr)
-          setMessage({ type: 'error', text: `Ошибка при чтении содержимого: ${readerOnloadErr.message || readerOnloadErr}` })
+          setMessage({ type: 'error', text: `${t('content_read_error')}: ${readerOnloadErr.message || readerOnloadErr}` })
         }
       }
       reader.readAsDataURL(processedFile)
     } catch (heicErr) {
       console.error('HEIC conversion failed:', heicErr)
-      setMessage({ type: 'error', text: `Ошибка конвертации HEIC: ${heicErr.message || heicErr}` })
+      setMessage({ type: 'error', text: `${t('heic_convert_error')}: ${heicErr.message || heicErr}` })
     }
   }
 
@@ -153,14 +153,14 @@ export function CustomEmojisManager({ userId, isPro }) {
     }
 
     if (emojis.length >= EMOJI_LIMIT) {
-      setMessage({ type: 'error', text: `Достигнут лимит в ${EMOJI_LIMIT} эмодзи.` })
+      setMessage({ type: 'error', text: t('emoji_limit_reached') })
       return
     }
 
     // Validate emoji name shortcode
     const validNamePattern = /^[a-z0-9_]{2,20}$/
     if (!validNamePattern.test(emojiName)) {
-      setMessage({ type: 'error', text: 'Имя эмодзи должно быть от 2 до 20 символов и содержать только строчные буквы, цифры и знаки подчеркивания.' })
+      setMessage({ type: 'error', text: t('emoji_name_invalid') })
       return
     }
 
@@ -180,30 +180,30 @@ export function CustomEmojisManager({ userId, isPro }) {
       setCroppedBlob(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
       
-      setMessage({ type: 'success', text: 'Эмодзи успешно создан и добавлен в вашу коллекцию!' })
+      setMessage({ type: 'success', text: t('emoji_created') })
       loadEmojis()
       
       // Auto-clear message
       setTimeout(() => setMessage({ type: '', text: '' }), 4000)
     } catch (err) {
       console.error('Error uploading emoji:', err)
-      setMessage({ type: 'error', text: 'Не удалось загрузить эмодзи. Возможно, имя уже занято.' })
+      setMessage({ type: 'error', text: t('emoji_upload_failed') })
     } finally {
       setUploading(false)
     }
   }
 
   const handleDelete = async (emojiId) => {
-    if (!window.confirm('Вы действительно хотите удалить этот эмодзи?')) return
+    if (!window.confirm(t('emoji_delete_confirm'))) return
 
     try {
       await deleteCustomEmoji(emojiId)
       setEmojis(prev => prev.filter(e => e.id !== emojiId))
-      setMessage({ type: 'success', text: 'Эмодзи успешно удален.' })
+      setMessage({ type: 'success', text: t('emoji_deleted') })
       setTimeout(() => setMessage({ type: '', text: '' }), 3000)
     } catch (err) {
       console.error('Error deleting emoji:', err)
-      setMessage({ type: 'error', text: 'Ошибка при удалении эмодзи.' })
+      setMessage({ type: 'error', text: t('emoji_delete_failed') })
     }
   }
 
@@ -216,11 +216,11 @@ export function CustomEmojisManager({ userId, isPro }) {
             <Smile className="w-6 h-6 text-cyan-400" /> {t('pro_comp_emojis', 'Кастомные эмодзи')}
           </h2>
           <p className="text-gray-400 text-xs md:text-sm mt-1">
-            Загружайте изображения, которые будут автоматически обрезаны в квадратные эмодзи для чатов.
+            {t('emoji_desc')}
           </p>
         </div>
         <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-center flex-shrink-0">
-          <span className="text-xs font-black text-gray-400 block uppercase tracking-wider">Использовано</span>
+          <span className="text-xs font-black text-gray-400 block uppercase tracking-wider">{t('used')}</span>
           <span className="text-lg font-black text-white">
             {emojis.length} <span className="text-gray-500 text-sm">/ {EMOJI_LIMIT}</span>
           </span>
@@ -255,7 +255,7 @@ export function CustomEmojisManager({ userId, isPro }) {
             {previewUrl ? (
               <div className="text-center space-y-2">
                 <img src={previewUrl} alt="Cropped Preview" className="w-20 h-20 rounded-xl object-cover border border-cyan-500/30 shadow-md shadow-cyan-500/10 mx-auto" />
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Нажмите, чтобы заменить</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">{t('click_to_replace')}</span>
               </div>
             ) : (
               <div className="text-center space-y-2">
@@ -263,8 +263,8 @@ export function CustomEmojisManager({ userId, isPro }) {
                   <Upload className="w-6 h-6 text-gray-400 group-hover:text-cyan-400" />
                 </div>
                 <div>
-                  <span className="text-xs font-black text-white block">Выбрать картинку</span>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">PNG, JPG до 15 МБ</span>
+                  <span className="text-xs font-black text-white block">{t('choose_image')}</span>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">{t('image_format_hint')}</span>
                 </div>
               </div>
             )}
@@ -273,7 +273,7 @@ export function CustomEmojisManager({ userId, isPro }) {
           {/* Form Right */}
           <div className="md:col-span-8 flex flex-col justify-between space-y-4">
             <div className="space-y-3">
-              <label className="text-xs font-black text-white uppercase tracking-wider block">Короткое имя эмодзи (Шорткод)</label>
+              <label className="text-xs font-black text-white uppercase tracking-wider block">{t('emoji_shortcode_label')}</label>
               <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus-within:border-cyan-500 transition-all">
                 <span className="text-gray-500 font-bold select-none mr-1">:</span>
                 <input
@@ -287,7 +287,7 @@ export function CustomEmojisManager({ userId, isPro }) {
                 <span className="text-gray-500 font-bold select-none ml-1">:</span>
               </div>
               <p className="text-[10px] text-gray-500 leading-normal">
-                Используйте только строчные латинские буквы, цифры и знаки подчеркивания. Например: <code className="text-cyan-400">smile_happy</code>.
+                {t('emoji_shortcode_hint')} <code className="text-cyan-400">smile_happy</code>.
               </p>
             </div>
 
@@ -296,9 +296,9 @@ export function CustomEmojisManager({ userId, isPro }) {
               disabled={uploading || !croppedBlob || !emojiName}
               className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-500/10 disabled:text-gray-500 text-neutral-900 font-black py-3.5 rounded-xl transition-all text-sm shadow-[0_4px_20px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2"
             >
-              {uploading ? 'Загрузка...' : (
+              {uploading ? t('uploading') : (
                 <>
-                  <Plus className="w-4 h-4" /> Создать эмодзи
+                  <Plus className="w-4 h-4" /> {t('create_emoji')}
                 </>
               )}
           </button>
@@ -307,13 +307,13 @@ export function CustomEmojisManager({ userId, isPro }) {
       ) : (
         <div className="p-6 bg-amber-500/5 rounded-2xl border border-amber-500/10 flex items-center gap-4 text-amber-400 text-sm">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span>Загрузка эмодзи доступна только пользователям с активной подпиской <strong className="font-black text-amber-300">Creativity Pro</strong>.</span>
+          <span>{t('emoji_pro_required_banner')}</span>
         </div>
       )}
 
       {/* Grid of emojis */}
       <div className="space-y-4">
-        <h3 className="text-xs font-black text-white uppercase tracking-widest">Моя коллекция</h3>
+        <h3 className="text-xs font-black text-white uppercase tracking-widest">{t('my_collection')}</h3>
         
         {loading ? (
           <div className="h-20 flex items-center justify-center">
@@ -349,7 +349,7 @@ export function CustomEmojisManager({ userId, isPro }) {
         ) : (
           <div className="p-8 text-center bg-white/[0.01] rounded-2xl border border-white/5">
             <Smile className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Коллекция пуста</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('no_custom_emojis')}</p>
           </div>
         )}
       </div>

@@ -556,18 +556,14 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                   {showThemeMenu && (
                     <div className="absolute right-0 top-11 z-[100] w-56 bg-[#121214] border border-white/10 p-3 shadow-2xl rounded-2xl animate-in fade-in slide-in-from-top-3 duration-200">
                       <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/5">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Тема чата</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('chat_theme_label')}</span>
                         <CloseIcon className="w-3.5 h-3.5 text-gray-500 hover:text-white cursor-pointer" onClick={() => setShowThemeMenu(false)} />
                       </div>
                       
                       {isPro ? (
                         <div className="space-y-1">
                           {Object.keys(THEME_STYLES).map((themeKey) => {
-                            const name = themeKey === 'default' ? 'Классическая' :
-                                         themeKey === 'dark_space' ? 'Глубокий Космос 🌌' :
-                                         themeKey === 'cyberpunk' ? 'Киберпанк 2077 ⚡' :
-                                         themeKey === 'rose_gold' ? 'Розовое Золото 🌸' :
-                                         'Закатное Сияние 🌅'
+                            const name = t('chat_theme_' + themeKey)
                             return (
                               <button
                                 key={themeKey}
@@ -596,7 +592,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                         <div className="p-3 text-center space-y-2">
                           <Gem className="w-6 h-6 text-cyan-400 animate-pulse mx-auto" />
                           <p className="text-[10px] text-gray-400 leading-normal font-bold">
-                            Смена тем чата доступна только подписчикам <strong className="font-black text-cyan-400">Creativity Pro</strong>
+                            {t('chat_theme_pro_only')}
                           </p>
                         </div>
                       )}
@@ -906,7 +902,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                               <div>
                                 <p className="text-[11px] font-black text-white uppercase tracking-wider">{t('unlocked_with_pro', 'Доступно с Creativity Pro')}</p>
                                 <p className="text-[9px] text-gray-500 leading-normal mt-1">
-                                  Создавайте собственные эмодзи, загружайте изображения и используйте их прямо в чате!
+                                  {t('emoji_unlock_desc')}
                                 </p>
                               </div>
                             </div>

@@ -419,9 +419,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                     <Sparkles className="w-4 h-4 animate-pulse text-purple-400" />
                   )}
                   <span>
-                    {loadingMore 
-                      ? (i18n.language === 'ru' ? 'Загрузка...' : 'Loading...') 
-                      : (i18n.language === 'ru' ? 'Показать еще работы' : 'Load More Masterpieces')}
+                    {loadingMore ? t('loading') : t('load_more_works')}
                   </span>
                 </button>
               </div>
@@ -678,9 +676,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                       <Compass className="w-4 h-4 animate-pulse text-purple-400" />
                     )}
                     <span>
-                      {loadingMore 
-                        ? (i18n.language === 'ru' ? 'Загрузка...' : 'Loading...') 
-                        : (i18n.language === 'ru' ? 'Показать еще работы' : 'Load More Masterpieces')}
+                      {loadingMore ? t('loading') : t('load_more_works')}
                     </span>
                   </button>
                 </div>

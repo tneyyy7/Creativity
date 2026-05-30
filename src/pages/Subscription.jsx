@@ -287,7 +287,7 @@ export function Subscription() {
                     ))}
                   </div>
                   <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
-                    <span className="text-lg font-black" style={getNicknameStyle(profileSettings.nickname_color, '#FFFFFF')}>
+                    <span key={profileSettings.nickname_color || 'default'} className="text-lg font-black" style={getNicknameStyle(profileSettings.nickname_color, '#FFFFFF')}>
                       {profile?.nickname || '—'}
                     </span>
                   </div>

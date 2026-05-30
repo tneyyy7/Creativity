@@ -328,7 +328,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
     } catch (err) {
       console.error('Story upload error:', err)
       const msg = err?.message || err?.error_description || String(err)
-      alert(`Не удалось загрузить историю: ${msg}`)
+      alert(`${t('story_upload_failed')} ${msg}`)
     } finally {
       setIsUploading(false)
     }
@@ -671,8 +671,8 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                       <Camera className="w-5 h-5" />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-bold text-white">Сделать фото</p>
-                      <p className="text-[10px] text-gray-500 leading-tight">Открыть камеру → фото</p>
+                      <p className="text-sm font-bold text-white">{t('story_take_photo')}</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">{t('story_take_photo_desc')}</p>
                     </div>
                   </button>
 
@@ -686,8 +686,8 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                       <Video className="w-5 h-5" />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-bold text-white">Записать видео</p>
-                      <p className="text-[10px] text-gray-500 leading-tight">Открыть камеру → видео</p>
+                      <p className="text-sm font-bold text-white">{t('story_record_video')}</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">{t('story_record_video_desc')}</p>
                     </div>
                   </button>
 
@@ -701,8 +701,8 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                       <ImageIcon className="w-5 h-5" />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-bold text-white">Выбрать из галереи</p>
-                      <p className="text-[10px] text-gray-500 leading-tight">Фото или видео из библиотеки</p>
+                      <p className="text-sm font-bold text-white">{t('story_choose_gallery')}</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">{t('story_choose_gallery_desc')}</p>
                     </div>
                   </button>
                 </div>
@@ -739,7 +739,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
               {previewUrl && (
                 <div className="bg-[#181622]/50 p-2.5 rounded-2xl border border-white/5 w-[270px] mx-auto">
                   <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 uppercase mb-2">
-                    <span>ZOOM (МАСШТАБ)</span>
+                    <span>{t('story_zoom')}</span>
                     <button
                       type="button"
                       onClick={() => { setScale(1); setPanX(0); setPanY(0) }}
@@ -778,7 +778,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
               {/* Caption */}
               <div className="space-y-1 px-1">
                 <label className="text-[10px] font-bold text-purple-400 uppercase tracking-widest px-0.5">
-                  {selectedFile?.type.startsWith('video/') ? 'Text Overlay (Текст на видео)' : t('story_caption')}
+                  {selectedFile?.type.startsWith('video/') ? t('story_text_overlay') : t('story_caption')}
                 </label>
                 <textarea
                   value={caption}

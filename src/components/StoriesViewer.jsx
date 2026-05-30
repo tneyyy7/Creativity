@@ -231,7 +231,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
       setTimeout(() => setShowReplySuccess(false), 2500)
     } catch (err) {
       console.error("Story DM Reply error:", err)
-      alert("Не удалось отправить ответ")
+      alert(t('reply_send_failed'))
     } finally {
       setIsSendingComment(false)
       setIsPaused(false)
@@ -416,11 +416,11 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
                           className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-black text-red-400 hover:text-white hover:bg-red-500/20 rounded-xl transition-all disabled:opacity-50"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                          <span>{i18n.language === 'ru' ? 'Удалить' : 'Delete'}</span>
+                          <span>{t('delete')}</span>
                         </button>
                       ) : (
                         <div className="space-y-1">
-                          <p className="text-[10px] text-gray-400 font-bold px-3 pt-1">{i18n.language === 'ru' ? 'Удалить историю?' : 'Delete story?'}</p>
+                          <p className="text-[10px] text-gray-400 font-bold px-3 pt-1">{t('delete_story_q')}</p>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(e); }}
                             disabled={isDeleting}
@@ -431,13 +431,13 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
                             ) : (
                               <Trash2 className="w-3.5 h-3.5" />
                             )}
-                            <span>{isDeleting ? (i18n.language === 'ru' ? 'Удаление...' : 'Deleting...') : (i18n.language === 'ru' ? 'Да, удалить' : 'Yes, delete')}</span>
+                            <span>{isDeleting ? t('deleting') : t('yes_delete')}</span>
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setPendingDelete(false); }}
                             className="w-full flex items-center justify-center px-3 py-2 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                           >
-                            {i18n.language === 'ru' ? 'Отмена' : 'Cancel'}
+                            {t('cancel')}
                           </button>
                         </div>
                       )}
@@ -514,7 +514,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
           <div className="absolute inset-x-0 bottom-24 flex justify-center z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <span className="bg-purple-600 text-white px-4 py-2 rounded-2xl text-xs font-black shadow-2xl border border-purple-500/30 backdrop-blur-md flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
-              Ответ отправлен в чат!
+              {t('reply_sent')}
             </span>
           </div>
         )}
@@ -546,7 +546,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
                   onChange={(e) => setCommentText(e.target.value)}
                   onFocus={() => { commentFocused.current = true; setIsPaused(true); }}
                   onBlur={() => { commentFocused.current = false; if (!isSendingComment) setIsPaused(false); }}
-                  placeholder="Ответить на историю..."
+                  placeholder={t('reply_to_story_placeholder')}
                   className="flex-1 bg-white/5 border border-white/10 hover:border-white/20 focus:border-purple-500/50 rounded-full px-4 py-2 text-xs text-white placeholder-gray-500 transition-all focus:outline-none backdrop-blur-md"
                 />
                 {commentText.trim() && (

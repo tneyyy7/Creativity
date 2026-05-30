@@ -43,7 +43,10 @@ body {
 .app-container {
   background: radial-gradient(circle at top left, #1c1130, #0c0b11 50%);
   height: 100vh;
-  width: 100vw;
+  /* dvh accounts for mobile browser toolbars so content is never cut off
+     behind the address bar. Falls back to 100vh on older browsers. */
+  height: 100dvh;
+  width: 100%;
   display: flex;
   padding: 1.5rem;
   gap: 1.5rem;
@@ -58,7 +61,9 @@ body {
 
 @media (max-width: 768px) {
   .app-container {
-    padding: 0;
+    /* Full-bleed on phones, but keep clear of notches / home indicator
+       when running as an installed PWA (safe-area insets are 0 in browsers). */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     gap: 0;
     flex-direction: column;
   }

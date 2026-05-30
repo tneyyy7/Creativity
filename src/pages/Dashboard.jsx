@@ -199,7 +199,7 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost,
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 flex items-center gap-3 leading-none">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 leading-tight">
              <Trans i18nKey="welcome_back" values={{ name: nickname }}>
                Welcome Back, <span className="notranslate inline-flex items-baseline gap-2" translate="no">
                  {nickname}
@@ -207,7 +207,7 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost,
                </span>!
              </Trans>
              {isPro && (
-               <span className="inline-flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/30 px-3 py-1 rounded-full text-xs font-black text-cyan-400 tracking-wider uppercase animate-pulse">
+               <span className="inline-flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/30 px-3 py-1 rounded-full text-xs font-black text-cyan-400 tracking-wider uppercase animate-pulse align-middle ml-3">
                  <Gem className="w-3.5 h-3.5" /> Pro
                </span>
              )}

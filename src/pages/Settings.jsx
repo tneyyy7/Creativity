@@ -37,32 +37,32 @@ export function Settings({ userEmail }) {
   const handleSave = async () => {
     try {
       if (userId) await upsertProfile({ id: userId, is_private: isPrivate })
-      showToast('success', t('save_success') || 'Изменения сохранены!')
+      showToast('success', t('settings_saved'))
     } catch (error) {
       console.error('Error saving profile:', error)
-      showToast('error', 'Ошибка: ' + error.message)
+      showToast('error', t('error') + ': ' + error.message)
     }
   }
 
   const handleChangePassword = async () => {
     if (!newPassword || newPassword.length < 6) {
-      showToast('error', 'Пароль должен содержать минимум 6 символов')
+      showToast('error', t('password_min_error'))
       return
     }
     if (newPassword !== confirmPassword) {
-      showToast('error', 'Пароли не совпадают')
+      showToast('error', t('password_mismatch'))
       return
     }
     setChangingPassword(true)
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
-      showToast('success', 'Пароль успешно изменён!')
+      showToast('success', t('password_changed'))
       setNewPassword('')
       setConfirmPassword('')
     } catch (err) {
       console.error('Password change error:', err)
-      showToast('error', err.message || 'Ошибка при смене пароля')
+      showToast('error', err.message || t('password_change_error'))
     } finally {
       setChangingPassword(false)
     }
@@ -145,7 +145,7 @@ export function Settings({ userEmail }) {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Минимум 6 символов"
+                placeholder={t('password_min_placeholder')}
                 className="w-full h-12 md:h-14 px-6 bg-white/[0.03] border border-white/5 rounded-2xl text-white font-medium focus:outline-none focus:border-purple-500/50 transition-all text-sm"
               />
             </div>
@@ -155,7 +155,7 @@ export function Settings({ userEmail }) {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Повторите новый пароль"
+                placeholder={t('password_repeat_placeholder')}
                 className="w-full h-12 md:h-14 px-6 bg-white/[0.03] border border-white/5 rounded-2xl text-white font-medium focus:outline-none focus:border-purple-500/50 transition-all text-sm"
               />
             </div>
