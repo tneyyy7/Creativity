@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem } from 'lucide-react'
+import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -456,8 +456,10 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                         {user.specialization && (
                           <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
                             {user.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
-                              user.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
-                                <Shapes className="w-2.5 h-2.5" />}
+                             user.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
+                             user.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> :
+                             user.specialization === 'designer' ? <PenTool className="w-2.5 h-2.5" /> :
+                             <Shapes className="w-2.5 h-2.5" />}
                             {t(user.specialization)}
                           </span>
                         )}
@@ -509,8 +511,10 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                       {conv.specialization && (
                         <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
                           {conv.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
-                            conv.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
-                              <Shapes className="w-2.5 h-2.5" />}
+                           conv.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
+                           conv.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> :
+                           conv.specialization === 'designer' ? <PenTool className="w-2.5 h-2.5" /> :
+                           <Shapes className="w-2.5 h-2.5" />}
                           {t(conv.specialization)}
                         </span>
                       )}
@@ -580,8 +584,10 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                       {activeChat.specialization && (
                         <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
                           {activeChat.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
-                            activeChat.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
-                              <Shapes className="w-2.5 h-2.5" />}
+                           activeChat.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
+                           activeChat.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> :
+                           activeChat.specialization === 'designer' ? <PenTool className="w-2.5 h-2.5" /> :
+                           <Shapes className="w-2.5 h-2.5" />}
                           {t(activeChat.specialization)}
                         </span>
                       )}

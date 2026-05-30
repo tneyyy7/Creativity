@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar, Gem } from 'lucide-react'
+import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar, Gem, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -168,20 +168,42 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     setSaveSuccess(false)
 
     try {
+      const trimmedNickname = formNickname.trim()
+      
+      // Check if nickname is already taken by another user
+      if (trimmedNickname.toLowerCase() !== nickname.toLowerCase()) {
+        const { data: existingUser, error: checkError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('nickname', trimmedNickname)
+          .neq('id', user.id)
+          .maybeSingle()
+
+        if (checkError) {
+          console.error("Nickname check error:", checkError)
+        }
+
+        if (existingUser) {
+          setError(t('nickname_taken') || 'This nickname is already taken.')
+          setIsSaving(false)
+          return
+        }
+      }
+
       await upsertProfile({
         id: user.id,
-        nickname: formNickname.trim(),
+        nickname: trimmedNickname,
         avatar_url: avatarUrl,
         bio: bio.trim(),
         specialization: specialization,
         updated_at: new Date().toISOString()
       })
       
-      setNickname(formNickname.trim())
+      setNickname(trimmedNickname)
       
       // Update auth metadata as a fallback
       await supabase.auth.updateUser({
-        data: { nickname: formNickname.trim() }
+        data: { nickname: trimmedNickname }
       })
       
       setSaveSuccess(true)
@@ -197,7 +219,9 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   const roleIcons = {
     painter: Palette,
     photographer: Camera,
-    sculptor: Shapes
+    sculptor: Shapes,
+    "3D": Box,
+    designer: PenTool
   }
   const RoleIcon = roleIcons[specialization] || Palette
 
@@ -355,7 +379,9 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                   {[
                     { id: 'painter', icon: Palette, label: t('painter') },
                     { id: 'photographer', icon: Camera, label: t('photographer') },
-                    { id: 'sculptor', icon: Shapes, label: t('sculptor') }
+                    { id: 'sculptor', icon: Shapes, label: t('sculptor') },
+                    { id: '3D', icon: Box, label: t('3D') },
+                    { id: 'designer', icon: PenTool, label: t('designer') }
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -368,7 +394,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                       }`}
                     >
                       <item.icon className={`w-5 h-5 ${specialization === item.id ? 'animate-pulse' : ''}`} />
-                      <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
+                      <span className="text-[10px] font-black uppercase tracking-tighter">{item.label}</span>
                     </button>
                   ))}
                 </div>

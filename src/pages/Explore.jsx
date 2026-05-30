@@ -332,7 +332,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                           </span>
                         </div>
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                          {author.specialization || 'Painter'} • {getRelativeTime(post.created_at)}
+                          {(author.specialization ? t(author.specialization) : t('painter'))} • {getRelativeTime(post.created_at)}
                         </p>
                       </div>
                     </div>
@@ -479,7 +479,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                             </span>
                           </div>
                           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">
-                            {creator.specialization || 'Painter'}
+                            {(creator.specialization ? t(creator.specialization) : t('painter'))}
                           </p>
                           {creator.bio && (
                             <p className="text-[11px] text-gray-400 leading-normal line-clamp-2 pr-2">

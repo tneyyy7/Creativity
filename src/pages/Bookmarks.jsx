@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus, Gem, X, BadgeCheck } from 'lucide-react'
+import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus, Gem, X, BadgeCheck, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchBookmarks, fetchUserCollections, createCollection } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -259,6 +259,8 @@ export function Bookmarks({ onOpenPost }) {
                         <span className="flex items-center gap-1 text-purple-500 text-[8px] font-black uppercase tracking-wider mt-0.5">
                           {painting.user.specialization === 'painter' ? <Palette className="w-2 h-2" /> : 
                            painting.user.specialization === 'photographer' ? <Camera className="w-2 h-2" /> : 
+                           painting.user.specialization === '3D' ? <Box className="w-2 h-2" /> : 
+                           painting.user.specialization === 'designer' ? <PenTool className="w-2 h-2" /> : 
                            <Shapes className="w-2 h-2" />}
                           {t(painting.user.specialization)}
                         </span>

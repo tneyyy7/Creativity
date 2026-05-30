@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck, Palette, Camera, Shapes, Gem } from 'lucide-react'
+import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck, Palette, Camera, Shapes, Gem, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -158,6 +158,8 @@ export function Friends({ user, onViewProfile }) {
                       <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
                         {result.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
                          result.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+                         result.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> : 
+                         result.specialization === 'designer' ? <PenTool className="w-2.5 h-2.5" /> : 
                          <Shapes className="w-2.5 h-2.5" />}
                         {t(result.specialization)}
                       </span>
@@ -270,6 +272,8 @@ export function Friends({ user, onViewProfile }) {
                         <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
                           {friend.profile.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
                            friend.profile.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+                           friend.profile.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> : 
+                           friend.profile.specialization === 'designer' ? <PenTool className="w-2.5 h-2.5" /> : 
                            <Shapes className="w-2.5 h-2.5" />}
                           {t(friend.profile.specialization)}
                         </span>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck } from 'lucide-react'
+import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
@@ -437,6 +437,8 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
             <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest mt-0.5">
               {authorProfile.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
                authorProfile.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
+               authorProfile.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> : 
+               authorProfile.specialization === 'designer' ? <PenTool className="w-2.5 h-2.5" /> : 
                <Shapes className="w-2.5 h-2.5" />}
               {t(authorProfile.specialization)}
             </span>

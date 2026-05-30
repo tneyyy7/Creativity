@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes, Box, PenTool } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 
@@ -28,13 +28,30 @@ export function Auth({ onAuth }) {
         if (error) throw error
         onAuth(data.user)
       } else {
+        const trimmedNickname = nickname.trim()
+        
+        // Check if nickname is already taken before signing up
+        const { data: existingUser, error: checkError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('nickname', trimmedNickname)
+          .maybeSingle()
+
+        if (checkError) {
+          console.error("Nickname check error:", checkError)
+        }
+
+        if (existingUser) {
+          throw new Error(t('nickname_taken') || "This nickname is already taken")
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
-              nickname: nickname.trim(),
-              full_name: nickname.trim(),
+              nickname: trimmedNickname,
+              full_name: trimmedNickname,
               specialization: specialization
             }
           }
@@ -101,7 +118,9 @@ export function Auth({ onAuth }) {
                   {[
                     { id: 'painter', icon: Palette, label: t('painter') },
                     { id: 'photographer', icon: Camera, label: t('photographer') },
-                    { id: 'sculptor', icon: Shapes, label: t('sculptor') }
+                    { id: 'sculptor', icon: Shapes, label: t('sculptor') },
+                    { id: '3D', icon: Box, label: t('3D') },
+                    { id: 'designer', icon: PenTool, label: t('designer') }
                   ].map((item) => (
                     <button
                       key={item.id}

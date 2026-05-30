@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -237,6 +237,8 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 text-gray-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-white/10 group-hover:border-purple-500/30 transition-all">
                     {profile.specialization === 'painter' ? <Palette className="w-3 h-3 text-purple-400" /> : 
                      profile.specialization === 'photographer' ? <Camera className="w-3 h-3 text-purple-400" /> : 
+                     profile.specialization === '3D' ? <Box className="w-3 h-3 text-purple-400" /> : 
+                     profile.specialization === 'designer' ? <PenTool className="w-3 h-3 text-purple-400" /> : 
                      <Shapes className="w-3 h-3 text-purple-400" />}
                     {t(profile.specialization)}
                   </span>
