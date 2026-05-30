@@ -1092,6 +1092,16 @@ export async function isBookmarked(userId, paintingId) {
   }
 }
 
+export async function incrementPaintingViews(paintingId) {
+  try {
+    if (!paintingId) return
+    const { error } = await supabase.rpc('increment_painting_views', { target_painting_id: paintingId })
+    if (error) throw error
+  } catch (e) {
+    console.error('incrementPaintingViews error:', e)
+  }
+}
+
 // =============================================
 // Online Status
 // =============================================
@@ -1603,7 +1613,10 @@ export async function uploadStory(userId, file, caption = '', isPro = false) {
 
     const { error: uploadError } = await supabase.storage
       .from('paintings')
-      .upload(fileName, processedFile)
+      .upload(fileName, processedFile, {
+        contentType: processedFile.type || 'application/octet-stream',
+        cacheControl: '3600'
+      })
 
     if (uploadError) throw uploadError
 

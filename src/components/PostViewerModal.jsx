@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem } from 'lucide-react'
+import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark } from '../lib/supabase'
+import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 import { CollectionsModal } from './CollectionsModal'
+
 
 export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0)
@@ -21,15 +22,39 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const [isBookmarking, setIsBookmarking] = useState(false)
   const [paintingTags, setPaintingTags] = useState([])
   const [showCollectionsModal, setShowCollectionsModal] = useState(false)
-  
+  const [resolvedAuthor, setResolvedAuthor] = useState(authorProfile)
+
   const commentInputRef = useRef(null)
   const commentsEndRef = useRef(null)
 
   const painting = paintings?.[currentIndex] ?? null
   const isLiked = likes.some(l => l.user_id === currentUserId)
-  const isAuthor = currentUserId === authorProfile?.id
-  // Pro status comes from enrichProfilesWithProData via the caller
-  const authorIsPro = !!authorProfile?.isPro
+  const isAuthor = currentUserId === resolvedAuthor?.id
+  const authorIsPro = !!resolvedAuthor?.isPro
+
+  // Always fetch the correct author from DB by painting.user_id
+  useEffect(() => {
+    const uid = painting?.user_id
+    if (!uid) return
+
+    supabase
+      .from('profiles')
+      .select('id, nickname, avatar_url, is_verified, specialization, finished_work_count, avatar_frame, nickname_color')
+      .eq('id', uid)
+      .single()
+      .then(({ data }) => {
+        if (!data) return
+        supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', uid)
+          .eq('status', 'active')
+          .maybeSingle()
+          .then(({ data: sub }) => {
+            setResolvedAuthor({ ...data, isPro: !!sub })
+          })
+      })
+  }, [painting?.user_id])
 
   const load = useCallback(async () => {
     if (!painting?.id) return
@@ -61,6 +86,26 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   }, [load])
 
   useEffect(() => {
+    if (painting?.id) {
+      if (!window.lastViewedMap) {
+        window.lastViewedMap = new Map()
+      }
+      const now = Date.now()
+      const lastViewed = window.lastViewedMap.get(painting.id) || 0
+      
+      console.log(`[PostViewerModal] Checking views for painting ${painting.id}. Last viewed: ${lastViewed}, now: ${now}, diff: ${now - lastViewed}`)
+      
+      if (now - lastViewed > 2000) {
+        window.lastViewedMap.set(painting.id, now)
+        console.log(`[PostViewerModal] Incrementing views for painting ${painting.id}`)
+        incrementPaintingViews(painting.id)
+      } else {
+        console.log(`[PostViewerModal] Debounced view increment for painting ${painting.id}`)
+      }
+    }
+  }, [painting?.id])
+
+  useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'Escape') onClose?.()
       if (e.key === 'ArrowLeft') setCurrentIndex(i => Math.max(0, i - 1))
@@ -87,17 +132,39 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
   const handleBookmark = async () => {
     if (!currentUserId || isBookmarking) return
+
+    if (!isSaved) {
+      // Show album selection BEFORE saving — the modal handles the actual save.
+      setShowCollectionsModal(true)
+      return
+    }
+
+    // Already bookmarked — remove it directly.
     setIsBookmarking(true)
     try {
-      const saved = await toggleBookmark(currentUserId, painting.id)
-      setIsSaved(saved)
-      if (saved) {
-        setShowCollectionsModal(true)
-      }
+      await toggleBookmark(currentUserId, painting.id)
+      setIsSaved(false)
     } catch (e) {
       console.error('Bookmark error:', e)
     } finally {
       setIsBookmarking(false)
+    }
+  }
+
+  const handleSaveWithCollections = async (selectedCollectionIds) => {
+    if (!currentUserId) return
+    setIsBookmarking(true)
+    try {
+      await toggleBookmark(currentUserId, painting.id)
+      for (const colId of selectedCollectionIds) {
+        await addPaintingToCollection(colId, painting.id)
+      }
+      setIsSaved(true)
+    } catch (e) {
+      console.error('Save with collections error:', e)
+    } finally {
+      setIsBookmarking(false)
+      setShowCollectionsModal(false)
     }
   }
 
@@ -216,7 +283,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
         <div className="bg-[#0e0d14] rounded-t-3xl min-h-[40vh]">
           <InfoPanel
             painting={painting}
-            authorProfile={authorProfile}
+            authorProfile={resolvedAuthor}
             likes={likes}
             comments={comments}
             topLevel={topLevel}
@@ -271,7 +338,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       <div className="hidden md:flex absolute top-0 right-0 bottom-0 w-[320px] lg:w-[380px] flex-col bg-[#0e0d14] border-l border-white/5 z-20">
         <InfoPanel
           painting={painting}
-          authorProfile={authorProfile}
+          authorProfile={resolvedAuthor}
           likes={likes}
           comments={comments}
           topLevel={topLevel}
@@ -337,6 +404,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           paintingId={painting.id}
           currentUserId={currentUserId}
           onClose={() => setShowCollectionsModal(false)}
+          onSave={!isSaved ? handleSaveWithCollections : undefined}
         />
       )}
     </div>
@@ -354,6 +422,9 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
         <div className="flex flex-col">
           <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black hover:text-purple-400 transition-colors notranslate text-sm text-left flex items-center gap-1.5" translate="no" style={authorProfile?.nickname_color ? { color: authorProfile.nickname_color } : { color: '#fff' }}>
             {authorProfile?.nickname ?? 'Unknown'}
+            {authorProfile?.is_verified && (
+              <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+            )}
             {authorProfile?.isPro && (
               <span className="pro-badge">
                 <Gem className="pro-badge-icon" />

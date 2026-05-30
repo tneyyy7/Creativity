@@ -179,7 +179,21 @@ function App() {
           })}
         />
         <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden' : 'overflow-y-auto'} p-4 md:p-10 custom-scrollbar flex flex-col`}>
-          {activeTab === 'dashboard' && <Dashboard nickname={nickname} isVerified={isVerified} isPro={isPro} onNavigate={setActiveTab} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              nickname={nickname} 
+              isVerified={isVerified} 
+              isPro={isPro} 
+              onNavigate={setActiveTab} 
+              isViewerOpen={!!postViewer}
+              onOpenPost={(id, painting, collection, index) => setPostViewer({ 
+                painting, 
+                paintings: collection || [painting], 
+                index: index ?? 0,
+                isOwnGallery: true
+              })}
+            />
+          )}
           {/* {activeTab === 'chat' && <Chat />} */}
           {/* {activeTab === 'images' && <ImageGen />} */}
           {activeTab === 'explore' && (
@@ -271,15 +285,9 @@ function App() {
             avatar_url: avatarUrl,
             is_verified: isVerified,
             specialization: specialization,
-            finished_work_count: workCount
-          } : (postViewer.externalProfile || postViewer.painting?.profiles || {
-            id: user?.id,
-            nickname: nickname,
-            avatar_url: avatarUrl,
-            is_verified: isVerified,
-            specialization: specialization,
-            finished_work_count: workCount
-          })}
+            finished_work_count: workCount,
+            isPro: isPro
+          } : (postViewer.externalProfile || postViewer.painting?.user || postViewer.painting?.profiles || null)}
           onClose={() => setPostViewer(null)}
           onViewProfile={(id) => {
             setTargetUserId(id);

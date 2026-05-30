@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, X, Image as ImageIcon, Loader2, Gem, BadgeCheck } from 'lucide-react'
+import { Plus, X, Image as ImageIcon, Loader2, Gem, BadgeCheck, Camera, Video } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchActiveStories, uploadStory } from '../lib/supabase'
 import { StoriesViewer } from './StoriesViewer'
 import { ProfileAvatar } from './ProfileAvatar'
 import { createPortal } from 'react-dom'
 
-export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
+export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewProfile }) {
   const { t } = useTranslation()
   const [activeStoryGroups, setActiveStoryGroups] = useState([])
   const [loadingStories, setLoadingStories] = useState(true)
@@ -19,6 +19,8 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [caption, setCaption] = useState('')
   const fileInputRef = useRef(null)
+  const photoCaptureRef = useRef(null)
+  const videoCaptureRef = useRef(null)
 
   // Drawing states
   const canvasRef = useRef(null)
@@ -115,28 +117,43 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
     setScale(newScale)
   }
 
-  const [viewedStoryIds, setViewedStoryIds] = useState([])
-
-  const loadViewedStories = () => {
+  const [viewedStoryIds, setViewedStoryIds] = useState(() => {
     try {
-      const viewedStr = localStorage.getItem('viewed_stories') || '[]'
-      setViewedStoryIds(JSON.parse(viewedStr))
+      return JSON.parse(localStorage.getItem('viewed_stories') || '[]')
     } catch (e) {
-      console.error("Error loading viewed stories:", e)
+      return []
     }
-  }
+  })
 
   const loadStories = async () => {
     setLoadingStories(true)
     const groups = await fetchActiveStories()
+
+    // Prune viewed_stories to only active story IDs — prevents unbounded growth
+    // Skip pruning if no active stories were returned (could be a network error)
+    try {
+      const viewedStr = localStorage.getItem('viewed_stories') || '[]'
+      const viewed = JSON.parse(viewedStr)
+      if (groups.length > 0) {
+        const activeIds = new Set(groups.flatMap(g => g.stories?.map(s => s.id) || []))
+        const pruned = viewed.filter(id => activeIds.has(id))
+        if (pruned.length !== viewed.length) {
+          localStorage.setItem('viewed_stories', JSON.stringify(pruned))
+        }
+        setViewedStoryIds(pruned)
+      } else {
+        setViewedStoryIds(viewed)
+      }
+    } catch (e) {
+      console.error("Error syncing viewed stories:", e)
+    }
+
     setActiveStoryGroups(groups)
-    loadViewedStories()
     setLoadingStories(false)
   }
 
   useEffect(() => {
     loadStories()
-    loadViewedStories()
   }, [])
 
   const isGroupFullyViewed = (group) => {
@@ -308,8 +325,9 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
       await loadStories()
       alert(t('success_story'))
     } catch (err) {
-      console.error(err)
-      alert(t('upload_error'))
+      console.error('Story upload error:', err)
+      const msg = err?.message || err?.error_description || String(err)
+      alert(`Не удалось загрузить историю: ${msg}`)
     } finally {
       setIsUploading(false)
     }
@@ -321,8 +339,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
 
   const handleCloseViewer = () => {
     setSelectedGroupIndex(null)
-    loadViewedStories() // Reload viewed stories list from localStorage
-    loadStories() // Reload in case stories were deleted or read
+    loadStories() // Reload stories and sync viewed state from localStorage
   }
 
   // Check if current user has active stories
@@ -338,48 +355,38 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
           <div className="relative">
             {currentUserGroup ? (
               // If current user has stories, show with neon glowing gradient ring or simple gray border if fully viewed
-              <div 
+              <div
                 onClick={() => handleOpenGroup(activeStoryGroups.indexOf(currentUserGroup))}
-                className={`w-16 h-16 rounded-full hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden ${
-                  isGroupFullyViewed(currentUserGroup)
-                    ? 'bg-[#181622] p-[1.5px] border border-white/10'
-                    : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px]'
-                }`}
-                style={{
-                  clipPath: 'circle(50% at 50% 50%)',
-                  WebkitClipPath: 'circle(50% at 50% 50%)'
-                }}
+                className="relative w-16 h-16 hover:scale-105 active:scale-95 transition-transform duration-300 cursor-pointer"
               >
-                <div className="w-full h-full rounded-full bg-[#0c0b11] p-[2px] overflow-hidden">
-                  <img 
-                    src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
-                    alt="Me" 
-                    className="w-full h-full rounded-full object-cover"
-                    style={{
-                      clipPath: 'circle(50% at 50% 50%)',
-                      WebkitClipPath: 'circle(50% at 50% 50%)'
-                    }}
-                  />
-                </div>
+                {/* Ring layer */}
+                <div className={`absolute inset-0 rounded-full ${
+                  isGroupFullyViewed(currentUserGroup)
+                    ? 'border border-white/10 bg-[#181622]'
+                    : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500'
+                }`} />
+                {/* Dark gap between ring and image */}
+                <div className="absolute inset-[3px] rounded-full bg-[#0c0b11]" />
+                {/* Avatar — rounded-full clips directly on the img, no overflow-hidden needed */}
+                <img
+                  src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
+                  alt="Me"
+                  className="absolute rounded-full object-cover"
+                  style={{ inset: '4px', width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}
+                />
               </div>
             ) : (
-              // Otherwise just standard avatar with plus icon
-              <div 
+              // Otherwise just standard avatar with plus icon, no ring
+              <div
                 onClick={() => setUploadModalOpen(true)}
-                className="w-16 h-16 rounded-full bg-[#181622] hover:bg-[#201e2e] border border-white/5 flex items-center justify-center relative hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
-                style={{
-                  clipPath: 'circle(50% at 50% 50%)',
-                  WebkitClipPath: 'circle(50% at 50% 50%)'
-                }}
+                className="relative w-16 h-16 hover:scale-105 active:scale-95 transition-transform duration-300 cursor-pointer"
               >
-                <img 
-                  src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
-                  alt="Me" 
-                  className="w-full h-full rounded-full object-cover p-[2px]"
-                  style={{
-                    clipPath: 'circle(50% at 50% 50%)',
-                    WebkitClipPath: 'circle(50% at 50% 50%)'
-                  }}
+                <div className="absolute inset-0 rounded-full bg-[#181622] border border-white/5" />
+                <img
+                  src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
+                  alt="Me"
+                  className="absolute rounded-full object-cover"
+                  style={{ inset: '3px', width: 'calc(100% - 6px)', height: 'calc(100% - 6px)' }}
                 />
               </div>
             )}
@@ -411,33 +418,27 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
           otherGroups.map((group, index) => {
             const absoluteIndex = activeStoryGroups.indexOf(group)
             return (
-              <div 
+              <div
                 key={group.user.id}
                 onClick={() => handleOpenGroup(absoluteIndex)}
                 className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
               >
-                <div 
-                  className={`w-16 h-16 rounded-full hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden ${
+                <div className="relative w-16 h-16 hover:scale-105 active:scale-95 transition-transform duration-300">
+                  {/* Ring layer */}
+                  <div className={`absolute inset-0 rounded-full ${
                     isGroupFullyViewed(group)
-                      ? 'bg-[#181622] p-[1.5px] border border-white/10'
-                      : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500 p-[3px]'
-                  }`}
-                  style={{
-                    clipPath: 'circle(50% at 50% 50%)',
-                    WebkitClipPath: 'circle(50% at 50% 50%)'
-                  }}
-                >
-                  <div className="w-full h-full rounded-full bg-[#0c0b11] p-[2px] overflow-hidden">
-                    <img 
-                      src={group.user.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
-                      alt={group.user.nickname} 
-                      className="w-full h-full rounded-full object-cover"
-                      style={{
-                        clipPath: 'circle(50% at 50% 50%)',
-                        WebkitClipPath: 'circle(50% at 50% 50%)'
-                      }}
-                    />
-                  </div>
+                      ? 'border border-white/10 bg-[#181622]'
+                      : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500'
+                  }`} />
+                  {/* Dark gap */}
+                  <div className="absolute inset-[3px] rounded-full bg-[#0c0b11]" />
+                  {/* Avatar — rounded-full clips directly on img */}
+                  <img
+                    src={group.user.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
+                    alt={group.user.nickname}
+                    className="absolute rounded-full object-cover"
+                    style={{ inset: '4px', width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}
+                  />
                 </div>
                 <div className="flex flex-col items-center max-w-[76px] w-full">
                   <span 
@@ -466,11 +467,12 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
 
       {/* Stories Fullscreen Player Modal */}
       {selectedGroupIndex !== null && createPortal(
-        <StoriesViewer 
-          groups={activeStoryGroups} 
+        <StoriesViewer
+          groups={activeStoryGroups}
           initialGroupIndex={selectedGroupIndex}
           currentUser={currentUser}
           onClose={handleCloseViewer}
+          onViewProfile={onViewProfile}
         />,
         document.body
       )}
@@ -657,47 +659,117 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro }) {
                   </div>
                 </div>
               ) : (
-                <div 
-                  className="w-full h-64 bg-[#0c0b11] rounded-[24px] border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer hover:border-purple-500/50 hover:bg-white/[0.02] transition-all duration-300 relative group overflow-hidden"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="text-center p-5 space-y-3">
-                    <div className="w-11 h-11 rounded-2xl bg-white/5 flex items-center justify-center mx-auto text-purple-400 group-hover:scale-110 transition-transform">
+                <div className="w-full bg-[#0c0b11] rounded-[24px] border border-white/5 p-3 space-y-2">
+                  {/* Take Photo */}
+                  <button
+                    type="button"
+                    onClick={() => photoCaptureRef.current?.click()}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/[0.03] hover:bg-purple-500/10 border border-white/5 hover:border-purple-500/30 transition-all active:scale-95 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform flex-shrink-0">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-white">Сделать фото</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">Открыть камеру → фото</p>
+                    </div>
+                  </button>
+
+                  {/* Record Video */}
+                  <button
+                    type="button"
+                    onClick={() => videoCaptureRef.current?.click()}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/[0.03] hover:bg-pink-500/10 border border-white/5 hover:border-pink-500/30 transition-all active:scale-95 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform flex-shrink-0">
+                      <Video className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-white">Записать видео</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">Открыть камеру → видео</p>
+                    </div>
+                  </button>
+
+                  {/* Choose from Gallery */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/[0.03] hover:bg-indigo-500/10 border border-white/5 hover:border-indigo-500/30 transition-all active:scale-95 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform flex-shrink-0">
                       <ImageIcon className="w-5 h-5" />
                     </div>
-                    <p className="text-xs font-semibold text-gray-300">{t('images_photos')} / Video</p>
-                    <p className="text-[10px] text-gray-500 max-w-[240px] mx-auto leading-relaxed">
-                      Upload vertical stories: Pinch/drag to edit frame, draw on photos or add text to video.
-                    </p>
-                  </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-white">Выбрать из галереи</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">Фото или видео из библиотеки</p>
+                    </div>
+                  </button>
                 </div>
               )}
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                accept="image/*,video/*" 
-                className="hidden" 
+
+              {/* Photo capture (camera, images only) */}
+              <input
+                type="file"
+                ref={photoCaptureRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+              />
+              {/* Video capture (camera, video only) */}
+              <input
+                type="file"
+                ref={videoCaptureRef}
+                onChange={handleFileChange}
+                accept="video/*"
+                capture="environment"
+                className="hidden"
+              />
+              {/* Gallery picker (any media) */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*,video/*"
+                className="hidden"
               />
 
-              {/* Interactive Zoom range slider */}
+              {/* Zoom Controls */}
               {previewUrl && (
-                <div className="space-y-1 bg-[#181622]/50 p-2.5 rounded-2xl border border-white/5 w-[270px] mx-auto">
-                  <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 uppercase">
+                <div className="bg-[#181622]/50 p-2.5 rounded-2xl border border-white/5 w-[270px] mx-auto">
+                  <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 uppercase mb-2">
                     <span>ZOOM (МАСШТАБ)</span>
-                    <span className="text-purple-400 font-black">{scale.toFixed(1)}x</span>
+                    <button
+                      type="button"
+                      onClick={() => { setScale(1); setPanX(0); setPanY(0) }}
+                      className="text-[8px] text-purple-400/60 hover:text-purple-400 uppercase font-bold transition-colors touch-manipulation"
+                    >
+                      RESET
+                    </button>
                   </div>
-                  <input
-                    type="range"
-                    min="0.3"
-                    max="4"
-                    step="0.05"
-                    value={scale}
-                    onChange={(e) => setScale(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500 my-1"
-                  />
-                  <div className="text-[8px] text-gray-500 text-center font-bold uppercase leading-none">
-                    Pinch screen or drag with mouse to adjust aspect
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setScale(s => Math.max(0.3, parseFloat((s - 0.1).toFixed(1))))}
+                      disabled={scale <= 0.3}
+                      className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:bg-purple-500/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-white text-xl font-bold transition-all active:scale-90 touch-manipulation select-none"
+                    >
+                      −
+                    </button>
+                    <div className="flex-1 text-center">
+                      <span className="text-purple-400 font-black text-base">{scale.toFixed(1)}×</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setScale(s => Math.min(4, parseFloat((s + 0.1).toFixed(1))))}
+                      disabled={scale >= 4}
+                      className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:bg-purple-500/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-white text-xl font-bold transition-all active:scale-90 touch-manipulation select-none"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="text-[8px] text-gray-500 text-center font-bold uppercase mt-2 leading-none">
+                    Pinch to zoom · drag to pan
                   </div>
                 </div>
               )}

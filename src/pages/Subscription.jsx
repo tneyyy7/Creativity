@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react'
 import { Check, Crown, Sparkles, Zap, Gem, AlertCircle, ArrowRight, Palette, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchSubscriptionStatus, fetchProProfileSettings, updateProProfileSettings } from '../lib/supabase'
-import { openCheckout } from '../lib/lemonSqueezy'
+import { redirectToStripeCheckout } from '../lib/stripe'
 import { CustomEmojisManager } from '../components/CustomEmojisManager'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 
-// Lemon Squeezy checkout configuration
-// The user will replace these placeholders with real product variant URLs from their LS Dashboard
-const STORE_CHECKOUT_URLS = {
-  monthly: 'https://creativityy.lemonsqueezy.com/checkout/buy/72aaae0a-9ecb-4d7c-93d6-553a50007107',
-  yearly: 'https://creativityy.lemonsqueezy.com/checkout/buy/72aaae0a-9ecb-4d7c-93d6-553a50007107'
+// Stripe price IDs configuration
+// The user will replace these placeholders with real Price IDs from their Stripe Dashboard
+const STRIPE_PRICE_IDS = {
+  monthly: 'price_1TckLM7eQhc0nsIxcmjsFEWD',
+  yearly: 'price_1TckMl7eQhc0nsIxqGPu9TUz'
 }
 
 const PRESETS = {
@@ -42,6 +43,7 @@ const PRESETS = {
 export function Subscription() {
   const { t, i18n } = useTranslation()
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [subStatus, setSubStatus] = useState({ plan: 'free', status: 'inactive', isPro: false })
   const [profileSettings, setProfileSettings] = useState({
     avatar_frame: 'default',
@@ -59,6 +61,14 @@ export function Subscription() {
         const { data: { user: currentUser } } = await supabase.auth.getUser()
         if (!currentUser) return
         setUser(currentUser)
+
+        // Fetch user profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('nickname, avatar_url, finished_work_count')
+          .eq('id', currentUser.id)
+          .single()
+        if (profileData) setProfile(profileData)
 
         // Fetch subscription status
         const sub = await fetchSubscriptionStatus(currentUser.id)
@@ -94,8 +104,8 @@ export function Subscription() {
       setCheckoutLoading(planKey)
       setMessage({ type: '', text: '' })
       
-      const checkoutUrl = STORE_CHECKOUT_URLS[planKey]
-      await openCheckout(checkoutUrl, user.id)
+      const priceId = STRIPE_PRICE_IDS[planKey]
+      await redirectToStripeCheckout(priceId, user.id)
     } catch (err) {
       console.error('Error starting checkout:', err)
       setMessage({ type: 'error', text: t('pro_checkout_error', 'Не удалось запустить платежную форму. Попробуйте еще раз.') })
@@ -184,10 +194,10 @@ export function Subscription() {
               </div>
               <div>
                 <a
-                  href="https://creativityapp.lemonsqueezy.com/billing" // Fallback billing portal
+                  href="https://billing.stripe.com/p/session/your_portal_session" // Fallback Stripe customer portal
                   target="_blank"
                   rel="noreferrer"
-                  className="bg-white/5 hover:bg-white/10 text-white font-bold px-6 py-3 rounded-xl border border-white/10 transition-all text-sm block text-center"
+                  className="bg-white/5 hover:bg-white/10 text-white font-bold px-6 py-3 rounded-xl border border-white/10 transition-all text-sm block text-center no-underline hover:no-underline"
                 >
                   {t('pro_manage_btn', 'Управление подпиской')}
                 </a>
@@ -222,11 +232,13 @@ export function Subscription() {
                   ))}
                 </select>
                 <div className="mt-2 flex items-center justify-center p-4 bg-white/5 rounded-xl border border-white/5 h-24">
-                  <div className={`w-16 h-16 rounded-full bg-neutral-800 border-4 flex items-center justify-center ${
-                    PRESETS.frames.find(f => f.id === profileSettings.avatar_frame)?.class || 'border-white/10'
-                  }`}>
-                    <Gem className="w-6 h-6 text-white/40" />
-                  </div>
+                  <ProfileAvatar
+                    avatarUrl={profile?.avatar_url}
+                    workCount={profile?.finished_work_count ?? 0}
+                    size="lg"
+                    isPro={true}
+                    avatarFrame={profileSettings.avatar_frame}
+                  />
                 </div>
               </div>
 
@@ -261,7 +273,7 @@ export function Subscription() {
                     />
                   </div>
                   <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center font-bold" style={{ color: profileSettings.nickname_color || '#FFFFFF' }}>
-                    {t('nickname', 'Никнейм')}
+                    {profile?.nickname || '—'}
                   </div>
                 </div>
               </div>

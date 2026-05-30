@@ -368,7 +368,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
             {paintings.map((painting, idx) => (
-              <div key={painting.id} className="group cursor-pointer" onClick={() => onOpenPost?.(painting.id, painting, paintings, idx)}>
+              <div key={painting.id} className="group cursor-pointer" onClick={() => onOpenPost?.(painting.id, painting, paintings, idx, profile)}>
                 <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-[#0c0b11] relative">
                   <img
                     src={painting.image_url}

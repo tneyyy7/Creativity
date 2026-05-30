@@ -66,7 +66,7 @@ export function Bookmarks({ onOpenPost }) {
 
   const handleDeleteAlbum = async (e, collectionId) => {
     e.stopPropagation()
-    if (!confirm("Are you sure you want to delete this album?")) return
+    if (!confirm(t('delete_album_confirm'))) return
 
     try {
       const { error } = await supabase
@@ -107,10 +107,10 @@ export function Bookmarks({ onOpenPost }) {
         <div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3 flex items-center gap-3">
             <Bookmark className="w-8 h-8 sm:w-10 sm:h-10 text-purple-500 fill-purple-500/20" />
-            {selectedCollection ? selectedCollection.name : t('bookmarks', 'Bookmarks')}
+            {selectedCollection ? selectedCollection.name : t('bookmarks')}
           </h1>
           <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">
-            {selectedCollection ? (selectedCollection.description || "Collection folder contents.") : "Your curated gallery of inspiration."}
+            {selectedCollection ? (selectedCollection.description || t('collection_contents')) : t('bookmarks_subtitle')}
           </p>
         </div>
 
@@ -181,7 +181,7 @@ export function Bookmarks({ onOpenPost }) {
                     />
                     <div className="absolute top-4 left-4">
                       <span className="inline-block px-2.5 py-1 bg-black/60 backdrop-blur-xl border border-white/10 text-[9px] font-black rounded-lg uppercase tracking-wider text-purple-400">
-                        {painting.category || 'Artwork'}
+                        {painting.category || t('artwork')}
                       </span>
                     </div>
                   </div>
@@ -195,7 +195,7 @@ export function Bookmarks({ onOpenPost }) {
             </div>
           ) : (
             <div className="text-center py-20 bg-white/[0.01] border border-white/5 rounded-3xl">
-              <p className="text-gray-500 text-sm">No artworks saved in this album yet.</p>
+              <p className="text-gray-500 text-sm">{t('no_artworks_in_album')}</p>
             </div>
           )}
         </div>
@@ -218,7 +218,7 @@ export function Bookmarks({ onOpenPost }) {
                   />
                   <div className="absolute top-4 left-4">
                     <span className="inline-block px-2.5 py-1 bg-black/60 backdrop-blur-xl border border-white/10 text-[9px] font-black rounded-lg uppercase tracking-wider text-purple-400">
-                      {painting.category || 'Artwork'}
+                      {painting.category || t('artwork')}
                     </span>
                   </div>
                 </div>
@@ -229,7 +229,7 @@ export function Bookmarks({ onOpenPost }) {
                       {painting.title}
                     </h3>
                     <p className="text-xs font-medium text-gray-500 line-clamp-2 mt-1 leading-relaxed">
-                      {painting.description || 'No description provided.'}
+                      {painting.description || t('no_description')}
                     </p>
                   </div>
 
@@ -243,7 +243,7 @@ export function Bookmarks({ onOpenPost }) {
                     />
                     <div className="flex flex-col min-w-0">
                       <span className="text-xs font-bold truncate flex items-center gap-1.5 notranslate" translate="no" style={painting.user?.nickname_color ? { color: painting.user.nickname_color } : { color: '#d1d5db' }}>
-                        {painting.user?.nickname || 'Unknown Artist'}
+                        {painting.user?.nickname || t('unknown_artist')}
                         {painting.user?.is_verified && (
                           <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
                         )}
@@ -273,9 +273,9 @@ export function Bookmarks({ onOpenPost }) {
             <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/5">
               <Bookmark className="w-7 h-7 text-gray-600" />
             </div>
-            <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">No bookmarks found</h3>
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{t('no_bookmarks_title')}</h3>
             <p className="text-gray-500 text-sm max-w-sm mx-auto">
-              Artworks you save will appear here. Start exploring the community to find inspiration!
+              {t('no_bookmarks_desc')}
             </p>
           </div>
         )
@@ -307,7 +307,7 @@ export function Bookmarks({ onOpenPost }) {
                     
                     {/* Size Badge */}
                     <div className="absolute bottom-3 right-3 px-2 py-0.5 bg-black/80 rounded-md text-[9px] font-bold text-gray-400">
-                      {coll.paintings?.length || 0} items
+                      {coll.paintings?.length || 0} {t('items')}
                     </div>
                   </div>
 
@@ -318,7 +318,7 @@ export function Bookmarks({ onOpenPost }) {
                         {coll.name}
                       </h4>
                       <p className="text-[10px] text-gray-500 font-bold tracking-tight truncate">
-                        {coll.description || 'Curated folder'}
+                        {coll.description || t('curated_folder')}
                       </p>
                     </div>
 
@@ -394,7 +394,7 @@ export function Bookmarks({ onOpenPost }) {
                 disabled={creating}
                 className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all"
               >
-                {creating ? "Creating..." : "Create"}
+                {creating ? t('creating') : t('create')}
               </button>
             </form>
           </div>

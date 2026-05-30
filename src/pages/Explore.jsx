@@ -208,11 +208,12 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
       
       {/* 1. WIP Stories horizontal banner (Always Visible at the Top) */}
       <div className="glass-card p-2 border-white/5 rounded-3xl w-full">
-        <StoriesBanner 
+        <StoriesBanner
           currentUser={currentUser}
           avatarUrl={avatarUrl}
           nickname={nickname}
           isPro={isPro}
+          onViewProfile={onViewProfile}
         />
       </div>
 

@@ -1,7 +1,6 @@
 import { User } from 'lucide-react'
 
 export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className = "", isOnline = false, isPro = false, avatarFrame = "default" }) {
-  // Rank thresholds - Lowered for faster progression feedback
   const getRankInfo = (count) => {
     if (count >= 150) return { id: 10, color: 'from-rose-500 to-rose-300', glow: 'shadow-rose-500/50', animate: true }
     if (count >= 100) return { id: 9, color: 'from-amber-400 to-yellow-200', glow: 'shadow-amber-500/40', animate: true }
@@ -16,36 +15,51 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
     return { id: 0, color: 'border-white/10' }
   }
 
-  const getProFrameClass = (frame) => {
+  // Returns gradient bg, outer glow shadow, and whether the frame should pulse.
+  // animate-pulse is applied ONLY to the frame layer div, not the image wrapper,
+  // so the avatar photo is never dimmed by the opacity animation.
+  const getProFrame = (frame) => {
     switch (frame) {
       case 'gold':
-        return 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-400 p-[4px] shadow-[0_0_24px_rgba(251,191,36,0.9)] animate-pulse'
+        return { bg: 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-400', shadow: 'shadow-[0_0_24px_rgba(251,191,36,0.9)]', animate: true }
       case 'diamond':
-        return 'bg-gradient-to-tr from-cyan-400 via-sky-200 to-indigo-400 p-[4px] shadow-[0_0_24px_rgba(34,211,238,0.9)]'
+        return { bg: 'bg-gradient-to-tr from-cyan-400 via-sky-200 to-indigo-400', shadow: 'shadow-[0_0_24px_rgba(34,211,238,0.9)]', animate: false }
       case 'fire':
-        return 'bg-gradient-to-tr from-red-600 via-orange-400 to-yellow-400 p-[4px] shadow-[0_0_24px_rgba(239,68,68,1)] animate-pulse'
+        return { bg: 'bg-gradient-to-tr from-red-600 via-orange-400 to-yellow-400', shadow: 'shadow-[0_0_24px_rgba(239,68,68,1)]', animate: true }
       case 'rainbow':
-        return 'bg-gradient-to-tr from-red-500 via-green-400 to-blue-500 p-[4px] shadow-[0_0_24px_rgba(168,85,247,0.9)]'
+        return { bg: 'bg-gradient-to-tr from-red-500 via-green-400 to-blue-500', shadow: 'shadow-[0_0_22px_rgba(239,68,68,0.6),0_0_22px_rgba(59,130,246,0.6)]', animate: false }
       case 'ice':
-        return 'bg-gradient-to-tr from-sky-300 via-teal-100 to-sky-200 p-[4px] shadow-[0_0_24px_rgba(125,211,252,1)]'
+        return { bg: 'bg-gradient-to-tr from-sky-300 via-teal-100 to-sky-200', shadow: 'shadow-[0_0_24px_rgba(125,211,252,1)]', animate: false }
       default:
-        return 'bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-purple-600 p-[4px] shadow-[0_0_22px_rgba(34,211,238,0.85)]'
+        return { bg: 'bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-purple-600', shadow: 'shadow-[0_0_20px_rgba(34,211,238,0.55),0_0_20px_rgba(168,85,247,0.55)]', animate: false }
     }
   }
 
   const rank = getRankInfo(workCount)
-  
+  const isHighRank = rank.id >= 4
+
+  // Size of the outer container
   const sizeClasses = {
-    xs: "w-8 h-8 rounded-[9px]",
-    sm: "w-10 h-10 rounded-[12px]",
-    md: "w-12 h-12 rounded-[14px]",
-    lg: "w-20 h-20 rounded-[22px]",
-    // "profile" size: ideal for public profile header cards
-    profile: "w-[110px] h-[110px] rounded-[26px]",
-    xl: "w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem]"
+    xs: "w-8 h-8",
+    sm: "w-10 h-10",
+    md: "w-12 h-12",
+    lg: "w-20 h-20",
+    profile: "w-[110px] h-[110px]",
+    xl: "w-32 h-32 md:w-40 md:h-40"
   }
 
-  const innerSizeClasses = {
+  // Border-radius for the outer frame layer
+  const outerRoundedClasses = {
+    xs: "rounded-[9px]",
+    sm: "rounded-[12px]",
+    md: "rounded-[14px]",
+    lg: "rounded-[22px]",
+    profile: "rounded-[26px]",
+    xl: "rounded-[2.5rem]"
+  }
+
+  // Border-radius for the inner image container (slightly tighter to sit inside the frame)
+  const innerRoundedClasses = {
     xs: "rounded-[7px]",
     sm: "rounded-[10px]",
     md: "rounded-[12px]",
@@ -63,42 +77,63 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
     xl: "w-12 h-12"
   }
 
-  const isHighRank = rank.id >= 4
-  
+  const sz = sizeClasses[size] || sizeClasses.md
+  const outerRounded = outerRoundedClasses[size] || outerRoundedClasses.md
+  const innerRounded = innerRoundedClasses[size] || innerRoundedClasses.md
+  const iconSize = iconSizeClasses[size] || iconSizeClasses.md
+
+  const proFrame = isPro ? getProFrame(avatarFrame) : null
+
   return (
     <div className={`
       relative shrink-0 transition-all duration-500
-      ${sizeClasses[size] || sizeClasses.md}
-      ${isPro 
-        ? getProFrameClass(avatarFrame) 
-        : (isHighRank ? `bg-gradient-to-tr ${rank.color} p-[2.5px]` : `border-2 ${rank.color}`)
+      ${sz} ${outerRounded}
+      ${isPro
+        ? proFrame.shadow
+        : isHighRank
+          ? `shadow-lg ${rank.glow || ''}`
+          : `border-2 ${rank.color} ${rank.glow ? `shadow-lg ${rank.glow}` : ''}`
       }
-      ${!isPro && rank.glow ? `shadow-lg ${rank.glow}` : ''}
       ${!isPro && rank.animate ? 'animate-pulse-subtle' : ''}
       ${className}
     `}>
+
+      {/* ── Frame gradient layer ─────────────────────────────────────────────
+          Absolutely positioned behind the image. When animate-pulse is needed
+          it is applied here only, so the avatar photo opacity is never affected. */}
+      {isPro && (
+        <div className={`absolute inset-0 ${outerRounded} ${proFrame.bg} ${proFrame.animate ? 'animate-pulse' : ''}`} />
+      )}
+      {!isPro && isHighRank && (
+        <div className={`absolute inset-0 ${outerRounded} bg-gradient-to-tr ${rank.color}`} />
+      )}
+
+      {/* ── Image container ──────────────────────────────────────────────────
+          Inset by the frame width so the gradient peeks through at the edges.
+          overflow-hidden clips the photo to the inner border-radius. */}
       <div className={`
-        w-full h-full bg-[#0c0b11] overflow-hidden flex items-center justify-center relative
-        ${innerSizeClasses[size] || innerSizeClasses.md}
+        absolute bg-[#0c0b11] overflow-hidden flex items-center justify-center
+        ${isPro ? 'inset-[4px]' : isHighRank ? 'inset-[2.5px]' : 'inset-0'}
+        ${innerRounded}
       `}>
         {avatarUrl ? (
-          <img 
-            src={avatarUrl} 
-            alt="Avatar" 
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+          <img
+            src={avatarUrl}
+            alt="Avatar"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
-          <User className={`${iconSizeClasses[size] || iconSizeClasses.md} text-purple-500/70`} />
+          <User className={`${iconSize} text-purple-500/70`} />
         )}
       </div>
 
-      {/* Online indicator dot */}
+      {/* Online indicator */}
       {isOnline && (
         <span className={`
           absolute z-10 bg-emerald-500 rounded-full border-2 border-[#0c0b11] shadow-[0_0_8px_rgba(16,185,129,0.8)]
-          ${size === 'xs' ? 'w-2.5 h-2.5 -bottom-0.5 -right-0.5' : 
-            size === 'sm' ? 'w-3 h-3 -bottom-0.5 -right-0.5' : 
-            size === 'md' ? 'w-3.5 h-3.5 -bottom-0.5 -right-0.5' : 
+          ${size === 'xs' ? 'w-2.5 h-2.5 -bottom-0.5 -right-0.5' :
+            size === 'sm' ? 'w-3 h-3 -bottom-0.5 -right-0.5' :
+            size === 'md' ? 'w-3.5 h-3.5 -bottom-0.5 -right-0.5' :
             size === 'lg' ? 'w-4.5 h-4.5 bottom-0 right-0' :
             size === 'profile' ? 'w-4 h-4 bottom-0 right-0' :
             'w-5.5 h-5.5 bottom-1 right-1'}
@@ -107,4 +142,3 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
     </div>
   )
 }
-

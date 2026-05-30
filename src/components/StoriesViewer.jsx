@@ -32,7 +32,7 @@ const parseStoryCaptionAndTransform = (captionText) => {
   return { caption: text, transformStyle }
 }
 
-export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose }) {
+export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose, onViewProfile }) {
   const { t, i18n } = useTranslation()
   const [currentGroupIdx, setCurrentGroupIdx] = useState(initialGroupIndex)
   const [currentStoryIdx, setCurrentStoryIdx] = useState(0)
@@ -42,9 +42,12 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
   // More options menu states
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+  const [pendingDelete, setPendingDelete] = useState(false)
+
   const timerRef = useRef(null)
   const videoRef = useRef(null)
+  const menuRef = useRef(null)
+  const commentFocused = useRef(false)
   const PROGRESS_DURATION = 5000 // 5 seconds per story
   const INTERVAL_STEP = 50 // Update progress every 50ms
 
@@ -52,16 +55,36 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
   const currentStories = currentGroup?.stories || []
   const currentStory = currentStories[currentStoryIdx]
 
+  // Close more menu when clicking outside it
+  useEffect(() => {
+    if (!showMoreMenu) return
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMoreMenu(false)
+        setPendingDelete(false)
+        setIsPaused(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [showMoreMenu])
+
   // Reset slide index and menu states when changing user groups or stories
   useEffect(() => {
     setCurrentStoryIdx(0)
     setProgress(0)
     setShowMoreMenu(false)
+    setPendingDelete(false)
   }, [currentGroupIdx])
 
   useEffect(() => {
     setProgress(0)
     setShowMoreMenu(false)
+    setPendingDelete(false)
   }, [currentStoryIdx])
 
   // Story playing loop
@@ -218,22 +241,22 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
     if (e) e.stopPropagation();
     if (!currentUser || !currentStory || isDeleting) return
 
-    const confirmMsg = i18n.language === 'ru' 
-      ? 'Вы уверены, что хотите удалить эту историю?' 
-      : 'Are you sure you want to delete this story?'
-      
-    if (window.confirm(confirmMsg)) {
-      setIsDeleting(true)
-      try {
-        await deleteStory(currentStory.id)
-        setShowMoreMenu(false)
-        onClose() // Close story viewer to reload banner groups
-      } catch (err) {
-        console.error("Story deletion error:", err)
-        alert(i18n.language === 'ru' ? 'Не удалось удалить историю' : 'Failed to delete story')
-      } finally {
-        setIsDeleting(false)
-      }
+    if (!pendingDelete) {
+      setPendingDelete(true)
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      await deleteStory(currentStory.id)
+      setShowMoreMenu(false)
+      setPendingDelete(false)
+      onClose()
+    } catch (err) {
+      console.error("Story deletion error:", err)
+      setPendingDelete(false)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -276,28 +299,16 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
       {/* Main player box (Aspect Ratio optimized for Stories) */}
       <div 
         className="relative w-full h-full max-w-[480px] md:h-[85vh] md:max-h-[850px] bg-[#09080d] md:rounded-[32px] overflow-hidden border border-white/5 flex flex-col justify-between shadow-[0_0_50px_rgba(147,51,234,0.15)]"
-        onTouchStart={() => { if (!showMoreMenu) setIsPaused(true); }}
-        onTouchEnd={() => { if (!showMoreMenu) setIsPaused(false); }}
-        onMouseDown={() => { if (!showMoreMenu) setIsPaused(true); }}
-        onMouseUp={() => { if (!showMoreMenu) setIsPaused(false); }}
+        onTouchStart={() => { if (!showMoreMenu && !commentFocused.current) setIsPaused(true); }}
+        onTouchEnd={() => { if (!showMoreMenu && !commentFocused.current) setIsPaused(false); }}
+        onMouseDown={() => { if (!showMoreMenu && !commentFocused.current) setIsPaused(true); }}
+        onMouseUp={() => { if (!showMoreMenu && !commentFocused.current) setIsPaused(false); }}
       >
-        
-        {/* Click-away overlay for options menu */}
-        {showMoreMenu && (
-          <div 
-            className="absolute inset-0 bg-transparent z-40 cursor-default" 
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMoreMenu(false);
-              setIsPaused(false);
-            }}
-          />
-        )}
         
         {/* Top Control Bar & Progress lines */}
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-30 space-y-4"
+          className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-50 space-y-4"
         >
           
           {/* Progress Indicators */}
@@ -320,16 +331,25 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
 
           {/* Header (Avatar, Nickname, Time and Controls) */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden bg-purple-900/10">
-                <img 
-                  src={currentGroup.user.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'} 
-                  alt={currentGroup.user.nickname} 
+            <div
+              className={`flex items-center gap-3 ${onViewProfile ? 'cursor-pointer group' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (onViewProfile) {
+                  onViewProfile(currentGroup.user.id)
+                  onClose()
+                }
+              }}
+            >
+              <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden bg-purple-900/10 transition-opacity group-hover:opacity-80">
+                <img
+                  src={currentGroup.user.avatar_url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
+                  alt={currentGroup.user.nickname}
                   className="w-full h-full object-cover"
                 />
               </div>
               <div>
-                <h4 
+                <h4
                   className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 notranslate animate-in fade-in duration-300"
                   translate="no"
                   style={currentGroup.user.nickname_color ? { color: currentGroup.user.nickname_color } : {}}
@@ -370,12 +390,14 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
 
               {/* Options Menu (Three dots) for Story Owner */}
               {currentUser && currentUser.id === currentGroup.user.id && (
-                <div className="relative z-50">
-                  <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setShowMoreMenu(!showMoreMenu); 
-                      setIsPaused(!showMoreMenu); // pause if opening, resume if closing
+                <div ref={menuRef} className="relative z-50">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const opening = !showMoreMenu
+                      setShowMoreMenu(opening)
+                      setPendingDelete(false)
+                      setIsPaused(opening)
                     }}
                     className={`w-8 h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all text-white ${
                       showMoreMenu ? 'bg-purple-600 shadow-lg shadow-purple-900/40' : 'bg-white/5 hover:bg-white/10'
@@ -385,19 +407,39 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
                   </button>
 
                   {showMoreMenu && (
-                    <div className="absolute right-0 top-10 bg-[#12111a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 w-40 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <button
-                        onClick={handleDelete}
-                        disabled={isDeleting}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-black text-red-400 hover:text-white hover:bg-red-500/20 rounded-xl transition-all disabled:opacity-50"
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
+                    <div className="absolute right-0 top-10 bg-[#12111a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 w-44 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {!pendingDelete ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(e); }}
+                          disabled={isDeleting}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-black text-red-400 hover:text-white hover:bg-red-500/20 rounded-xl transition-all disabled:opacity-50"
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
-                        )}
-                        <span>{isDeleting ? (i18n.language === 'ru' ? 'Удаление...' : 'Deleting...') : (i18n.language === 'ru' ? 'Удалить' : 'Delete')}</span>
-                      </button>
+                          <span>{i18n.language === 'ru' ? 'Удалить' : 'Delete'}</span>
+                        </button>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-gray-400 font-bold px-3 pt-1">{i18n.language === 'ru' ? 'Удалить историю?' : 'Delete story?'}</p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(e); }}
+                            disabled={isDeleting}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-black text-white bg-red-500/30 hover:bg-red-500/50 rounded-xl transition-all disabled:opacity-50"
+                          >
+                            {isDeleting ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>{isDeleting ? (i18n.language === 'ru' ? 'Удаление...' : 'Deleting...') : (i18n.language === 'ru' ? 'Да, удалить' : 'Yes, delete')}</span>
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPendingDelete(false); }}
+                            className="w-full flex items-center justify-center px-3 py-2 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                          >
+                            {i18n.language === 'ru' ? 'Отмена' : 'Cancel'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -501,8 +543,8 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose 
                   type="text"
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  onFocus={() => setIsPaused(true)}
-                  onBlur={() => { if (!isSendingComment) setIsPaused(false); }}
+                  onFocus={() => { commentFocused.current = true; setIsPaused(true); }}
+                  onBlur={() => { commentFocused.current = false; if (!isSendingComment) setIsPaused(false); }}
                   placeholder="Ответить на историю..."
                   className="flex-1 bg-white/5 border border-white/10 hover:border-white/20 focus:border-purple-500/50 rounded-full px-4 py-2 text-xs text-white placeholder-gray-500 transition-all focus:outline-none backdrop-blur-md"
                 />

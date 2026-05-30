@@ -14,7 +14,7 @@ import {
   Cell
 } from 'recharts'
 
-export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
+export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost, isViewerOpen }) {
   const { t } = useTranslation()
   const [counts, setCounts] = useState({ total: 0, finished: 0, drafts: 0 })
   const [quoteIdx, setQuoteIdx] = useState(1)
@@ -79,22 +79,52 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
             .sort((a, b) => ((b.likes_count || 0) + (b.views_count || 0)) - ((a.likes_count || 0) + (a.views_count || 0)))
             .slice(0, 3)
 
-          const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
-          const weeklyViews = days.map((day, idx) => {
-            const factor = 0.5 + Math.sin(idx) * 0.35 + Math.random() * 0.15
-            return {
-              name: day,
-              views: Math.max(10, Math.round(((views + 30) / 7) * factor))
-            }
-          })
+          const paintingIds = paintings.map(p => p.id)
 
-          const weeklyLikes = days.map((day, idx) => {
-            const factor = 0.4 + Math.cos(idx) * 0.25 + Math.random() * 0.2
-            return {
-              name: day,
-              likes: Math.max(2, Math.round(((likes + 10) / 7) * factor))
-            }
-          })
+          // Находим начало текущей недели (понедельник 00:00:00)
+          const now = new Date()
+          const currentDay = now.getDay() // 0 - Вс, 1 - Пн, ...
+          const diffToMon = currentDay === 0 ? 6 : currentDay - 1
+          const startOfWeek = new Date(now)
+          startOfWeek.setDate(now.getDate() - diffToMon)
+          startOfWeek.setHours(0, 0, 0, 0)
+
+          // Параллельно запрашиваем реальные лайки и просмотры
+          const [likesRes, viewsRes] = await Promise.all([
+            supabase
+              .from('post_likes')
+              .select('created_at')
+              .in('painting_id', paintingIds)
+              .gte('created_at', startOfWeek.toISOString()),
+            supabase
+              .from('painting_views')
+              .select('created_at')
+              .in('painting_id', paintingIds)
+              .gte('created_at', startOfWeek.toISOString())
+          ])
+
+          // dayMapping: JS getDay() (0=Sun) -> 0-6 index (Mon=0 .. Sun=6)
+          const dayMapping = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6 }
+
+          const viewsMap = [0, 0, 0, 0, 0, 0, 0]
+          const likesMap = [0, 0, 0, 0, 0, 0, 0]
+
+          if (likesRes.data) {
+            likesRes.data.forEach(like => {
+              const d = new Date(like.created_at)
+              likesMap[dayMapping[d.getDay()]]++
+            })
+          }
+
+          if (viewsRes.data) {
+            viewsRes.data.forEach(view => {
+              const d = new Date(view.created_at)
+              viewsMap[dayMapping[d.getDay()]]++
+            })
+          }
+
+          const weeklyViews = [0,1,2,3,4,5,6].map(d => ({ name: d, views: viewsMap[d] }))
+          const weeklyLikes = [0,1,2,3,4,5,6].map(d => ({ name: d, likes: likesMap[d] }))
 
           setProStats({
             totalViews: views,
@@ -104,13 +134,12 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
             weeklyLikes
           })
         } else {
-          const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
           setProStats({
             totalViews: 0,
             totalLikes: 0,
             topPaintings: [],
-            weeklyViews: days.map(d => ({ name: d, views: 0 })),
-            weeklyLikes: days.map(d => ({ name: d, likes: 0 }))
+            weeklyViews: [0,1,2,3,4,5,6].map(d => ({ name: d, views: 0 })),
+            weeklyLikes: [0,1,2,3,4,5,6].map(d => ({ name: d, likes: 0 }))
           })
         }
       } catch (err) {
@@ -120,31 +149,33 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
       }
     }
 
-    if (isPro) {
+    if (isPro && !isViewerOpen) {
       fetchProStats()
     }
-  }, [isPro])
+  }, [isPro, isViewerOpen])
 
   // Static mock data for blurred free users preview
   const dummyWeeklyViews = [
-    { name: 'Пн', views: 40 },
-    { name: 'Вт', views: 82 },
-    { name: 'Ср', views: 56 },
-    { name: 'Чт', views: 95 },
-    { name: 'Пт', views: 120 },
-    { name: 'Сб', views: 90 },
-    { name: 'Вс', views: 140 }
+    { name: 0, views: 40 },
+    { name: 1, views: 82 },
+    { name: 2, views: 56 },
+    { name: 3, views: 95 },
+    { name: 4, views: 120 },
+    { name: 5, views: 90 },
+    { name: 6, views: 140 }
   ]
 
   const dummyWeeklyLikes = [
-    { name: 'Пн', likes: 12 },
-    { name: 'Вт', likes: 25 },
-    { name: 'Ср', likes: 18 },
-    { name: 'Чт', likes: 32 },
-    { name: 'Пт', likes: 45 },
-    { name: 'Сб', likes: 28 },
-    { name: 'Вс', likes: 50 }
+    { name: 0, likes: 12 },
+    { name: 1, likes: 25 },
+    { name: 2, likes: 18 },
+    { name: 3, likes: 32 },
+    { name: 4, likes: 45 },
+    { name: 5, likes: 28 },
+    { name: 6, likes: 50 }
   ]
+
+  const DAY_KEYS = ['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun']
 
   // Setup stats list
   const stats = [
@@ -154,8 +185,8 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
 
   if (isPro) {
     stats.push(
-      { id: 'views', label: t('views', 'Просмотры'), value: proStats.totalViews.toString(), change: 'Pro', trend: 'up', color: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400', icon: Eye },
-      { id: 'likes', label: t('likes', 'Лайки'), value: proStats.totalLikes.toString(), change: 'Pro', trend: 'up', color: 'bg-rose-500/10 border-rose-500/30 text-rose-400', icon: Heart }
+      { id: 'views', label: t('views'), value: proStats.totalViews.toString(), change: 'Pro', trend: 'up', color: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400', icon: Eye },
+      { id: 'likes', label: t('likes'), value: proStats.totalLikes.toString(), change: 'Pro', trend: 'up', color: 'bg-rose-500/10 border-rose-500/30 text-rose-400', icon: Heart }
     )
   }
 
@@ -237,11 +268,11 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-            <BarChart2 className="w-6 h-6 text-purple-500" /> {t('pro_analytics', 'Аналитика Pro')}
+            <BarChart2 className="w-6 h-6 text-purple-500" /> {t('pro_analytics')}
           </h2>
           {!isPro && (
             <span className="text-xs font-bold text-gray-500 flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
-              <Lock className="w-3.5 h-3.5 text-amber-500" /> {t('locked', 'Заблокировано')}
+              <Lock className="w-3.5 h-3.5 text-amber-500" /> {t('locked')}
             </span>
           )}
         </div>
@@ -254,16 +285,16 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
                 <Gem className="w-8 h-8" />
               </div>
               <div className="max-w-md space-y-2">
-                <h3 className="text-xl md:text-2xl font-black text-white leading-tight">{t('unlock_analytics_title', 'Разблокируйте Pro-аналитику')}</h3>
+                <h3 className="text-xl md:text-2xl font-black text-white leading-tight">{t('unlock_analytics_title')}</h3>
                 <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
-                  Получите доступ к детализированной динамике просмотров, лайков и подробной статистике ваших лучших работ за неделю и месяц.
+                  {t('unlock_analytics_desc')}
                 </p>
               </div>
               <button
                 onClick={handleUpgradeClick}
                 className="bg-cyan-500 hover:bg-cyan-400 text-neutral-900 font-black px-6 py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(34,211,238,0.25)] flex items-center gap-2 text-sm active:scale-95"
               >
-                <Gem className="w-4 h-4" /> {t('upgrade_to_pro_btn', 'Подключить Pro за $4.99')}
+                <Gem className="w-4 h-4" /> {t('upgrade_to_pro_btn')}
               </button>
             </div>
           )}
@@ -274,9 +305,9 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
             <div className="lg:col-span-7 glass-card p-6 md:p-8 border-white/5 flex flex-col space-y-6">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-cyan-400" /> {t('profile_views_chart', 'Динамика просмотров')}
+                  <TrendingUp className="w-5 h-5 text-cyan-400" /> {t('profile_views_chart')}
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">{t('last_7_days', 'За последние 7 дней')}</p>
+                <p className="text-xs text-gray-500 mt-1">{t('last_7_days')}</p>
               </div>
 
               <div className="h-64 sm:h-80 w-full min-h-0">
@@ -288,12 +319,21 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
                         <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="name" stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} />
-                    <YAxis stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} />
-                    <Tooltip 
+                    <XAxis dataKey="name" stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} tickFormatter={(v) => t(DAY_KEYS[v])} />
+                    <YAxis
+                      stroke="#52525b"
+                      fontSize={11}
+                      fontWeight="bold"
+                      axisLine={false}
+                      tickLine={false}
+                      domain={[0, dataMax => Math.max(4, Math.ceil(dataMax * 1.2))]}
+                      tickCount={5}
+                    />
+                    <Tooltip
                       contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
                       labelStyle={{ color: '#fff', fontWeight: 'bold' }}
                       itemStyle={{ color: '#22d3ee', fontWeight: 'bold' }}
+                      labelFormatter={(v) => t(DAY_KEYS[v])}
                     />
                     <Area type="monotone" dataKey="views" stroke="#22d3ee" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
                   </AreaChart>
@@ -305,20 +345,29 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
             <div className="lg:col-span-5 glass-card p-6 md:p-8 border-white/5 flex flex-col space-y-6">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-rose-500 fill-rose-500/10" /> {t('likes_dynamics', 'Активность (Лайки)')}
+                  <Heart className="w-5 h-5 text-rose-500 fill-rose-500/10" /> {t('likes_dynamics')}
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">{t('weekly_activity', 'Динамика по дням недели')}</p>
+                <p className="text-xs text-gray-500 mt-1">{t('weekly_activity')}</p>
               </div>
 
               <div className="h-64 sm:h-80 w-full min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={isPro ? proStats.weeklyLikes : dummyWeeklyLikes} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} />
-                    <YAxis stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} tickFormatter={(v) => t(DAY_KEYS[v])} />
+                    <YAxis 
+                      stroke="#52525b" 
+                      fontSize={11} 
+                      fontWeight="bold" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      domain={[0, dataMax => Math.max(4, Math.ceil(dataMax * 1.2))]}
+                      tickCount={5}
+                    />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
                       labelStyle={{ color: '#fff', fontWeight: 'bold' }}
                       itemStyle={{ color: '#f43f5e', fontWeight: 'bold' }}
+                      labelFormatter={(v) => t(DAY_KEYS[v])}
                     />
                     <Bar dataKey="likes" radius={[6, 6, 0, 0]}>
                       {(isPro ? proStats.weeklyLikes : dummyWeeklyLikes).map((entry, index) => (
@@ -337,14 +386,18 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate }) {
           <div className="glass-card p-6 md:p-8 border-white/5 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
             <div>
               <h3 className="text-lg font-black text-white flex items-center gap-2">
-                <Star className="w-5 h-5 text-amber-500 fill-amber-500/10" /> {t('top_artworks', 'Популярные работы')}
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500/10" /> {t('top_artworks')}
               </h3>
-              <p className="text-xs text-gray-500 mt-1">Ваши опубликованные проекты с наибольшим охватом</p>
+              <p className="text-xs text-gray-500 mt-1">{t('top_artworks_desc')}</p>
             </div>
 
             <div className="divide-y divide-white/5">
               {proStats.topPaintings.map((painting, idx) => (
-                <div key={painting.id} className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
+                <div 
+                  key={painting.id} 
+                  onClick={() => onOpenPost?.(painting.id, painting, proStats.topPaintings, idx)}
+                  className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0 cursor-pointer hover:bg-white/5 px-2 rounded-xl transition-all"
+                >
                   <div className="flex items-center gap-4 min-w-0">
                     <span className="text-sm font-black text-gray-600 select-none">#0{idx + 1}</span>
                     {painting.image_url && (

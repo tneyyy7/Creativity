@@ -52,9 +52,9 @@ export function Gallery({ onOpenPost }) {
         
         const newPainting = {
           user_id: user.id,
-          title: file.name.split('.')[0] || 'Untitled',
+          title: file.name.split('.')[0] || t('untitled'),
           image_url: publicUrl,
-          description: 'New upload',
+          description: t('new_upload_desc'),
           category: 'Digital',
           is_finished: false
         }
@@ -192,7 +192,7 @@ export function Gallery({ onOpenPost }) {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3">{t('gallery')}</h1>
-          <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">Your artistic legacy.</p>
+          <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">{t('gallery_subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <input 
@@ -276,7 +276,7 @@ export function Gallery({ onOpenPost }) {
             disabled={isUploading}
             className="glass-card py-4 flex items-center justify-center gap-3 border-white/5 hover:bg-white/5 text-gray-400 font-bold transition-all"
           >
-            <Plus className="w-5 h-5" /> Take with Camera
+            <Plus className="w-5 h-5" /> {t('take_with_camera')}
           </button>
         </div>
 
@@ -307,14 +307,14 @@ export function Gallery({ onOpenPost }) {
                       startEditing(painting);
                     }}
                     className="w-10 h-10 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl text-white flex items-center justify-center hover:bg-purple-600 transition-all shadow-xl"
-                    title="Edit Metadata"
+                    title={t('edit_metadata')}
                    >
                       <MoreHorizontal className="w-5 h-5" />
                    </button>
                    <button 
                     onClick={(e) => { e.stopPropagation(); setReplacingId(painting.id); replaceInputRef.current?.click(); }}
                     className="w-10 h-10 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl text-white flex items-center justify-center hover:bg-indigo-600 transition-all shadow-xl"
-                    title="Replace Image"
+                    title={t('replace_image')}
                    >
                       <Upload className="w-4 h-4" />
                    </button>
@@ -327,7 +327,7 @@ export function Gallery({ onOpenPost }) {
                     className="bg-white text-purple-900 rounded-xl flex flex-col items-center justify-center py-2 px-1 hover:bg-purple-50 transition-all shadow-md active:scale-95 group/btn w-full"
                   >
                     <User className="w-4 h-4 group-hover/btn:scale-110 transition-transform mb-0.5" />
-                    <span className="text-[9px] font-black uppercase tracking-tighter">View</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter">{t('view')}</span>
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); toggleFinished(painting); }}
@@ -341,7 +341,7 @@ export function Gallery({ onOpenPost }) {
                     className="bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-xl text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-md active:scale-95 flex flex-col items-center justify-center py-2 px-1 group/btn w-full"
                   >
                     <Trash2 className="w-4 h-4 group-hover/btn:shake transition-transform mb-0.5" />
-                    <span className="text-[9px] font-black uppercase tracking-tighter">Delete</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter">{t('delete')}</span>
                   </button>
                 </div>
               </div>
@@ -362,69 +362,69 @@ export function Gallery({ onOpenPost }) {
       {editingPainting && (
         <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-in zoom-in duration-300">
            <div className="glass-card p-5 sm:p-8 md:p-10 w-full max-w-lg space-y-4 sm:space-y-6">
-              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Edit Masterpiece</h3>
-              
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{t('edit_masterpiece')}</h3>
+
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Title</label>
-                <input 
-                  type="text" 
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('title_label')}</label>
+                <input
+                  type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   className="w-full h-14 px-6 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all"
-                  placeholder="The Masterpiece Name"
+                  placeholder={t('title_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Description</label>
-                <textarea 
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('description_label')}</label>
+                <textarea
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   className="w-full min-h-[80px] p-6 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-medium transition-all resize-none"
-                  placeholder="Tell the story of this art..."
+                  placeholder={t('description_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Category</label>
-                <select 
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('category_label')}</label>
+                <select
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   className="w-full h-14 px-6 bg-[#16151c] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all"
                 >
-                  <option value="Digital">Digital Art</option>
-                  <option value="Painting">Oil / Watercolor Painting</option>
-                  <option value="Photography">Photography</option>
-                  <option value="Sculpture">Sculpture</option>
-                  <option value="Design">Design</option>
-                  <option value="3D">3D / CGI</option>
-                  <option value="Sketching">Sketching / Ink</option>
+                  <option value="Digital">{t('cat_digital')}</option>
+                  <option value="Painting">{t('cat_painting')}</option>
+                  <option value="Photography">{t('cat_photography')}</option>
+                  <option value="Sculpture">{t('cat_sculpture')}</option>
+                  <option value="Design">{t('cat_design')}</option>
+                  <option value="3D">{t('cat_3d')}</option>
+                  <option value="Sketching">{t('cat_sketching')}</option>
                 </select>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Tags (comma-separated)</label>
-                <input 
-                  type="text" 
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('tags_label')}</label>
+                <input
+                  type="text"
                   value={newTags}
                   onChange={(e) => setNewTags(e.target.value)}
                   className="w-full h-14 px-6 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all"
-                  placeholder="e.g. digital, watercolor, character"
+                  placeholder={t('tags_placeholder')}
                 />
               </div>
 
               <div className="flex gap-4 pt-2">
-                <button 
+                <button
                   onClick={() => setEditingPainting(null)}
                   className="flex-1 py-4 bg-white/5 text-gray-400 font-bold rounded-2xl hover:bg-white/10 transition-all"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
-                <button 
+                <button
                   onClick={handleUpdateMetadata}
                   className="flex-1 py-4 bg-purple-600 text-white font-black rounded-2xl hover:bg-purple-500 transition-all shadow-lg shadow-purple-900/40"
                 >
-                  Save Changes
+                  {t('save_changes')}
                 </button>
               </div>
            </div>
