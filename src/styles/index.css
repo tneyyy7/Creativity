@@ -183,7 +183,7 @@ input[type="color"]::-moz-color-swatch {
   border-radius: 9999px; /* rounded-full */
   background-color: rgba(6, 182, 212, 0.15); /* bg-cyan-500/15 */
   border: 1px solid rgba(34, 211, 238, 0.6); /* border-cyan-400/60 */
-  box-shadow: 0 0 10px rgba(6, 182, 212, 0.1);
+  box-shadow: none;
   flex-shrink: 0;
   vertical-align: middle;
 }

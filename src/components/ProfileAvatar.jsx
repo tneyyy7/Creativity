@@ -2,14 +2,14 @@ import { User } from 'lucide-react'
 
 export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className = "", isOnline = false, isPro = false, avatarFrame = "default" }) {
   const getRankInfo = (count) => {
-    if (count >= 150) return { id: 10, color: 'from-rose-500 to-rose-300', glow: 'shadow-rose-500/50', animate: true }
-    if (count >= 100) return { id: 9, color: 'from-amber-400 to-yellow-200', glow: 'shadow-amber-500/40', animate: true }
-    if (count >= 75) return { id: 8, color: 'from-fuchsia-600 to-purple-400', glow: 'shadow-fuchsia-500/40' }
-    if (count >= 50) return { id: 7, color: 'from-indigo-600 to-blue-400', glow: 'shadow-indigo-500/30' }
-    if (count >= 25) return { id: 6, color: 'from-yellow-400 to-yellow-200', glow: 'shadow-yellow-500/30' }
+    if (count >= 150) return { id: 10, color: 'from-rose-500 to-rose-300', glow: 'shadow-rose-500/25', animate: true }
+    if (count >= 100) return { id: 9, color: 'from-amber-400 to-yellow-200', glow: 'shadow-amber-500/20', animate: true }
+    if (count >= 75) return { id: 8, color: 'from-fuchsia-600 to-purple-400', glow: 'shadow-fuchsia-500/20' }
+    if (count >= 50) return { id: 7, color: 'from-indigo-600 to-blue-400', glow: 'shadow-indigo-500/15' }
+    if (count >= 25) return { id: 6, color: 'from-yellow-400 to-yellow-200', glow: 'shadow-yellow-500/15' }
     if (count >= 15) return { id: 5, color: 'from-emerald-500 to-teal-300' }
     if (count >= 10) return { id: 4, color: 'from-purple-500 to-indigo-400' }
-    if (count >= 3) return { id: 3, color: 'border-blue-400', glow: 'shadow-blue-500/20' }
+    if (count >= 3) return { id: 3, color: 'border-blue-400', glow: 'shadow-blue-500/10' }
     if (count >= 2) return { id: 2, color: 'border-orange-500' }
     if (count >= 1) return { id: 1, color: 'border-white/60' }
     return { id: 0, color: 'border-white/10' }
@@ -21,17 +21,17 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
   const getProFrame = (frame) => {
     switch (frame) {
       case 'gold':
-        return { bg: 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-400', shadow: 'shadow-[0_0_24px_rgba(251,191,36,0.9)]', animate: true }
+        return { bg: 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-400', shadow: 'shadow-[0_0_8px_rgba(251,191,36,0.4)]', animate: true }
       case 'diamond':
-        return { bg: 'bg-gradient-to-tr from-cyan-400 via-sky-200 to-indigo-400', shadow: 'shadow-[0_0_24px_rgba(34,211,238,0.9)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-cyan-400 via-sky-200 to-indigo-400', shadow: 'shadow-[0_0_8px_rgba(34,211,238,0.4)]', animate: false }
       case 'fire':
-        return { bg: 'bg-gradient-to-tr from-red-600 via-orange-400 to-yellow-400', shadow: 'shadow-[0_0_24px_rgba(239,68,68,1)]', animate: true }
+        return { bg: 'bg-gradient-to-tr from-red-600 via-orange-400 to-yellow-400', shadow: 'shadow-[0_0_8px_rgba(239,68,68,0.5)]', animate: true }
       case 'rainbow':
-        return { bg: 'bg-gradient-to-tr from-red-500 via-green-400 to-blue-500', shadow: 'shadow-[0_0_22px_rgba(239,68,68,0.6),0_0_22px_rgba(59,130,246,0.6)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-red-500 via-green-400 to-blue-500', shadow: 'shadow-[0_0_6px_rgba(239,68,68,0.3),0_0_6px_rgba(59,130,246,0.3)]', animate: false }
       case 'ice':
-        return { bg: 'bg-gradient-to-tr from-sky-300 via-teal-100 to-sky-200', shadow: 'shadow-[0_0_24px_rgba(125,211,252,1)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-sky-300 via-teal-100 to-sky-200', shadow: 'shadow-[0_0_8px_rgba(125,211,252,0.5)]', animate: false }
       default:
-        return { bg: 'bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-purple-600', shadow: 'shadow-[0_0_20px_rgba(34,211,238,0.55),0_0_20px_rgba(168,85,247,0.55)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-purple-600', shadow: 'shadow-[0_0_6px_rgba(34,211,238,0.25),0_0_6px_rgba(168,85,247,0.25)]', animate: false }
     }
   }
 
