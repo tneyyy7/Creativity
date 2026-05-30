@@ -3,6 +3,7 @@ import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck, Palette, Camer
 import { useTranslation } from 'react-i18next'
 import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function Friends({ user, onViewProfile }) {
   const { t } = useTranslation()
@@ -139,7 +140,7 @@ export function Friends({ user, onViewProfile }) {
                   avatarFrame={result.avatar_frame}
                 />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={result.nickname_color ? { color: result.nickname_color } : { color: '#fff' }}>
+                  <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={getNicknameStyle(result.nickname_color, '#fff')}>
                     {result.nickname || 'Unknown Artist'}
                     {result.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                     {result.isPro && (
@@ -195,7 +196,7 @@ export function Friends({ user, onViewProfile }) {
                     avatarFrame={req.profile?.avatar_frame}
                   />
                   <div>
-                    <h3 className="font-bold hover:text-purple-400 notranslate flex items-center gap-2 text-lg" translate="no" style={req.profile?.nickname_color ? { color: req.profile.nickname_color } : { color: '#fff' }}>
+                    <h3 className="font-bold hover:text-purple-400 notranslate flex items-center gap-2 text-lg" translate="no" style={getNicknameStyle(req.profile?.nickname_color, '#fff')}>
                       {req.profile?.nickname || 'Unknown'}
                       {req.profile?.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
                       {req.profile?.isPro && (
@@ -251,7 +252,7 @@ export function Friends({ user, onViewProfile }) {
                     avatarFrame={friend.profile?.avatar_frame}
                   />
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={friend.profile?.nickname_color ? { color: friend.profile.nickname_color } : { color: '#fff' }}>
+                    <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={getNicknameStyle(friend.profile?.nickname_color, '#fff')}>
                       {friend.profile?.nickname || 'Unknown'}
                       {friend.profile?.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                       {friend.profile?.isPro && (

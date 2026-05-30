@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
 import { checkIfStoryLiked, toggleStoryLike, sendMessage, deleteStory } from '../lib/supabase'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 const isVideo = (url) => {
   if (!url) return false
@@ -352,7 +353,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
                 <h4
                   className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 notranslate animate-in fade-in duration-300"
                   translate="no"
-                  style={currentGroup.user.nickname_color ? { color: currentGroup.user.nickname_color } : {}}
+                  style={getNicknameStyle(currentGroup.user.nickname_color)}
                 >
                   {currentGroup.user.nickname}
                   {currentGroup.user.is_verified && (

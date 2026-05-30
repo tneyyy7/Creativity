@@ -3,6 +3,7 @@ import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shap
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchBookmarks, fetchUserCollections, createCollection } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function Bookmarks({ onOpenPost }) {
   const { t } = useTranslation()

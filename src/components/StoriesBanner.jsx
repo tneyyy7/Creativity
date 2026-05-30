@@ -5,6 +5,7 @@ import { fetchActiveStories, uploadStory } from '../lib/supabase'
 import { StoriesViewer } from './StoriesViewer'
 import { ProfileAvatar } from './ProfileAvatar'
 import { createPortal } from 'react-dom'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewProfile }) {
   const { t } = useTranslation()
@@ -443,7 +444,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                 <div className="flex flex-col items-center max-w-[76px] w-full">
                   <span 
                     className="text-[11px] font-semibold text-gray-400 group-hover:text-white transition-colors tracking-tight text-center truncate w-full"
-                    style={group.user.nickname_color ? { color: group.user.nickname_color } : {}}
+                    style={getNicknameStyle(group.user.nickname_color)}
                   >
                     {group.user.nickname}
                   </span>

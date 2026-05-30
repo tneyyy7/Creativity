@@ -5,6 +5,7 @@ import { supabase, fetchSubscriptionStatus, fetchProProfileSettings, updateProPr
 import { redirectToStripeCheckout } from '../lib/stripe'
 import { CustomEmojisManager } from '../components/CustomEmojisManager'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 // Stripe price IDs configuration
 // The user will replace these placeholders with real Price IDs from their Stripe Dashboard
@@ -24,12 +25,15 @@ const PRESETS = {
   ],
   colors: [
     { id: 'default', name: 'Стандартный', value: '' },
-    { id: 'royal_purple', name: 'Королевский Пурпурный', value: '#A855F7' },
-    { id: 'blazing_orange', name: 'Пылающий Оранжевый', value: '#F97316' },
-    { id: 'emerald_neon', name: 'Изумрудный Неон', value: '#10B981' },
-    { id: 'sky_azure', name: 'Небесный Лазурный', value: '#06B6D4' },
-    { id: 'bloody_rose', name: 'Кровавая Роза', value: '#F43F5E' },
-    { id: 'gold_sand', name: 'Золотой Песок', value: '#F59E0B' }
+    { id: 'royal_purple', name: 'Королевский Пурпурный 💜', value: 'linear-gradient(90deg, #A855F7, #EC4899)' },
+    { id: 'blazing_orange', name: 'Пылающий Оранжевый 🔥', value: 'linear-gradient(90deg, #F97316, #EF4444)' },
+    { id: 'emerald_neon', name: 'Изумрудный Неон 💚', value: 'linear-gradient(90deg, #10B981, #06B6D4)' },
+    { id: 'sky_azure', name: 'Небесный Лазурный 💙', value: 'linear-gradient(90deg, #06B6D4, #8B5CF6)' },
+    { id: 'bloody_rose', name: 'Кровавая Роза 🌹', value: 'linear-gradient(90deg, #F43F5E, #F97316)' },
+    { id: 'gold_sand', name: 'Золотой Песок ✨', value: 'linear-gradient(90deg, #F59E0B, #EF4444)' },
+    { id: 'arctic_aurora', name: 'Полярное Сияние 🌌', value: 'linear-gradient(90deg, #22D3EE, #A855F7, #EC4899)' },
+    { id: 'sunset_fire', name: 'Закатный Огонь 🌅', value: 'linear-gradient(90deg, #F43F5E, #F59E0B, #10B981)' },
+    { id: 'ice_crystal', name: 'Ледяной Кристалл ❄️', value: 'linear-gradient(90deg, #67E8F9, #A5F3FC, #E0F2FE)' }
   ],
   chatThemes: [
     { id: 'default', name: 'Классическая' },
@@ -246,34 +250,27 @@ export function Subscription() {
               <div className="space-y-3">
                 <label className="text-sm font-black text-white uppercase tracking-wider block">{t('pro_nickname_color_label', 'Цвет никнейма')}</label>
                 <div className="space-y-3">
-                  <select
-                    value={profileSettings.nickname_color}
-                    onChange={(e) => setProfileSettings({ ...profileSettings, nickname_color: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500 transition-all"
-                  >
+                  <div className="grid grid-cols-2 gap-2">
                     {PRESETS.colors.map((color) => (
-                      <option key={color.value} value={color.value} className="bg-neutral-900 text-white">
-                        {t('color_' + color.id, color.name)}
-                      </option>
+                      <button
+                        key={color.id}
+                        onClick={() => setProfileSettings({ ...profileSettings, nickname_color: color.value })}
+                        className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                          profileSettings.nickname_color === color.value
+                            ? 'border-purple-500 bg-purple-600/20 shadow-[0_0_10px_rgba(168,85,247,0.3)]'
+                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                        }`}
+                      >
+                        <span style={getNicknameStyle(color.value, '#fff')}>
+                          {t('color_' + color.id, color.name)}
+                        </span>
+                      </button>
                     ))}
-                  </select>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={profileSettings.nickname_color || '#FFFFFF'}
-                      onChange={(e) => setProfileSettings({ ...profileSettings, nickname_color: e.target.value })}
-                      className="w-10 h-10 rounded-xl bg-transparent border-0 cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={profileSettings.nickname_color}
-                      onChange={(e) => setProfileSettings({ ...profileSettings, nickname_color: e.target.value })}
-                      placeholder="#FFFFFF"
-                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 transition-all"
-                    />
                   </div>
-                  <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center font-bold" style={{ color: profileSettings.nickname_color || '#FFFFFF' }}>
-                    {profile?.nickname || '—'}
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
+                    <span className="text-lg font-black" style={getNicknameStyle(profileSettings.nickname_color, '#FFFFFF')}>
+                      {profile?.nickname || '—'}
+                    </span>
                   </div>
                 </div>
               </div>

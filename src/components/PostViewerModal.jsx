@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 import { CollectionsModal } from './CollectionsModal'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 
 export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile }) {

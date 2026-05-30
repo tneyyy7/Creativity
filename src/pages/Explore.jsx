@@ -6,6 +6,7 @@ import { StoriesBanner } from '../components/StoriesBanner'
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile }) {
   const { t, i18n } = useTranslation()
@@ -316,7 +317,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                         <div className="flex items-center gap-1.5">
                           <span 
                             className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors flex items-center gap-1.5"
-                            style={author.nickname_color ? { color: author.nickname_color } : {}}
+                            style={getNicknameStyle(author.nickname_color)}
                           >
                             {author.nickname || 'Unknown Artist'}
                             {author.is_verified && (
@@ -465,7 +466,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                           <div className="flex items-center gap-1.5">
                             <span 
                               className="text-sm font-bold text-white flex items-center gap-1.5 min-w-0"
-                              style={creator.nickname_color ? { color: creator.nickname_color } : {}}
+                              style={getNicknameStyle(creator.nickname_color)}
                             >
                               <span className="truncate max-w-[150px]">{creator.nickname}</span>
                               {creator.is_verified && (
@@ -642,7 +643,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                           <div className="flex items-center gap-1 min-w-0">
                             <span 
                               className="text-[11px] font-bold text-gray-400 group-hover/author:text-white transition-colors flex items-center gap-1.5 min-w-0"
-                              style={author.nickname_color ? { color: author.nickname_color } : {}}
+                              style={getNicknameStyle(author.nickname_color)}
                             >
                               <span className="truncate max-w-[100px]">{author.nickname || 'Unknown Artist'}</span>
                               {author.is_verified && (

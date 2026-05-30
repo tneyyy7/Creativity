@@ -21,17 +21,17 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
   const getProFrame = (frame) => {
     switch (frame) {
       case 'gold':
-        return { bg: 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-400', shadow: 'shadow-[0_0_8px_rgba(251,191,36,0.4)]', animate: true }
+        return { bg: 'bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-400', shadow: 'shadow-[0_0_5px_rgba(251,191,36,0.2)]', animate: true }
       case 'diamond':
-        return { bg: 'bg-gradient-to-tr from-cyan-400 via-sky-200 to-indigo-400', shadow: 'shadow-[0_0_8px_rgba(34,211,238,0.4)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-cyan-400 via-sky-200 to-indigo-400', shadow: 'shadow-[0_0_5px_rgba(34,211,238,0.15)]', animate: false }
       case 'fire':
-        return { bg: 'bg-gradient-to-tr from-red-600 via-orange-400 to-yellow-400', shadow: 'shadow-[0_0_8px_rgba(239,68,68,0.5)]', animate: true }
+        return { bg: 'bg-gradient-to-tr from-red-600 via-orange-400 to-yellow-400', shadow: 'shadow-[0_0_5px_rgba(239,68,68,0.25)]', animate: true }
       case 'rainbow':
-        return { bg: 'bg-gradient-to-tr from-red-500 via-green-400 to-blue-500', shadow: 'shadow-[0_0_6px_rgba(239,68,68,0.3),0_0_6px_rgba(59,130,246,0.3)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-red-500 via-green-400 to-blue-500', shadow: 'shadow-[0_0_4px_rgba(239,68,68,0.15),0_0_4px_rgba(59,130,246,0.15)]', animate: false }
       case 'ice':
-        return { bg: 'bg-gradient-to-tr from-sky-300 via-teal-100 to-sky-200', shadow: 'shadow-[0_0_8px_rgba(125,211,252,0.5)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-sky-300 via-teal-100 to-sky-200', shadow: 'shadow-[0_0_5px_rgba(125,211,252,0.2)]', animate: false }
       default:
-        return { bg: 'bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-purple-600', shadow: 'shadow-[0_0_6px_rgba(34,211,238,0.25),0_0_6px_rgba(168,85,247,0.25)]', animate: false }
+        return { bg: 'bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-purple-600', shadow: 'shadow-[0_0_4px_rgba(34,211,238,0.12),0_0_4px_rgba(168,85,247,0.12)]', animate: false }
     }
   }
 

@@ -3,6 +3,7 @@ import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, B
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost }) {
   const { t } = useTranslation()
@@ -221,7 +222,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
           
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2 flex-wrap" translate="no" style={profile.nickname_color ? { color: profile.nickname_color } : {}}>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2 flex-wrap" translate="no" style={getNicknameStyle(profile.nickname_color)}>
                 {profile.nickname || 'Unknown Artist'}
                 {profile.is_verified && <BadgeCheck className="w-6 h-6 text-purple-400 fill-purple-400/20" />}
                 {profile.isPro && (

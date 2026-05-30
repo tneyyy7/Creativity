@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../lib/supabase'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, onProfileClick, onFriendsClick, isVerified, workCount, onOpenPost, isPro, avatarFrame, nicknameColor }) {
   const { t, i18n } = useTranslation()
@@ -301,7 +302,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                                 avatarFrame={item.profile?.avatar_frame}
                               />
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold truncate notranslate flex items-center gap-1.5" translate="no" style={item.profile?.nickname_color ? { color: item.profile.nickname_color } : { color: '#fff' }}>
+                                <p className="text-xs font-bold truncate notranslate flex items-center gap-1.5" translate="no" style={getNicknameStyle(item.profile?.nickname_color, '#fff')}>
                                   {item.profile?.nickname}
                                   {item.profile?.is_verified && (
                                     <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
@@ -359,7 +360,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                             {/* Text */}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs leading-snug">
-                                <span className="font-bold notranslate group-hover:text-purple-400 transition-colors flex items-center gap-1.5 inline-flex" translate="no" style={item.actor?.nickname_color ? { color: item.actor.nickname_color } : { color: '#fff' }}>
+                                <span className="font-bold notranslate group-hover:text-purple-400 transition-colors flex items-center gap-1.5 inline-flex" translate="no" style={getNicknameStyle(item.actor?.nickname_color, '#fff')}>
                                   {item.actor?.nickname || 'Someone'}
                                   {item.actor?.is_verified && (
                                     <BadgeCheck className="w-3 h-3 text-purple-400 fill-purple-400/20 flex-shrink-0" />
@@ -441,7 +442,7 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
               <span 
                 className="text-xs font-black text-white notranslate flex items-center gap-1.5" 
                 translate="no"
-                style={nicknameColor ? { color: nicknameColor } : {}}
+                style={getNicknameStyle(nicknameColor)}
               >
                 {nickname}
                 {isVerified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}

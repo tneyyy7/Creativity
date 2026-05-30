@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { PostViewerModal } from '../components/PostViewerModal'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function Messages({ currentUser, isPro, onViewProfile }) {
   const { t } = useTranslation()
@@ -406,7 +407,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                   >
                     <ProfileAvatar avatarUrl={user.avatar_url} workCount={user.finished_work_count} size="sm" isOnline={isOnline(user.last_seen)} isPro={user.isPro} avatarFrame={user.avatar_frame} />
                     <div className="flex-1 text-left min-w-0">
-                      <p className="font-bold text-sm truncate flex items-center gap-1.5" style={{ color: user.nickname_color || undefined }}>
+                      <p className="font-bold text-sm truncate flex items-center gap-1.5" style={getNicknameStyle(user.nickname_color, '#fff')}>
                         {user.nickname}
                         {user.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
                         {user.isPro && (
@@ -457,7 +458,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                 >
                   <ProfileAvatar avatarUrl={conv.avatar_url} workCount={conv.finished_work_count} size="sm" isOnline={isOnline(conv.last_seen)} isPro={conv.isPro} avatarFrame={conv.avatar_frame} />
                   <div className="flex-1 text-left min-w-0">
-                    <p className="font-bold text-sm truncate flex items-center gap-1.5" style={{ color: conv.nickname_color || undefined }}>
+                    <p className="font-bold text-sm truncate flex items-center gap-1.5" style={getNicknameStyle(conv.nickname_color, '#fff')}>
                       {conv.nickname}
                       {conv.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
                       {conv.isPro && (
@@ -521,7 +522,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                 >
                   <ProfileAvatar avatarUrl={activeChat.avatar_url} workCount={activeChat.finished_work_count} size="sm" isOnline={isOnline(activeChat.last_seen)} isPro={activeChat.isPro} avatarFrame={activeChat.avatar_frame} />
                   <div className="flex-1 text-left">
-                    <h3 className="font-bold text-white flex items-center gap-1.5" style={{ color: activeChat.nickname_color || undefined }}>
+                    <h3 className="font-bold text-white flex items-center gap-1.5" style={getNicknameStyle(activeChat.nickname_color)}>
                       {activeChat.nickname}
                       {activeChat.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
                       {activeChat.isPro && (
@@ -669,7 +670,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                   <div className="flex flex-col items-center text-center gap-3 p-4 bg-black/20 rounded-2xl border border-white/5 shadow-inner">
                                     <ProfileAvatar avatarUrl={data.avatar_url} workCount={data.work_count} size="lg" isPro={data.isPro} avatarFrame={data.avatar_frame} />
                                     <div>
-                                      <h4 className="font-black text-white text-lg flex items-center justify-center gap-1.5 notranslate" translate="no" style={{ color: data.nickname_color || undefined }}>
+                                      <h4 className="font-black text-white text-lg flex items-center justify-center gap-1.5 notranslate" translate="no" style={getNicknameStyle(data.nickname_color)}>
                                         {data.nickname}
                                         {data.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
                                         {data.isPro && (
