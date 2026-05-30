@@ -3,6 +3,7 @@ import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Pa
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { getNicknameStyle } from '../lib/nicknameStyle'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification, isPushSubscribed } from '../lib/pwa'
 
 export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor }) {
@@ -244,7 +245,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
             />
 
             <div>
-              <h2 className="text-2xl font-black text-white notranslate flex items-center justify-center gap-2 animate-in fade-in duration-300" translate="no" style={nicknameColor ? { color: nicknameColor } : {}}>
+              <h2 className="text-2xl font-black text-white notranslate flex items-center justify-center gap-2 animate-in fade-in duration-300" translate="no" style={getNicknameStyle(nicknameColor, '#fff')}>
                 {nickname}
                 {isVerified && <BadgeCheck className="w-5 h-5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                 {isPro && (

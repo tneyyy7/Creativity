@@ -187,6 +187,7 @@ function App() {
           })}
         />
         <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden' : 'overflow-y-auto'} p-4 md:p-10 custom-scrollbar flex flex-col`}>
+         <div key={activeTab} className="tab-transition flex-1 flex flex-col min-h-0">
          <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400">Loading…</div>}>
           {activeTab === 'dashboard' && (
             <Dashboard 
@@ -279,6 +280,7 @@ function App() {
           {activeTab === 'subscription' && <Subscription />}
           {activeTab === 'settings' && <Settings userEmail={user?.email} />}
          </Suspense>
+         </div>
         </main>
       </div>
 

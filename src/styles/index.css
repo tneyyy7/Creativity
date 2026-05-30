@@ -143,6 +143,29 @@ body {
   animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* Smooth tab/page transition: gentle fade + slight rise */
+@keyframes tabSwitch {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-transition {
+  animation: tabSwitch 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-transition {
+    animation: none;
+  }
+}
+
 /* Beautiful rounded square color picker inputs */
 input[type="color"] {
   -webkit-appearance: none;

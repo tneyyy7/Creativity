@@ -36,8 +36,8 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
   const categories = [
     'All',
-    'Digital Art',
-    'Oil/Watercolor Painting',
+    'Digital',
+    'Painting',
     'Photography',
     'Sculpture',
     'Design',
@@ -339,7 +339,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
                     {post.category && (
                       <span className="px-2.5 py-1 bg-purple-600/10 border border-purple-500/20 text-[9px] font-black text-purple-400 rounded-lg uppercase tracking-wider text-right">
-                        {post.category}
+                        {t(`cat_${post.category.toLowerCase()}`)}
                       </span>
                     )}
                   </div>
@@ -549,7 +549,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none w-full">
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat
-              const displayLabel = cat === 'All' ? t('filter_all') : cat
+              const displayLabel = cat === 'All' ? t('filter_all') : t(`cat_${cat.toLowerCase()}`)
               return (
                 <button
                   key={cat}
@@ -620,7 +620,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                             {painting.title}
                           </h4>
                           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                            {painting.category || 'Digital Art'}
+                            {painting.category ? t(`cat_${painting.category.toLowerCase()}`) : t('cat_digital')}
                           </p>
                         </div>
 

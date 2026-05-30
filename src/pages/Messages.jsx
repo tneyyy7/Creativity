@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme } from '../lib/supabase'
@@ -14,6 +15,28 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [isMobileView, setIsMobileView] = useState(false)
+  // Tracks whether we are on a phone-sized viewport (Tailwind's md breakpoint = 768px).
+  // On phones the open chat is rendered as a full-screen overlay for a real messenger feel.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  // Track the visual viewport height so the full-screen chat shrinks when the
+  // on-screen keyboard opens, keeping the input field visible above it.
+  const [viewportHeight, setViewportHeight] = useState(null)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => setViewportHeight(vv.height)
+    vv.addEventListener('resize', onResize)
+    onResize()
+    return () => vv.removeEventListener('resize', onResize)
+  }, [])
 
   const isOnline = (lastSeen) => {
     if (!lastSeen) return false
@@ -126,8 +149,19 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
   }
 
   const handleAddCustomEmoji = (emoji) => {
-    setInput(prev => prev + `[EMOJI:${emoji.image_url}:${emoji.name}]`)
+    // Insert a short, readable shortcode instead of the long raw URL tag.
+    // It is expanded back to the full [EMOJI:url:name] tag right before sending.
+    setInput(prev => prev + `:${emoji.name}:`)
     setShowEmojiPicker(false)
+  }
+
+  // Convert :name: shortcodes into full [EMOJI:url:name] tags for storage/rendering.
+  const expandEmojiShortcodes = (text) => {
+    if (!text) return text
+    return text.replace(/:([a-z0-9_]{2,20}):/g, (full, name) => {
+      const emoji = customEmojis.find((e) => e.name === name)
+      return emoji ? `[EMOJI:${emoji.image_url}:${name}]` : full
+    })
   }
 
   const parseMessageContent = (content) => {
@@ -262,16 +296,16 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     }
   }, [activeChat, currentUser.id])
 
-  // Scroll to bottom
+  // Scroll to bottom on new messages and when the keyboard resizes the viewport
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, viewportHeight])
 
   const handleSend = async () => {
     if (!input.trim() || !activeChat) return
-    const content = input.trim()
+    const content = expandEmojiShortcodes(input.trim())
     setInput('')
 
     // Optimistic update
@@ -323,7 +357,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
   const handleUpdate = async () => {
     if (!editInput.trim() || !editingId) return
     const id = editingId
-    const newContent = editInput.trim()
+    const newContent = expandEmojiShortcodes(editInput.trim())
     setEditingId(null)
     setEditInput('')
 
@@ -493,12 +527,18 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
           </div>
         </div>
 
-        {/* Chat Window */}
-        <div className={`
-        flex-1 glass-card flex flex-col relative overflow-hidden
-        ${activeChat && !isMobileView ? 'hidden md:flex' : 'flex'}
-        ${!activeChat ? 'hidden md:flex items-center justify-center' : 'flex'}
-      `}>
+        {/* Chat Window: inline panel on desktop, full-screen overlay on phones */}
+        {(() => {
+          const isFullscreen = isMobile && activeChat
+          const panel = (
+            <div
+              style={isFullscreen ? { height: viewportHeight ? `${viewportHeight}px` : '100dvh' } : undefined}
+              className={
+                isFullscreen
+                  ? 'fixed inset-0 z-[90] flex flex-col bg-[#0a0a0a] overscroll-contain'
+                  : `flex-1 glass-card flex-col relative overflow-hidden ${activeChat && isMobileView ? 'flex' : 'hidden md:flex'} ${!activeChat ? 'items-center justify-center' : ''}`
+              }
+            >
           {!activeChat ? (
             <div className="text-center space-y-4 opacity-40">
               <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center mx-auto">
@@ -509,7 +549,10 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
           ) : (
             <>
               {/* Header */}
-              <div className="p-4 border-b border-white/5 flex items-center gap-4 bg-white/[0.02]">
+              <div
+                style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+                className="p-4 border-b border-white/5 flex items-center gap-4 bg-white/[0.02] flex-shrink-0"
+              >
                 <button
                   onClick={() => { setIsMobileView(false); setActiveChat(null); }}
                   className="md:hidden p-2 text-gray-400 hover:text-white"
@@ -797,7 +840,10 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
               </div>
 
               {/* Input Area */}
-              <div className="p-4 bg-white/[0.02] border-t border-white/5">
+              <div
+                style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+                className="p-4 bg-white/[0.02] border-t border-white/5 flex-shrink-0"
+              >
                 {replyingTo && (
                   <div className="mb-3 p-3 bg-purple-600/10 rounded-xl border border-purple-500/20 flex items-center justify-between animate-in slide-in-from-bottom-2">
                     <div className="min-w-0">
@@ -810,6 +856,14 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                     >
                       <X className="w-4 h-4" />
                     </button>
+                  </div>
+                )}
+                {expandEmojiShortcodes(input).includes('[EMOJI:') && (
+                  <div className="mb-3 p-3 bg-white/5 rounded-xl border border-white/5 flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-bottom-2">
+                    <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest shrink-0">{t('preview', 'Превью')}</span>
+                    <div className="text-sm text-gray-200 flex items-center flex-wrap leading-relaxed break-words min-w-0">
+                      {parseMessageContent(expandEmojiShortcodes(input))}
+                    </div>
                   </div>
                 )}
                 <div className="relative flex items-center gap-2">
@@ -940,7 +994,10 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
               </div>
             </>
           )}
-        </div>
+            </div>
+          )
+          return isFullscreen ? createPortal(panel, document.body) : panel
+        })()}
       </div>
 
       {/* Post Viewer Modal */}

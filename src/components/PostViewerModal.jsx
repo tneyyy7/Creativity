@@ -458,7 +458,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
             </div>
             {painting.category && (
               <span className="inline-block px-2.5 py-0.5 bg-purple-600/10 text-purple-400 border border-purple-500/20 text-[9px] font-black rounded-md uppercase tracking-wider">
-                {painting.category}
+                {t(`cat_${painting.category.toLowerCase()}`)}
               </span>
             )}
             {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description}</p>}

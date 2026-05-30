@@ -182,7 +182,7 @@ export function Bookmarks({ onOpenPost }) {
                     />
                     <div className="absolute top-4 left-4">
                       <span className="inline-block px-2.5 py-1 bg-black/60 backdrop-blur-xl border border-white/10 text-[9px] font-black rounded-lg uppercase tracking-wider text-purple-400">
-                        {painting.category || t('artwork')}
+                        {painting.category ? t(`cat_${painting.category.toLowerCase()}`) : t('artwork')}
                       </span>
                     </div>
                   </div>
@@ -219,7 +219,7 @@ export function Bookmarks({ onOpenPost }) {
                   />
                   <div className="absolute top-4 left-4">
                     <span className="inline-block px-2.5 py-1 bg-black/60 backdrop-blur-xl border border-white/10 text-[9px] font-black rounded-lg uppercase tracking-wider text-purple-400">
-                      {painting.category || t('artwork')}
+                      {painting.category ? t(`cat_${painting.category.toLowerCase()}`) : t('artwork')}
                     </span>
                   </div>
                 </div>

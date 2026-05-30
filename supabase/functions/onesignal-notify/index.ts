@@ -8,6 +8,20 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+// Turn raw message content into a human-readable push preview.
+// Internal markers like custom-emoji tags or share payloads must never leak into notifications.
+function cleanMessagePreview(content: string): string {
+  if (!content) return ""
+
+  if (content.startsWith("[PROFILE_SHARE:")) return "👤 Поделился(ась) профилем"
+  if (content.startsWith("[POST_SHARE:")) return "🖼️ Поделился(ась) публикацией"
+  if (content.startsWith("[STORY_SHARE:")) return "📖 Ответ на историю"
+
+  // Replace custom-emoji stickers [EMOJI:url:name] with the sticker glyph.
+  const cleaned = content.replace(/\[EMOJI:https?:\/\/[^:]+:[^\]]+\]/g, "🖼️").trim()
+  return cleaned || "🖼️ Стикер"
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -33,7 +47,7 @@ serve(async (req) => {
       receiverId = record.receiver_id
       actorId = record.sender_id
       title = "Новое сообщение"
-      message = record.content
+      message = cleanMessagePreview(record.content)
     } else if (table === 'notifications' && type === 'INSERT') {
       receiverId = record.user_id
       actorId = record.actor_id
