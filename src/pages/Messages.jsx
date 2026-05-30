@@ -860,7 +860,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
 
                           {/* Message Reactions */}
                           {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5 mb-0.5 justify-start">
+                            <div className="flex flex-wrap gap-1.5 mt-1.5 mb-0.5 justify-start">
                               {Object.entries(
                                 Object.entries(msg.reactions).reduce((acc, [uid, emos]) => {
                                   const emosArray = Array.isArray(emos) ? emos : (emos ? [emos] : [])
@@ -876,13 +876,13 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                   <button
                                     key={emo}
                                     onClick={() => handleToggleReaction(msg, emo)}
-                                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] border transition-all ${
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs border transition-all ${
                                       hasReacted
                                         ? 'bg-purple-600/20 border-purple-500/30 text-purple-300'
                                         : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                   >
-                                    <span className="shrink-0 flex items-center [&_img]:w-4 [&_img]:h-4 [&_img]:mx-0">
+                                    <span className="shrink-0 flex items-center [&_img]:w-5 [&_img]:h-5 [&_img]:mx-0">
                                       {emo.startsWith('[EMOJI:') ? parseMessageContent(emo) : emo}
                                     </span>
                                     <span className="font-bold leading-none">{uids.length}</span>
@@ -913,7 +913,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                   {showReactionPickerId === msg.id && (
                                     <div className="absolute bottom-full right-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex items-center gap-1 shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
                                       {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
-                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all text-xs">
+                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all text-base">
                                           {emoji}
                                         </button>
                                       ))}
@@ -921,8 +921,8 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                         <>
                                           <div className="w-px h-4 bg-white/10 self-center mx-1" />
                                           {customEmojis.slice(0, 10).map(emoji => (
-                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all">
-                                              <img src={emoji.image_url} alt={emoji.name} className="w-4 h-4 object-contain" />
+                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all">
+                                              <img src={emoji.image_url} alt={emoji.name} className="w-[22px] h-[22px] object-contain" />
                                             </button>
                                           ))}
                                         </>
@@ -951,7 +951,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                   {showReactionPickerId === msg.id && (
                                     <div className="absolute bottom-full left-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex items-center gap-1 shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
                                       {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
-                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all text-xs">
+                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all text-base">
                                           {emoji}
                                         </button>
                                       ))}
@@ -959,8 +959,8 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                         <>
                                           <div className="w-px h-4 bg-white/10 self-center mx-1" />
                                           {customEmojis.slice(0, 10).map(emoji => (
-                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/5 active:scale-90 transition-all">
-                                              <img src={emoji.image_url} alt={emoji.name} className="w-4 h-4 object-contain" />
+                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all">
+                                              <img src={emoji.image_url} alt={emoji.name} className="w-[22px] h-[22px] object-contain" />
                                             </button>
                                           ))}
                                         </>
