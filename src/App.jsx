@@ -23,7 +23,7 @@ import { initOneSignal } from './lib/pwa'
 function App() {
   console.log('App initialization started')
   const [user, setUser] = useState(null)
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('creativity_active_tab') || 'dashboard')
   const [theme, setTheme] = useState('dark')
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
@@ -31,7 +31,7 @@ function App() {
   const [specialization, setSpecialization] = useState('painter')
   const [workCount, setWorkCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [targetUserId, setTargetUserId] = useState(null) // Used for viewing public profiles
+  const [targetUserId, setTargetUserId] = useState(() => localStorage.getItem('creativity_target_user_id') || null) // Used for viewing public profiles
   const [postViewer, setPostViewer] = useState(null)
   const [isPro, setIsPro] = useState(false)
   const [avatarFrame, setAvatarFrame] = useState('default')
@@ -113,6 +113,18 @@ function App() {
     document.documentElement.setAttribute('data-theme', 'dark')
   }, [])
 
+  useEffect(() => {
+    localStorage.setItem('creativity_active_tab', activeTab)
+  }, [activeTab])
+
+  useEffect(() => {
+    if (targetUserId) {
+      localStorage.setItem('creativity_target_user_id', targetUserId)
+    } else {
+      localStorage.removeItem('creativity_target_user_id')
+    }
+  }, [targetUserId])
+
   // const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark')
   
   const handleLogout = async () => {
@@ -126,6 +138,8 @@ function App() {
     } catch (e) {
       console.error("Error setting offline status:", e)
     }
+    localStorage.removeItem('creativity_active_tab')
+    localStorage.removeItem('creativity_target_user_id')
     await supabase.auth.signOut()
     setUser(null)
   }
