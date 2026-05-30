@@ -48,24 +48,17 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
     xl: "w-32 h-32 md:w-40 md:h-40"
   }
 
-  // Border-radius for the outer frame layer
-  const outerRoundedClasses = {
-    xs: "rounded-[9px]",
-    sm: "rounded-[12px]",
-    md: "rounded-[14px]",
-    lg: "rounded-[22px]",
-    profile: "rounded-[26px]",
-    xl: "rounded-[2.5rem]"
-  }
-
-  // Border-radius for the inner image container (slightly tighter to sit inside the frame)
-  const innerRoundedClasses = {
-    xs: "rounded-[7px]",
-    sm: "rounded-[10px]",
-    md: "rounded-[12px]",
-    lg: "rounded-[19px]",
-    profile: "rounded-[22px]",
-    xl: "rounded-[2.2rem]"
+  // Outer frame border-radius in px. The inner image radius and frame inset are
+  // derived from these so the two rounded rects stay perfectly concentric
+  // (innerRadius = outerRadius - frameWidth), otherwise the gradient frame looks
+  // uneven / "crooked" at the corners.
+  const outerRadiusPx = {
+    xs: 9,
+    sm: 12,
+    md: 14,
+    lg: 22,
+    profile: 26,
+    xl: 40
   }
 
   const iconSizeClasses = {
@@ -78,16 +71,23 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
   }
 
   const sz = sizeClasses[size] || sizeClasses.md
-  const outerRounded = outerRoundedClasses[size] || outerRoundedClasses.md
-  const innerRounded = innerRoundedClasses[size] || innerRoundedClasses.md
   const iconSize = iconSizeClasses[size] || iconSizeClasses.md
 
   const proFrame = isPro ? getProFrame(avatarFrame) : null
 
+  // Concentric corner geometry: the image is inset by the frame width, and its
+  // border-radius is reduced by the same amount so the gradient frame keeps a
+  // uniform thickness all the way around (including the corners).
+  const outerR = outerRadiusPx[size] || outerRadiusPx.md
+  const frameWidth = isPro ? 4 : isHighRank ? 2.5 : 0
+  const innerR = Math.max(0, outerR - frameWidth)
+
   return (
-    <div className={`
+    <div
+      style={{ borderRadius: outerR }}
+      className={`
       relative shrink-0 transition-all duration-500
-      ${sz} ${outerRounded}
+      ${sz}
       ${isPro
         ? proFrame.shadow
         : isHighRank
@@ -102,20 +102,19 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
           Absolutely positioned behind the image. When animate-pulse is needed
           it is applied here only, so the avatar photo opacity is never affected. */}
       {isPro && (
-        <div className={`absolute inset-0 ${outerRounded} ${proFrame.bg} ${proFrame.animate ? 'animate-pulse' : ''}`} />
+        <div style={{ borderRadius: outerR }} className={`absolute inset-0 ${proFrame.bg} ${proFrame.animate ? 'animate-pulse' : ''}`} />
       )}
       {!isPro && isHighRank && (
-        <div className={`absolute inset-0 ${outerRounded} bg-gradient-to-tr ${rank.color}`} />
+        <div style={{ borderRadius: outerR }} className={`absolute inset-0 bg-gradient-to-tr ${rank.color}`} />
       )}
 
       {/* ── Image container ──────────────────────────────────────────────────
           Inset by the frame width so the gradient peeks through at the edges.
-          overflow-hidden clips the photo to the inner border-radius. */}
-      <div className={`
-        absolute bg-[#0c0b11] overflow-hidden flex items-center justify-center
-        ${isPro ? 'inset-[4px]' : isHighRank ? 'inset-[2.5px]' : 'inset-0'}
-        ${innerRounded}
-      `}>
+          overflow-hidden clips the photo to the inner border-radius. The radius
+          is outerR - frameWidth so the corners stay concentric with the frame. */}
+      <div
+        style={{ borderRadius: innerR, inset: frameWidth }}
+        className="absolute bg-[#0c0b11] overflow-hidden flex items-center justify-center">
         {avatarUrl ? (
           <img
             src={avatarUrl}

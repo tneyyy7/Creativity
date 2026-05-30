@@ -1,27 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
 import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus } from './lib/supabase'
-import { Dashboard } from './pages/Dashboard'
-import { Chat } from './pages/Chat'
-import { ImageGen } from './pages/ImageGen'
-import { Gallery } from './pages/Gallery'
-import { Productivity } from './pages/Productivity'
-import { Ranks } from './pages/Ranks'
-import { Settings } from './pages/Settings'
 import { Auth } from './pages/Auth'
-import { PublicProfile } from './pages/PublicProfile'
-import { Messages } from './pages/Messages'
 import { PostViewerModal } from './components/PostViewerModal'
-import { Profile } from './pages/Profile'
-import { Friends } from './pages/Friends'
-import { Bookmarks } from './pages/Bookmarks'
-import { Explore } from './pages/Explore'
-import { Subscription } from './pages/Subscription'
 import { initOneSignal } from './lib/pwa'
 
+// Lazy-load page components so each route ships in its own chunk
+// instead of bloating the initial bundle.
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
+const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })))
+const Productivity = lazy(() => import('./pages/Productivity').then(m => ({ default: m.Productivity })))
+const Ranks = lazy(() => import('./pages/Ranks').then(m => ({ default: m.Ranks })))
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
+const PublicProfile = lazy(() => import('./pages/PublicProfile').then(m => ({ default: m.PublicProfile })))
+const Messages = lazy(() => import('./pages/Messages').then(m => ({ default: m.Messages })))
+const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })))
+const Friends = lazy(() => import('./pages/Friends').then(m => ({ default: m.Friends })))
+const Bookmarks = lazy(() => import('./pages/Bookmarks').then(m => ({ default: m.Bookmarks })))
+const Explore = lazy(() => import('./pages/Explore').then(m => ({ default: m.Explore })))
+const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })))
+
 function App() {
-  console.log('App initialization started')
   const [user, setUser] = useState(null)
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('creativity_active_tab') || 'dashboard')
   const [theme, setTheme] = useState('dark')
@@ -78,9 +78,7 @@ function App() {
     }
 
     // Get initial session
-    console.log('Fetching initial session...')
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Session fetched:', session ? 'User logged in' : 'No user')
       syncUser(session?.user)
     }).catch(err => {
       console.error('Session fetch error:', err)
@@ -146,14 +144,10 @@ function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  console.log('App render. Loading:', loading, 'User:', !!user)
-
   if (loading) {
-    console.log('Returning null (loading)')
     return null
   }
   if (!user) {
-    console.log('Redirecting to Auth')
     return <Auth onAuth={setUser} />
   }
 
@@ -193,6 +187,7 @@ function App() {
           })}
         />
         <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden' : 'overflow-y-auto'} p-4 md:p-10 custom-scrollbar flex flex-col`}>
+         <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400">Loading…</div>}>
           {activeTab === 'dashboard' && (
             <Dashboard 
               nickname={nickname} 
@@ -208,8 +203,6 @@ function App() {
               })}
             />
           )}
-          {/* {activeTab === 'chat' && <Chat />} */}
-          {/* {activeTab === 'images' && <ImageGen />} */}
           {activeTab === 'explore' && (
             <Explore 
               currentUser={user}
@@ -285,6 +278,7 @@ function App() {
           />}
           {activeTab === 'subscription' && <Subscription />}
           {activeTab === 'settings' && <Settings userEmail={user?.email} />}
+         </Suspense>
         </main>
       </div>
 

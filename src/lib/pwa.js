@@ -24,6 +24,14 @@ export async function checkNotificationSupport() {
   return true; // OneSignal handles checking support internally
 }
 
+export function isPushSubscribed() {
+  try {
+    return OneSignal.User.PushSubscription.optedIn || false;
+  } catch {
+    return false;
+  }
+}
+
 export async function requestNotificationPermission() {
   try {
     await OneSignal.Slidedown.promptPush();

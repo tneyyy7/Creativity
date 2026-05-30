@@ -3,7 +3,7 @@ import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Pa
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
-import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification } from '../lib/pwa'
+import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification, isPushSubscribed } from '../lib/pwa'
 
 export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor }) {
   const { t } = useTranslation()
@@ -71,11 +71,8 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     }
     fetchProfileData()
     
-    import('react-onesignal').then(module => {
-      const OneSignal = module.default
-      setNotificationsSupported(true)
-      setNotificationsGranted(OneSignal.User.PushSubscription.optedIn || false)
-    })
+    setNotificationsSupported(true)
+    setNotificationsGranted(isPushSubscribed())
   }, [user])
 
   const handleEnableNotifications = async () => {
