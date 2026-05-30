@@ -257,6 +257,20 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     return content.replace(/\[EMOJI:https?:\/\/[^:]+:([^\]]+)\]/g, ':$1:')
   }
 
+  // Story replies are stored as a [STORY_SHARE:{json}] tag whose only editable part is the
+  // user's `comment`. Return just that text so editing doesn't expose the raw JSON tag.
+  const getEditableText = (content) => {
+    if (content?.startsWith('[STORY_SHARE:')) {
+      try {
+        const data = JSON.parse(content.slice('[STORY_SHARE:'.length, -1))
+        return data.comment || ''
+      } catch {
+        return content
+      }
+    }
+    return content
+  }
+
   // Load conversations
   const loadConversations = async () => {
     const data = await fetchConversations(currentUser.id)
@@ -435,10 +449,25 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     if (editingId) {
       const id = editingId
       setEditingId(null)
+
+      // For story replies, only the comment is editable: keep the original story attachment
+      // and swap in the new comment text, re-wrapping it as a [STORY_SHARE:{json}] tag.
+      let finalContent = content
+      const original = messages.find(m => m.id === id)
+      if (original?.content?.startsWith('[STORY_SHARE:')) {
+        try {
+          const data = JSON.parse(original.content.slice('[STORY_SHARE:'.length, -1))
+          data.comment = content
+          finalContent = `[STORY_SHARE:${JSON.stringify(data)}]`
+        } catch {
+          finalContent = content
+        }
+      }
+
       try {
         // Optimistic update
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, content, updated_at: new Date().toISOString() } : m))
-        await updateMessage(id, content)
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, content: finalContent, updated_at: new Date().toISOString() } : m))
+        await updateMessage(id, finalContent)
       } catch (err) {
         console.error("Error updating message:", err)
         // Reload messages to restore state
@@ -521,7 +550,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
 
   const handleStartEdit = (msg) => {
     setEditingId(msg.id)
-    setInput(msg.content)
+    setInput(getEditableText(msg.content))
     setReplyingTo(null)
   }
 
@@ -610,10 +639,10 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                           </span>
                         )}
                       </p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-purple-500 uppercase tracking-widest font-black leading-none">{t('new_chat') || 'New Chat'}</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-[10px] text-purple-500 uppercase tracking-widest font-black leading-none whitespace-nowrap flex-shrink-0">{t('new_chat') || 'New Chat'}</p>
                         {user.specialization && (
-                          <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                          <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2 whitespace-nowrap overflow-hidden">
                             {user.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
                              user.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
                              user.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> :
@@ -665,12 +694,12 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                         </span>
                       )}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <p className={`text-[10px] truncate leading-none ${conv.unread_count > 0 ? 'text-purple-400 font-bold' : 'text-gray-500'}`}>
                         {conv.unread_count > 0 ? t('new_messages') || 'New messages' : (t('click_to_chat') || 'Click to chat')}
                       </p>
                       {conv.specialization && (
-                        <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                        <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2 whitespace-nowrap overflow-hidden flex-shrink-0">
                           {conv.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
                            conv.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
                            conv.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> :
@@ -714,7 +743,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
               <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center mx-auto">
                 <MessageSquare className="w-10 h-10 text-gray-500" />
               </div>
-              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Select a chat to start</p>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">{t('select_chat_to_start') || 'Select a chat to start'}</p>
             </div>
           ) : (
             <>
@@ -1117,7 +1146,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                         {t('editing_message') || 'Editing Message'}
                       </p>
                       <p className="text-xs text-gray-300 truncate italic">
-                        "{cleanEmojiTags(messages.find(m => m.id === editingId)?.content || '')}"
+                        "{cleanEmojiTags(getEditableText(messages.find(m => m.id === editingId)?.content || ''))}"
                       </p>
                     </div>
                     <button

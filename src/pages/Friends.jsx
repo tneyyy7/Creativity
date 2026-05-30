@@ -152,12 +152,12 @@ export function Friends({ user, onViewProfile }) {
                       </span>
                     )}
                   </h3>
-                  <div className="flex items-center gap-2">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none whitespace-nowrap flex-shrink-0">
                       {result.finished_work_count || 0} {t('works') || 'Works'}
                     </p>
                     {result.specialization && (
-                      <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                      <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2 whitespace-nowrap overflow-hidden">
                         {result.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
                          result.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
                          result.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> : 
@@ -270,12 +270,12 @@ export function Friends({ user, onViewProfile }) {
                         </span>
                       )}
                     </h3>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none whitespace-nowrap flex-shrink-0">
                         {friend.profile?.finished_work_count || 0} {t('works') || 'Works'}
                       </p>
                       {friend.profile?.specialization && (
-                        <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
+                        <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2 whitespace-nowrap overflow-hidden">
                           {friend.profile.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> : 
                            friend.profile.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> : 
                            friend.profile.specialization === '3D' ? <Box className="w-2.5 h-2.5" /> : 

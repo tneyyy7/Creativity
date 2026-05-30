@@ -88,14 +88,20 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
   useEffect(() => {
     if (painting?.id) {
+      // Don't count the author viewing their own post
+      if (currentUserId && painting.user_id === currentUserId) {
+        console.log(`[PostViewerModal] Skipping view increment for painting ${painting.id}: author is viewing own post`)
+        return
+      }
+
       if (!window.lastViewedMap) {
         window.lastViewedMap = new Map()
       }
       const now = Date.now()
       const lastViewed = window.lastViewedMap.get(painting.id) || 0
-      
+
       console.log(`[PostViewerModal] Checking views for painting ${painting.id}. Last viewed: ${lastViewed}, now: ${now}, diff: ${now - lastViewed}`)
-      
+
       if (now - lastViewed > 2000) {
         window.lastViewedMap.set(painting.id, now)
         console.log(`[PostViewerModal] Incrementing views for painting ${painting.id}`)
@@ -104,7 +110,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
         console.log(`[PostViewerModal] Debounced view increment for painting ${painting.id}`)
       }
     }
-  }, [painting?.id])
+  }, [painting?.id, painting?.user_id, currentUserId])
 
   useEffect(() => {
     const handleKey = (e) => {
