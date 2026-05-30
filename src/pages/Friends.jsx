@@ -140,8 +140,10 @@ export function Friends({ user, onViewProfile }) {
                   avatarFrame={result.avatar_frame}
                 />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={getNicknameStyle(result.nickname_color, '#fff')}>
-                    {result.nickname || 'Unknown Artist'}
+                  <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no">
+                    <span style={getNicknameStyle(result.nickname_color, '#fff')}>
+                      {result.nickname || 'Unknown Artist'}
+                    </span>
                     {result.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                     {result.isPro && (
                       <span className="pro-badge">
@@ -198,8 +200,10 @@ export function Friends({ user, onViewProfile }) {
                     avatarFrame={req.profile?.avatar_frame}
                   />
                   <div>
-                    <h3 className="font-bold hover:text-purple-400 notranslate flex items-center gap-2 text-lg" translate="no" style={getNicknameStyle(req.profile?.nickname_color, '#fff')}>
-                      {req.profile?.nickname || 'Unknown'}
+                    <h3 className="font-bold hover:text-purple-400 notranslate flex items-center gap-2 text-lg" translate="no">
+                      <span style={getNicknameStyle(req.profile?.nickname_color, '#fff')}>
+                        {req.profile?.nickname || 'Unknown'}
+                      </span>
                       {req.profile?.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
                       {req.profile?.isPro && (
                         <span className="pro-badge">
@@ -254,8 +258,10 @@ export function Friends({ user, onViewProfile }) {
                     avatarFrame={friend.profile?.avatar_frame}
                   />
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no" style={getNicknameStyle(friend.profile?.nickname_color, '#fff')}>
-                      {friend.profile?.nickname || 'Unknown'}
+                    <h3 className="font-bold hover:text-purple-400 transition-colors notranslate truncate flex items-center gap-1.5" translate="no">
+                      <span style={getNicknameStyle(friend.profile?.nickname_color, '#fff')}>
+                        {friend.profile?.nickname || 'Unknown'}
+                      </span>
                       {friend.profile?.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                       {friend.profile?.isPro && (
                         <span className="pro-badge">

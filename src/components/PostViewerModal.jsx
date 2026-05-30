@@ -421,8 +421,10 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
       <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/5 flex items-center gap-3 shrink-0">
         <ProfileAvatar avatarUrl={authorProfile?.avatar_url} workCount={authorProfile?.finished_work_count ?? 0} size="sm" isPro={authorProfile?.isPro} avatarFrame={authorProfile?.avatar_frame} />
         <div className="flex flex-col">
-          <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black hover:text-purple-400 transition-colors notranslate text-sm text-left flex items-center gap-1.5" translate="no" style={getNicknameStyle(authorProfile?.nickname_color, '#fff')}>
-            {authorProfile?.nickname ?? 'Unknown'}
+          <button onClick={() => { onViewProfile?.(authorProfile?.id); onClose?.() }} className="font-black hover:text-purple-400 transition-colors notranslate text-sm text-left flex items-center gap-1.5" translate="no">
+            <span style={getNicknameStyle(authorProfile?.nickname_color, '#fff')}>
+              {authorProfile?.nickname ?? 'Unknown'}
+            </span>
             {authorProfile?.is_verified && (
               <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20 flex-shrink-0" />
             )}
@@ -531,8 +533,10 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
                 {likes.slice(0, 10).map(l => (
                   <button key={l.id} onClick={() => { onViewProfile?.(l.user_id); onClose?.() }} className="flex items-center gap-1.5 bg-white/5 hover:bg-purple-500/20 rounded-xl px-2 py-1 transition-all">
                     <ProfileAvatar avatarUrl={l.profiles?.avatar_url} workCount={l.profiles?.finished_work_count ?? 0} size="xs" isPro={l.profiles?.isPro} avatarFrame={l.profiles?.avatar_frame} />
-                    <span className="text-xs font-bold notranslate max-w-[70px] truncate flex items-center gap-0.5" translate="no" style={getNicknameStyle(l.profiles?.nickname_color, '#fff')}>
-                      {l.profiles?.nickname ?? '?'}
+                    <span className="text-xs font-bold notranslate max-w-[70px] truncate flex items-center gap-0.5" translate="no">
+                      <span style={getNicknameStyle(l.profiles?.nickname_color, '#fff')}>
+                        {l.profiles?.nickname ?? '?'}
+                      </span>
                       {l.profiles?.isPro && (
                         <span className="pro-badge">
                           <Gem className="pro-badge-icon" />
@@ -585,8 +589,10 @@ function CommentItem({ comment, currentUserId, isAuthor, formatTime, onReply, on
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <button onClick={() => onViewProfile?.(comment.user_id)} className="font-black text-sm hover:text-purple-400 transition-colors notranslate flex items-center gap-1.5" translate="no" style={getNicknameStyle(comment.profiles?.nickname_color, '#fff')}>
-            {comment.profiles?.nickname ?? 'Unknown'}
+          <button onClick={() => onViewProfile?.(comment.user_id)} className="font-black text-sm hover:text-purple-400 transition-colors notranslate flex items-center gap-1.5" translate="no">
+            <span style={getNicknameStyle(comment.profiles?.nickname_color, '#fff')}>
+              {comment.profiles?.nickname ?? 'Unknown'}
+            </span>
             {comment.profiles?.is_verified && (
               <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
             )}

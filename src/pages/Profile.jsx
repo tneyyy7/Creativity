@@ -270,8 +270,10 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
             />
 
             <div>
-              <h2 className="text-2xl font-black text-white notranslate flex items-center justify-center gap-2 animate-in fade-in duration-300" translate="no" style={getNicknameStyle(nicknameColor, '#fff')}>
-                {nickname}
+              <h2 className="text-2xl font-black text-white notranslate flex items-center justify-center gap-2 animate-in fade-in duration-300" translate="no">
+                <span style={getNicknameStyle(nicknameColor, '#fff')}>
+                  {nickname}
+                </span>
                 {isVerified && <BadgeCheck className="w-5 h-5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                 {isPro && (
                   <span className="pro-badge pro-badge-lg">

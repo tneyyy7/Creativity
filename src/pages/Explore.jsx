@@ -317,9 +317,10 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                         <div className="flex items-center gap-1.5">
                           <span 
                             className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors flex items-center gap-1.5"
-                            style={getNicknameStyle(author.nickname_color)}
                           >
-                            {author.nickname || 'Unknown Artist'}
+                            <span style={getNicknameStyle(author.nickname_color)}>
+                              {author.nickname || 'Unknown Artist'}
+                            </span>
                             {author.is_verified && (
                               <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20 flex-shrink-0" />
                             )}
@@ -464,9 +465,10 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                           <div className="flex items-center gap-1.5">
                             <span 
                               className="text-sm font-bold text-white flex items-center gap-1.5 min-w-0"
-                              style={getNicknameStyle(creator.nickname_color)}
                             >
-                              <span className="truncate max-w-[150px]">{creator.nickname}</span>
+                              <span className="truncate max-w-[150px]" style={getNicknameStyle(creator.nickname_color)}>
+                                {creator.nickname}
+                              </span>
                               {creator.is_verified && (
                                 <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
                               )}
@@ -641,9 +643,10 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                           <div className="flex items-center gap-1 min-w-0">
                             <span 
                               className="text-[11px] font-bold text-gray-400 group-hover/author:text-white transition-colors flex items-center gap-1.5 min-w-0"
-                              style={getNicknameStyle(author.nickname_color)}
                             >
-                              <span className="truncate max-w-[100px]">{author.nickname || 'Unknown Artist'}</span>
+                              <span className="truncate max-w-[100px]" style={getNicknameStyle(author.nickname_color)}>
+                                {author.nickname || 'Unknown Artist'}
+                              </span>
                               {author.is_verified && (
                                 <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
                               )}

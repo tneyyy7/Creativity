@@ -25,7 +25,7 @@ const PRESETS = {
   ],
   colors: [
     { id: 'default', name: 'Стандартный', value: '' },
-    { id: 'royal_purple', name: 'Королевский Пурпурный 💜', value: 'linear-gradient(90deg, #A855F7, #EC4899)' },
+    { id: 'royal_purple', name: 'Королевский Пурпурный 💜', value: 'linear-gradient(135deg, #7C3AED, #EC4899, #60A5FA)' },
     { id: 'blazing_orange', name: 'Пылающий Оранжевый 🔥', value: 'linear-gradient(135deg, #FF9F43, #FF5252, #FFC048)' },
     { id: 'emerald_neon', name: 'Изумрудный Неон 💚', value: 'linear-gradient(90deg, #10B981, #06B6D4)' },
     { id: 'sky_azure', name: 'Небесный Лазурный 💙', value: 'linear-gradient(90deg, #06B6D4, #8B5CF6)' },

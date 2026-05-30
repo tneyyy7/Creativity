@@ -444,9 +444,10 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                 <div className="flex flex-col items-center max-w-[76px] w-full">
                   <span 
                     className="text-[11px] font-semibold text-gray-400 group-hover:text-white transition-colors tracking-tight text-center truncate w-full"
-                    style={getNicknameStyle(group.user.nickname_color)}
                   >
-                    {group.user.nickname}
+                    <span style={getNicknameStyle(group.user.nickname_color)}>
+                      {group.user.nickname}
+                    </span>
                   </span>
                   <div className="flex items-center justify-center gap-0.5 mt-0.5 min-h-[16px]">
                     {group.user.is_verified && (

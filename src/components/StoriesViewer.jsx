@@ -353,9 +353,10 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
                 <h4
                   className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 notranslate animate-in fade-in duration-300"
                   translate="no"
-                  style={getNicknameStyle(currentGroup.user.nickname_color)}
                 >
-                  {currentGroup.user.nickname}
+                  <span style={getNicknameStyle(currentGroup.user.nickname_color)}>
+                    {currentGroup.user.nickname}
+                  </span>
                   {currentGroup.user.is_verified && (
                     <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
                   )}
