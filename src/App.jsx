@@ -37,6 +37,7 @@ function App() {
   const [isPro, setIsPro] = useState(false)
   const [avatarFrame, setAvatarFrame] = useState('default')
   const [nicknameColor, setNicknameColor] = useState('')
+  const [initialMessageUser, setInitialMessageUser] = useState(null)
 
   useEffect(() => {
     const syncUser = (currUser) => {
@@ -156,6 +157,11 @@ function App() {
 
   const closeSidebar = () => setIsSidebarOpen(false)
 
+  const openMessageWithUser = (profile) => {
+    if (profile) setInitialMessageUser(profile)
+    setActiveTab('messages')
+  }
+
   return (
     <div className="app-container">
       <Sidebar 
@@ -266,7 +272,7 @@ function App() {
             currentUserId={user?.id}
             targetUserId={targetUserId}
             onBack={() => setActiveTab('friends')}
-            onMessage={() => setActiveTab('messages')}
+            onMessage={openMessageWithUser}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
             onOpenPost={(id, painting, collection, index, profile) => setPostViewer({ 
               painting, 
@@ -278,6 +284,8 @@ function App() {
           {activeTab === 'messages' && <Messages 
             currentUser={user} 
             isPro={isPro}
+            initialChatUser={initialMessageUser}
+            onInitialChatOpened={() => setInitialMessageUser(null)}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
           />}
           {activeTab === 'subscription' && <Subscription />}

@@ -7,7 +7,7 @@ import { ProfileAvatar } from '../components/ProfileAvatar'
 import { PostViewerModal } from '../components/PostViewerModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
-export function Messages({ currentUser, isPro, onViewProfile }) {
+export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile }) {
   const { t } = useTranslation()
   const [conversations, setConversations] = useState([])
   const [activeChat, setActiveChat] = useState(null)
@@ -307,6 +307,16 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
   useEffect(() => {
     loadConversations()
   }, [currentUser.id])
+
+  useEffect(() => {
+    if (!initialChatUser?.id || initialChatUser.id === currentUser.id) return
+
+    setActiveChat(initialChatUser)
+    setIsMobileView(true)
+    setIsSearching(false)
+    setSearchQuery('')
+    onInitialChatOpened?.()
+  }, [initialChatUser, currentUser.id, onInitialChatOpened])
 
   // Search logic
   useEffect(() => {
@@ -1130,7 +1140,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                     <Smile className="w-3.5 h-3.5" />
                                   </button>
                                   {showReactionPickerId === msg.id && (
-                                    <div className="absolute bottom-full right-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex flex-wrap items-center justify-center gap-1 w-[min(17rem,calc(100vw-2rem))] shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
+                                    <div className="absolute bottom-full left-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex flex-wrap items-center justify-center gap-1 w-[min(17rem,calc(100vw-2rem))] shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
                                       {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
                                         <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all text-base">
                                           {emoji}
