@@ -760,7 +760,7 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
               } : undefined}
               className={
                 isFullscreen
-                  ? 'fixed z-[90] flex flex-col bg-[#0a0a0a] overscroll-contain'
+                  ? 'fixed z-[90] flex flex-col bg-[#0c0b11] overscroll-contain'
                   : `flex-1 glass-card flex-col relative overflow-hidden ${activeChat && isMobileView ? 'flex' : 'hidden md:flex'} ${!activeChat ? 'items-center justify-center' : ''}`
               }
             >
