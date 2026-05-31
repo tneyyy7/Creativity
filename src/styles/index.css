@@ -124,6 +124,14 @@
   --scrollbar-thumb-hover: rgba(147, 51, 234, 0.45);
 }
 
+/* The status-bar / notch safe area (and any overscroll gap) exposes the <html>
+   element, not <body>. Theme it too so that region matches the app instead of
+   showing the browser's default white strip on mobile / installed PWAs. */
+html {
+  background-color: var(--app-bg);
+  transition: background-color 0.3s ease;
+}
+
 body {
   margin: 0;
   padding: 0;
