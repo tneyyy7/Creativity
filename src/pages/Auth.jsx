@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes, Box, PenTool } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { useTranslation } from 'react-i18next'
 
 export function Auth({ onAuth }) {
@@ -29,7 +30,11 @@ export function Auth({ onAuth }) {
         onAuth(data.user)
       } else {
         const trimmedNickname = nickname.trim()
-        
+
+        if (!isValidNickname(trimmedNickname)) {
+          throw new Error(t('nickname_invalid') || "Nickname can only contain English letters, digits and underscore (max 10 characters)")
+        }
+
         // Check if nickname is already taken before signing up
         const { data: existingUser, error: checkError } = await supabase
           .from('profiles')
@@ -104,8 +109,9 @@ export function Auth({ onAuth }) {
                     required
                     type="text"
                     value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
+                    onChange={(e) => setNickname(sanitizeNickname(e.target.value))}
                     placeholder="MasterArtist"
+                    maxLength={NICKNAME_MAX_LENGTH}
                     translate="no"
                     className="notranslate w-full h-14 pl-12 pr-4 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
                   />

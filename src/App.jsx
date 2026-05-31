@@ -5,6 +5,7 @@ import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus } from 
 import { Auth } from './pages/Auth'
 import { PostViewerModal } from './components/PostViewerModal'
 import { initOneSignal } from './lib/pwa'
+import { applyTheme, getStoredTheme } from './lib/theme'
 
 // Lazy-load page components so each route ships in its own chunk
 // instead of bloating the initial bundle.
@@ -24,7 +25,7 @@ const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ defa
 function App() {
   const [user, setUser] = useState(null)
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('creativity_active_tab') || 'dashboard')
-  const [theme, setTheme] = useState('dark')
+  const [theme, setTheme] = useState(getStoredTheme)
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [isVerified, setIsVerified] = useState(false)
@@ -54,6 +55,8 @@ function App() {
               setWorkCount(data.finished_work_count || 0)
               setAvatarFrame(data.avatar_frame || 'default')
               setNicknameColor(data.nickname_color || '')
+              // Sync the saved theme from the profile across devices.
+              if (data.theme) setTheme(applyTheme(data.theme))
             }
           })
 
@@ -108,8 +111,8 @@ function App() {
   }, [user])
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'dark')
-  }, [])
+    applyTheme(theme)
+  }, [theme])
 
   useEffect(() => {
     localStorage.setItem('creativity_active_tab', activeTab)
@@ -154,7 +157,7 @@ function App() {
   const closeSidebar = () => setIsSidebarOpen(false)
 
   return (
-    <div className={`app-container ${theme === 'light' ? 'light-mode' : ''}`}>
+    <div className="app-container">
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={(id) => { setActiveTab(id); closeSidebar(); }} 
@@ -278,7 +281,7 @@ function App() {
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
           />}
           {activeTab === 'subscription' && <Subscription />}
-          {activeTab === 'settings' && <Settings userEmail={user?.email} />}
+          {activeTab === 'settings' && <Settings userEmail={user?.email} currentTheme={theme} onThemeChange={setTheme} />}
          </Suspense>
          </div>
         </main>

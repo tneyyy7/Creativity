@@ -166,7 +166,7 @@ export async function fetchProfile(userId) {
     // Stage 1: Try full fetch
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization, last_seen')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization, last_seen, theme')
       .eq('id', userId)
       .single()
 
@@ -204,6 +204,7 @@ export const upsertProfile = async (profile) => {
   if (profile.is_private !== undefined) profileData.is_private = profile.is_private
   if (profile.is_verified !== undefined) profileData.is_verified = profile.is_verified
   if (profile.specialization !== undefined) profileData.specialization = profile.specialization
+  if (profile.theme !== undefined) profileData.theme = profile.theme
 
   const { data, error } = await supabase
     .from('profiles')

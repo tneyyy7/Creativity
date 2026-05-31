@@ -140,19 +140,19 @@ export function Productivity() {
                         <stop offset="95%" stopColor="#9333ea" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="5 5" stroke="#ffffff05" vertical={false} />
-                    <XAxis 
-                      dataKey="name" 
-                      stroke="#ffffff20" 
-                      fontSize={11} 
+                    <CartesianGrid strokeDasharray="5 5" stroke="#80808020" vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      stroke="#52525b"
+                      fontSize={11}
                       fontWeight="bold"
-                      tickLine={false} 
+                      tickLine={false}
                       axisLine={false}
                       dy={20}
                     />
-                    <YAxis 
-                      stroke="#ffffff20" 
-                      fontSize={11} 
+                    <YAxis
+                      stroke="#52525b"
+                      fontSize={11}
                       fontWeight="bold"
                       tickLine={false} 
                       axisLine={false}

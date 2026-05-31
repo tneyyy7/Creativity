@@ -17,6 +17,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Apply the cached theme before React mounts to avoid a colour flash.
+      (function () {
+        try {
+          var t = localStorage.getItem('creativity_theme');
+          if (['purple', 'dark', 'light', 'ocean'].indexOf(t) === -1) t = 'purple';
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'purple');
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

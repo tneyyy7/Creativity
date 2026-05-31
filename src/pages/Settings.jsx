@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
-import { Save, Lock, Unlock, Key, Check, Loader2, AlertTriangle } from 'lucide-react'
+import { Save, Lock, Unlock, Key, Check, Loader2, AlertTriangle, Palette } from 'lucide-react'
 import { supabase, fetchProfile, upsertProfile } from '../lib/supabase'
+import { THEMES } from '../lib/theme'
 
-export function Settings({ userEmail }) {
+export function Settings({ userEmail, currentTheme = 'purple', onThemeChange }) {
   const { t } = useTranslation()
   const [isPrivate, setIsPrivate] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -33,6 +34,18 @@ export function Settings({ userEmail }) {
       }
     })
   }, [])
+
+  const handleSelectTheme = async (themeId) => {
+    if (themeId === currentTheme) return
+    // Apply instantly (App owns the live theme state) for immediate feedback.
+    onThemeChange?.(themeId)
+    try {
+      if (userId) await upsertProfile({ id: userId, theme: themeId })
+    } catch (error) {
+      console.error('Error saving theme:', error)
+      showToast('error', t('error') + ': ' + error.message)
+    }
+  }
 
   const handleSave = async () => {
     try {
@@ -130,6 +143,52 @@ export function Settings({ userEmail }) {
             <Save className="w-5 h-5" />
             {t('save_changes')}
           </button>
+        </div>
+
+        {/* Appearance / Theme */}
+        <div className="glass-card p-6 md:p-10 space-y-6 border-white/5">
+          <div>
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              {t('theme')}
+            </h2>
+            <p className="text-sm text-gray-400 mt-2">{t('theme_section_desc')}</p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+            {THEMES.map((th) => {
+              const active = currentTheme === th.id
+              return (
+                <button
+                  key={th.id}
+                  type="button"
+                  onClick={() => handleSelectTheme(th.id)}
+                  className={`relative flex flex-col items-center gap-3 p-3 md:p-4 rounded-2xl border transition-all ${
+                    active
+                      ? 'border-purple-500 bg-purple-500/10'
+                      : 'border-white/10 hover:border-white/25 bg-white/[0.02]'
+                  }`}
+                >
+                  {/* Preview swatch: base background + accent dot */}
+                  <span
+                    className="relative w-full h-16 md:h-20 rounded-xl overflow-hidden border border-black/10 flex items-end justify-end p-2"
+                    style={{ background: th.swatch[0] }}
+                  >
+                    <span
+                      className="w-6 h-6 md:w-7 md:h-7 rounded-full shadow-lg"
+                      style={{ background: th.swatch[1] }}
+                    />
+                  </span>
+                  <span className="text-xs md:text-sm font-bold text-white">{t(th.labelKey)}</span>
+                  {active && (
+                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shadow-lg">
+                      <Check className="w-3 h-3 text-white" />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Password Change */}

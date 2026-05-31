@@ -3,7 +3,7 @@ import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Pa
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
-import { getNicknameStyle } from '../lib/nicknameStyle'
+import { getNicknameStyle, sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification, isPushSubscribed } from '../lib/pwa'
 
 export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor }) {
@@ -169,7 +169,13 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
 
     try {
       const trimmedNickname = formNickname.trim()
-      
+
+      if (!isValidNickname(trimmedNickname)) {
+        setError(t('nickname_invalid') || 'Nickname can only contain English letters, digits and underscore (max 10 characters)')
+        setIsSaving(false)
+        return
+      }
+
       // Check if nickname is already taken by another user
       if (trimmedNickname.toLowerCase() !== nickname.toLowerCase()) {
         const { data: existingUser, error: checkError } = await supabase
@@ -366,8 +372,9 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                       <input 
                        required
                        value={formNickname}
-                       onChange={(e) => setFormNickname(e.target.value)}
+                       onChange={(e) => setFormNickname(sanitizeNickname(e.target.value))}
                        placeholder="MasterArtist"
+                       maxLength={NICKNAME_MAX_LENGTH}
                        autoComplete="off"
                        className="w-full h-14 pl-12 pr-4 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-white text-sm font-medium"
                       />

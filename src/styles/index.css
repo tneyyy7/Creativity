@@ -2,31 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/*
+  THEME SYSTEM
+  ------------
+  Each theme sets a small set of CSS variables. The two most important are
+  --acc-h / --acc-s (accent hue + saturation): the Tailwind `purple-*` palette
+  is rebuilt from them in tailwind.config.js, so changing them recolours the
+  whole app's accent at every opacity. The remaining variables control the
+  base surfaces. :root holds the default (purple) so the app renders correctly
+  before JS sets data-theme.
+*/
+:root,
+[data-theme='purple'] {
+  --acc-h: 271;
+  --acc-s: 81%;
+
   --background: 240 10% 4%;
   --foreground: 0 0% 98%;
-  --primary: 262 70% 50%;
-  /* Soft Purple */
-  --primary-foreground: 262 60% 95%;
+  --primary: 271 81% 56%;
+  --primary-foreground: 0 0% 100%;
   --secondary: 240 4% 16%;
   --secondary-foreground: 0 0% 98%;
-  --accent: 262 70% 60%;
+  --accent: 271 81% 65%;
   --radius: 1.5rem;
 
   --app-bg: #0c0b11;
-  /* Deep dark purple-black background */
+  --app-gradient: radial-gradient(circle at top left, #1c1130, #0c0b11 50%);
+  --panel: #0c0b11;        /* solid deep surface: navbar, dropdowns, modals */
+  --panel-2: #181622;      /* elevated surface: inputs, hover rows */
+  --panel-text: #ffffff;
+  --surface: rgba(255, 255, 255, 0.02);
+  --surface-border: rgba(255, 255, 255, 0.05);
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: none;
+  --scrollbar-thumb: rgba(147, 51, 234, 0.2);
+  --scrollbar-thumb-hover: rgba(147, 51, 234, 0.4);
 }
 
-/* Light Mode Variables */
+/* Neutral near-black theme (purple accent kept, slightly punchier on black). */
+[data-theme='dark'] {
+  --acc-h: 271;
+  --acc-s: 91%;
+
+  --background: 240 6% 6%;
+  --foreground: 0 0% 98%;
+  --primary: 271 91% 62%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4% 14%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 271 91% 68%;
+  --radius: 1.5rem;
+
+  --app-bg: #09090b;
+  --app-gradient: radial-gradient(circle at top left, #18181b, #09090b 55%);
+  --panel: #0d0d0f;
+  --panel-2: #1c1c1f;
+  --panel-text: #ffffff;
+  --surface: rgba(255, 255, 255, 0.025);
+  --surface-border: rgba(255, 255, 255, 0.06);
+  --card-bg: rgba(255, 255, 255, 0.035);
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-shadow: none;
+  --scrollbar-thumb: rgba(168, 85, 247, 0.22);
+  --scrollbar-thumb-hover: rgba(168, 85, 247, 0.45);
+}
+
+/* Ocean — dark blue base with a sky/cyan accent. */
+[data-theme='ocean'] {
+  --acc-h: 199;
+  --acc-s: 89%;
+
+  --background: 209 60% 8%;
+  --foreground: 0 0% 98%;
+  --primary: 199 89% 52%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 209 40% 16%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 199 89% 62%;
+  --radius: 1.5rem;
+
+  --app-bg: #0a1929;
+  --app-gradient: radial-gradient(circle at top left, #0f2a43, #0a1929 55%);
+  --panel: #0a1929;
+  --panel-2: #102a44;
+  --panel-text: #ffffff;
+  --surface: rgba(56, 189, 248, 0.03);
+  --surface-border: rgba(56, 189, 248, 0.08);
+  --card-bg: rgba(56, 189, 248, 0.04);
+  --card-border: rgba(56, 189, 248, 0.10);
+  --card-shadow: none;
+  --scrollbar-thumb: rgba(14, 165, 233, 0.25);
+  --scrollbar-thumb-hover: rgba(14, 165, 233, 0.5);
+}
+
+/* Light / white theme. */
 [data-theme='light'] {
+  --acc-h: 271;
+  --acc-s: 81%;
+
   --background: 0 0% 100%;
   --foreground: 240 10% 4%;
-  --primary: 262 70% 50%;
+  --primary: 271 81% 50%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
-  --accent: 262 70% 40%;
+  --accent: 271 81% 45%;
+  --radius: 1.5rem;
+
   --app-bg: #f8f7ff;
+  --app-gradient: radial-gradient(circle at top left, #f0e6ff, #f8f7ff 50%);
+  --panel: #ffffff;
+  --panel-2: #f1eefb;
+  --panel-text: #18181b;
+  --surface: rgba(255, 255, 255, 0.8);
+  --surface-border: rgba(0, 0, 0, 0.05);
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.05);
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+  --scrollbar-thumb: rgba(147, 51, 234, 0.25);
+  --scrollbar-thumb-hover: rgba(147, 51, 234, 0.45);
 }
 
 body {
@@ -41,7 +136,7 @@ body {
 
 /* Reference-like background */
 .app-container {
-  background: radial-gradient(circle at top left, #1c1130, #0c0b11 50%);
+  background: var(--app-gradient);
   height: 100vh;
   /* dvh accounts for mobile browser toolbars so content is never cut off
      behind the address bar. Falls back to 100vh on older browsers. */
@@ -69,14 +164,10 @@ body {
   }
 }
 
-[data-theme='light'] .app-container {
-  background: radial-gradient(circle at top left, #f0e6ff, #f8f7ff 50%);
-}
-
 .main-content {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--surface-border);
   border-radius: 2.5rem;
   flex: 1;
   display: flex;
@@ -92,28 +183,18 @@ body {
   }
 }
 
-[data-theme='light'] .main-content {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--card-border);
   border-radius: 1.5rem;
+  box-shadow: var(--card-shadow);
 }
 
 @media (max-width: 640px) {
   .glass-card {
     border-radius: 1.25rem;
   }
-}
-
-[data-theme='light'] .glass-card {
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
 }
 
 /* Custom scrollbar */
@@ -126,12 +207,12 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(147, 51, 234, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(147, 51, 234, 0.4);
+  background: var(--scrollbar-thumb-hover);
 }
 
 @keyframes pulse-subtle {
@@ -249,3 +330,69 @@ input[type="color"]::-moz-color-swatch {
 .pro-badge-lg .pro-badge-text {
   font-size: 0.6875rem; /* text-[11px] */
 }
+/*
+  LIGHT THEME NEUTRAL OVERRIDES
+  -----------------------------
+  The app's markup hard-codes dark-theme neutrals (text-white, white-tinted
+  surfaces, white borders). The three dark themes (purple/dark/ocean) all read
+  correctly with these, so only the light theme needs to invert them. Accent
+  surfaces (purple-* backgrounds and gradients) intentionally keep white text —
+  the `.bg-purple-*.text-white` / gradient rules below restore it where text and
+  its coloured background sit on the same element (the common button pattern).
+*/
+
+/* Default neutral text -> dark ink on light surfaces. */
+[data-theme='light'] .text-white { color: #18181b; }
+[data-theme='light'] .text-gray-100 { color: #18181b; }
+[data-theme='light'] .text-gray-200 { color: #27272a; }
+[data-theme='light'] .text-gray-300 { color: #3f3f46; }
+[data-theme='light'] .text-gray-400 { color: #52525b; }
+[data-theme='light'] .text-gray-500 { color: #71717a; }
+
+/* Keep light text on coloured / gradient backgrounds (buttons, badges, chips). */
+[data-theme='light'] .bg-purple-500.text-white,
+[data-theme='light'] .bg-purple-600.text-white,
+[data-theme='light'] .bg-purple-700.text-white,
+[data-theme='light'] [class*="bg-gradient-"].text-white,
+[data-theme='light'] .bg-purple-500 .text-white,
+[data-theme='light'] .bg-purple-600 .text-white,
+[data-theme='light'] .bg-purple-700 .text-white {
+  color: #ffffff;
+}
+
+/* White-tinted glass surfaces -> subtle dark tints on light. */
+[data-theme='light'] .bg-white\/\[0\.01\],
+[data-theme='light'] .bg-white\/\[0\.02\],
+[data-theme='light'] .bg-white\/\[0\.03\],
+[data-theme='light'] .bg-white\/5 { background-color: rgba(0, 0, 0, 0.03); }
+[data-theme='light'] .bg-white\/10 { background-color: rgba(0, 0, 0, 0.05); }
+[data-theme='light'] .bg-white\/20 { background-color: rgba(0, 0, 0, 0.08); }
+
+/* White hover states -> dark hover tints. */
+[data-theme='light'] .hover\:bg-white\/5:hover,
+[data-theme='light'] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.06); }
+
+/* White borders -> subtle dark borders. */
+[data-theme='light'] .border-white\/5,
+[data-theme='light'] .border-white\/10 { border-color: rgba(0, 0, 0, 0.08); }
+[data-theme='light'] .border-white\/20 { border-color: rgba(0, 0, 0, 0.12); }
+
+/*
+  THEMED SOLID SURFACES
+  ---------------------
+  The markup hard-codes the dark palette's panel hexes (#0c0b11, #181622, …)
+  for navbars, dropdowns, modals and inputs. Remap those arbitrary-value
+  utilities to the per-theme --panel / --panel-2 tokens so these surfaces
+  follow every theme. Default (purple) token values equal the original hexes,
+  so the default theme is visually unchanged. Opacity variants are mapped to
+  the solid token (these sit behind backdrop-blur, so it reads the same).
+*/
+.bg-\[\#0c0b11\], .bg-\[\#0c0b11\]\/80,
+.bg-\[\#0d0c13\], .bg-\[\#0d0c13\]\/90, .bg-\[\#0d0c13\]\/40,
+.bg-\[\#121214\], .bg-\[\#121214\]\/90 { background-color: var(--panel); }
+
+.bg-\[\#181622\], .bg-\[\#181622\]\/50,
+.bg-\[\#12111a\], .bg-\[\#12111a\]\/80, .bg-\[\#12111a\]\/95, .bg-\[\#12111a\]\/20 { background-color: var(--panel-2); }
+
+.border-\[\#0c0b11\] { border-color: var(--panel); }
+.from-\[\#0c0b11\] { --tw-gradient-from: var(--panel) var(--tw-gradient-from-position); }
