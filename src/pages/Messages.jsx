@@ -257,6 +257,32 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
     return content.replace(/\[EMOJI:https?:\/\/[^:]+:([^\]]+)\]/g, ':$1:')
   }
 
+  // Telegram-style large emoji. A message that is a single emoji and nothing
+  // else is rendered oversized; two or more emoji (or any text) stay default.
+  const stripEmoji = (s) =>
+    s.replace(/(\p{Extended_Pictographic}|\p{Emoji_Component}|[\u{1F1E6}-\u{1F1FF}]|\uFE0F|\u200D|\u20E3)/gu, '')
+
+  // Number of emoji grapheme clusters when the trimmed content is made up
+  // entirely of emoji (no letters/numbers/other text); 0 otherwise.
+  const soleEmojiCount = (content) => {
+    if (!content) return 0
+    const trimmed = content.trim()
+    if (!trimmed || stripEmoji(trimmed).trim() !== '') return 0
+    if (!/\p{Extended_Pictographic}/u.test(trimmed)) return 0
+    try {
+      const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+      return [...seg.segment(trimmed)].filter((s) => s.segment.trim()).length
+    } catch {
+      return [...trimmed].length
+    }
+  }
+
+  // Matches a message whose only content is one custom [EMOJI:url:name] tag.
+  const singleCustomEmoji = (content) => {
+    const m = content?.trim().match(/^\[EMOJI:(https?:\/\/[^:]+):([^\]]+)\]$/)
+    return m ? { url: m[1], name: m[2] } : null
+  }
+
   // Story replies are stored as a [STORY_SHARE:{json}] tag whose only editable part is the
   // user's `comment`. Return just that text so editing doesn't expose the raw JSON tag.
   const getEditableText = (content) => {
@@ -986,7 +1012,28 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                             } catch (e) {
                               return msg.content
                             }
-                          })() : parseMessageContent(msg.content)}
+                          })() : (() => {
+                            // Telegram-style: a lone emoji is shown big; several stay small.
+                            const custom = singleCustomEmoji(msg.content)
+                            if (custom) {
+                              return (
+                                <img
+                                  src={custom.url}
+                                  alt={`:${custom.name}:`}
+                                  title={`:${custom.name}:`}
+                                  className="block w-20 h-20 sm:w-24 sm:h-24 object-contain select-none animate-in fade-in zoom-in-50 duration-200"
+                                />
+                              )
+                            }
+                            if (soleEmojiCount(msg.content) === 1) {
+                              return (
+                                <span className="block text-5xl sm:text-6xl leading-none py-0.5">
+                                  {msg.content.trim()}
+                                </span>
+                              )
+                            }
+                            return parseMessageContent(msg.content)
+                          })()}
 
                           {/* Message Reactions */}
                           {msg.reactions && Object.keys(msg.reactions).length > 0 && (
@@ -1007,9 +1054,13 @@ export function Messages({ currentUser, isPro, onViewProfile }) {
                                     key={emo}
                                     onClick={() => handleToggleReaction(msg, emo)}
                                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs border transition-all ${
-                                      hasReacted
-                                        ? 'bg-purple-600/20 border-purple-500/30 text-purple-300'
-                                        : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
+                                      msg.sender_id === currentUser.id
+                                        ? hasReacted
+                                          ? 'bg-black/35 border-white/20 text-white font-bold'
+                                          : 'bg-black/15 border-black/10 text-white/80 hover:bg-black/25 hover:text-white'
+                                        : hasReacted
+                                          ? 'bg-purple-600/20 border-purple-500/30 text-purple-300'
+                                          : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                   >
                                     <span className="shrink-0 flex items-center [&_img]:w-5 [&_img]:h-5 [&_img]:mx-0">
