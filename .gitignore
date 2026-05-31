@@ -34,3 +34,11 @@ Credentials.env
 # Antigravity artifacts
 .gemini/
 brain/
+
+# Qwen agent files
+.qwen/
+
+# Screenshots and videos
+*.png
+*.mp4
+*.MP4
