@@ -89,7 +89,11 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto no-scrollbar">
+        {/* Single scroll area for menu + general so short screens (phones with the
+            address bar showing) scroll everything together instead of the pinned
+            "General" section colliding with the last menu item. */}
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col">
+        <nav className="px-4 space-y-1">
           <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em] px-4 mb-3">{t('menu')}</p>
           {menuItems.map((item) => (
             <button
@@ -126,7 +130,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
           ))}
         </nav>
 
-        <div className="mt-auto px-4 space-y-1">
+        <div className="mt-auto px-4 pt-4 space-y-1">
            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em] px-4 mb-2">{t('general')}</p>
            <button 
             onClick={() => setActiveTab('settings')}
@@ -142,6 +146,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
             <LogOut className="w-5 h-5 text-gray-500" />
             <span className="font-semibold text-[15px]">{t('logout')}</span>
           </button>
+        </div>
         </div>
       </aside>
     </>
