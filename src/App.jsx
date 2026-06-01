@@ -38,8 +38,16 @@ function App() {
   const [avatarFrame, setAvatarFrame] = useState('default')
   const [nicknameColor, setNicknameColor] = useState('')
   const [initialMessageUser, setInitialMessageUser] = useState(null)
+  const [isResettingPassword, setIsResettingPassword] = useState(false)
 
   useEffect(() => {
+    // Detect password recovery mode on initial load
+    if (window.location.hash && window.location.hash.includes('type=recovery')) {
+      setIsResettingPassword(true)
+    } else if (window.location.search && window.location.search.includes('reset=true')) {
+      setIsResettingPassword(true)
+    }
+
     const syncUser = (currUser) => {
       if (currUser) {
         setUser(currUser)
@@ -90,7 +98,10 @@ function App() {
     })
 
     // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResettingPassword(true)
+      }
       syncUser(session?.user)
     })
 
@@ -151,8 +162,14 @@ function App() {
   if (loading) {
     return null
   }
-  if (!user) {
-    return <Auth onAuth={setUser} />
+  if (!user || isResettingPassword) {
+    return (
+      <Auth 
+        onAuth={setUser} 
+        initialMode={isResettingPassword ? 'reset' : 'login'} 
+        onPasswordResetComplete={() => setIsResettingPassword(false)} 
+      />
+    )
   }
 
   const closeSidebar = () => setIsSidebarOpen(false)
@@ -263,8 +280,9 @@ function App() {
             isPro={isPro}
             avatarFrame={avatarFrame}
             nicknameColor={nicknameColor}
+            onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
           />}
-          {activeTab === 'friends' && <Friends 
+          {activeTab === 'friends' && <Friends
             user={user} 
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }} 
           />}

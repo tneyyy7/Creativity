@@ -3,10 +3,11 @@ import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Pa
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { FollowListModal } from '../components/FollowListModal'
 import { getNicknameStyle, sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification, isPushSubscribed } from '../lib/pwa'
 
-export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor }) {
+export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor, onViewProfile }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
   
@@ -23,6 +24,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   const [notificationsGranted, setNotificationsGranted] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
+  const [followModalTab, setFollowModalTab] = useState(null) // 'followers' | 'following' | null
 
   useEffect(() => {
     // Fetch bio when component mounts
@@ -317,20 +319,28 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                 </div>
                 <p className="text-lg font-black text-white leading-none">{friendCount}</p>
               </div>
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
+              <button
+                type="button"
+                onClick={() => setFollowModalTab('followers')}
+                className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5 hover:bg-white/10 transition-all"
+              >
                 <div className="flex items-center gap-1.5 text-gray-500">
                   <Users className="w-3.5 h-3.5 text-purple-400" />
                   <span className="text-[9px] font-black uppercase tracking-widest">{t('followers') || 'Followers'}</span>
                 </div>
                 <p className="text-lg font-black text-white leading-none">{followCounts.followers}</p>
-              </div>
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowModalTab('following')}
+                className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5 hover:bg-white/10 transition-all"
+              >
                 <div className="flex items-center gap-1.5 text-gray-500">
                   <User className="w-3.5 h-3.5 text-purple-400" />
                   <span className="text-[9px] font-black uppercase tracking-widest">{t('following') || 'Following'}</span>
                 </div>
                 <p className="text-lg font-black text-white leading-none">{followCounts.following}</p>
-              </div>
+              </button>
             </div>
 
             <div className="w-full pt-3 border-t border-white/5 flex items-center justify-center gap-2 text-gray-500 text-[9px] font-black uppercase tracking-widest">
@@ -499,6 +509,15 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
         </div>
 
       </div>
+
+      {followModalTab && (
+        <FollowListModal
+          userId={user?.id}
+          initialTab={followModalTab}
+          onClose={() => setFollowModalTab(null)}
+          onViewProfile={onViewProfile}
+        />
+      )}
     </div>
   )
 }

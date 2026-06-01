@@ -3,6 +3,7 @@ import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, B
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { FollowListModal } from '../components/FollowListModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost }) {
@@ -15,6 +16,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [followModalTab, setFollowModalTab] = useState(null) // 'followers' | 'following' | null
   const [friends, setFriends] = useState([])
   const [sharingSearch, setSharingSearch] = useState('')
 
@@ -254,12 +256,20 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
               <span className="text-gray-400">
                 <strong className="text-white font-black">{profile.finished_work_count || 0}</strong> {t('works') || 'Works'}
               </span>
-              <span className="text-gray-400 border-l border-white/5 pl-6">
+              <button
+                type="button"
+                onClick={() => setFollowModalTab('followers')}
+                className="text-gray-400 border-l border-white/5 pl-6 hover:text-white transition-colors cursor-pointer"
+              >
                 <strong className="text-white font-black">{followCounts.followers}</strong> {t('followers') || 'Followers'}
-              </span>
-              <span className="text-gray-400 border-l border-white/5 pl-6">
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowModalTab('following')}
+                className="text-gray-400 border-l border-white/5 pl-6 hover:text-white transition-colors cursor-pointer"
+              >
                 <strong className="text-white font-black">{followCounts.following}</strong> {t('following') || 'Following'}
-              </span>
+              </button>
             </div>
 
             {profile.bio ? (
@@ -453,6 +463,15 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
             </div>
           </div>
         </div>
+      )}
+
+      {followModalTab && (
+        <FollowListModal
+          userId={targetUserId}
+          initialTab={followModalTab}
+          onClose={() => setFollowModalTab(null)}
+          onViewProfile={onViewProfile}
+        />
       )}
 
     </div>

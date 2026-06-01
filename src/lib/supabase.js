@@ -1201,6 +1201,54 @@ export async function fetchFollowCounts(userId) {
   }
 }
 
+// Fetch the list of users who follow `userId` (their followers)
+export async function fetchFollowers(userId) {
+  try {
+    if (!userId) return []
+    const { data: rows, error } = await supabase
+      .from('follows')
+      .select('follower_id')
+      .eq('following_id', userId)
+    if (error) throw error
+
+    const ids = [...new Set((rows || []).map(r => r.follower_id))]
+    return await fetchProfilesByIds(ids)
+  } catch (e) {
+    console.error('fetchFollowers error:', e)
+    return []
+  }
+}
+
+// Fetch the list of users that `userId` is following
+export async function fetchFollowing(userId) {
+  try {
+    if (!userId) return []
+    const { data: rows, error } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', userId)
+    if (error) throw error
+
+    const ids = [...new Set((rows || []).map(r => r.following_id))]
+    return await fetchProfilesByIds(ids)
+  } catch (e) {
+    console.error('fetchFollowing error:', e)
+    return []
+  }
+}
+
+// Helper: load cleaned + Pro-enriched profiles for a list of user ids
+async function fetchProfilesByIds(ids) {
+  if (!ids || ids.length === 0) return []
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('id', ids)
+  if (error) throw error
+  const cleaned = (profiles || []).map(p => cleanProfile(p))
+  return await enrichProfilesWithProData(cleaned)
+}
+
 // =============================================
 // Wave 2: Feed (Лента подписок)
 // =============================================
