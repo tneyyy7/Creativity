@@ -86,6 +86,8 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
       const result = await subscribeToPush(user.id)
       if (result.success) {
         setNotificationsGranted(true)
+      } else if (result.error === 'permission-denied') {
+        setError(t('notifications_permission_denied') || 'Permission for notifications was denied')
       } else {
         setError(`${t('notifications_subscribe_error') || 'Failed to register device'}: ${result.error}`)
       }
