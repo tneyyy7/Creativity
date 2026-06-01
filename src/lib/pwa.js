@@ -86,6 +86,15 @@ export async function initOneSignal(userId) {
       if (initPromiseResolve) initPromiseResolve(os);
     } catch (error) {
       console.error('OneSignal Init Error:', error);
+      
+      // If the SDK complains that it is already initialized, that is a success for us!
+      const errorMsg = (error && error.message) ? error.message.toLowerCase() : '';
+      if (errorMsg.includes('already initialized')) {
+        isInitialized = true;
+        if (initPromiseResolve) initPromiseResolve(os);
+        return;
+      }
+      
       initError = error;
       if (initPromiseResolve) initPromiseResolve(null);
     }
