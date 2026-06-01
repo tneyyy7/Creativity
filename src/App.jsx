@@ -24,6 +24,9 @@ const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ defa
 
 const parseInitialUrl = () => {
   const path = window.location.pathname.replace(/^\//, '')
+  if (path === 'reset-password') {
+    return { tab: 'dashboard', targetId: null, exploreCategory: 'All', isResettingPassword: true }
+  }
   if (!path) {
     return { tab: localStorage.getItem('creativity_active_tab') || 'dashboard', targetId: localStorage.getItem('creativity_target_user_id') || null, exploreCategory: 'All' }
   }
@@ -79,11 +82,26 @@ function App() {
   const [avatarFrame, setAvatarFrame] = useState('default')
   const [nicknameColor, setNicknameColor] = useState('')
   const [initialMessageUser, setInitialMessageUser] = useState(null)
-  const [isResettingPassword, setIsResettingPassword] = useState(false)
+  const [isResettingPassword, setIsResettingPassword] = useState(() => {
+    const initial = parseInitialUrl()
+    if (initial.isResettingPassword) return true
+    if (typeof window !== 'undefined') {
+      if (window.location.hash && window.location.hash.includes('type=recovery')) {
+        return true
+      }
+      if (window.location.search && window.location.search.includes('reset=true')) {
+        return true
+      }
+    }
+    return false
+  })
 
   useEffect(() => {
     // Detect password recovery mode on initial load
-    if (window.location.hash && window.location.hash.includes('type=recovery')) {
+    const initial = parseInitialUrl()
+    if (initial.isResettingPassword) {
+      setIsResettingPassword(true)
+    } else if (window.location.hash && window.location.hash.includes('type=recovery')) {
       setIsResettingPassword(true)
     } else if (window.location.search && window.location.search.includes('reset=true')) {
       setIsResettingPassword(true)
@@ -181,6 +199,13 @@ function App() {
 
   // Synchronize activeTab, targetUserId, and exploreCategory state changes to URL path
   useEffect(() => {
+    if (isResettingPassword) {
+      if (window.location.pathname !== '/reset-password') {
+        window.history.pushState(null, '', '/reset-password')
+      }
+      return
+    }
+
     if (activeTab === 'public_profile' && targetUserId) {
       const targetPath = `/profile/${targetUserId}`
       if (window.location.pathname !== targetPath) {
@@ -197,7 +222,7 @@ function App() {
         window.history.pushState(null, '', targetPath)
       }
     }
-  }, [activeTab, targetUserId, exploreCategory])
+  }, [activeTab, targetUserId, exploreCategory, isResettingPassword])
 
   // Synchronize browser history navigation (back/forward) to state
   useEffect(() => {
@@ -206,6 +231,7 @@ function App() {
       setActiveTab(initial.tab)
       setTargetUserId(initial.targetId)
       setExploreCategory(initial.exploreCategory)
+      setIsResettingPassword(initial.isResettingPassword || false)
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
