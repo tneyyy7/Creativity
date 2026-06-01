@@ -404,7 +404,7 @@ export function Gallery({ onOpenPost }) {
                   {new Date(painting.created_at).toLocaleDateString()}
                 </p>
               </div>
-              <p className="text-sm font-medium text-gray-500 line-clamp-2 leading-relaxed">{painting.description}</p>
+              <p className="text-sm font-medium text-gray-500 line-clamp-2 leading-relaxed">{painting.description === 'New upload' ? t('new_upload_desc', 'New upload') : painting.description}</p>
             </div>
           </div>
         ))}

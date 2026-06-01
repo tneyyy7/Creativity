@@ -501,7 +501,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
                 {t(`cat_${painting.category.toLowerCase()}`)}
               </span>
             )}
-            {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description}</p>}
+            {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description === 'New upload' ? t('new_upload_desc', 'New upload') : painting.description}</p>}
             {paintingTags && paintingTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1.5">
                 {paintingTags.map(tag => (

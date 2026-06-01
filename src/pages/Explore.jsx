@@ -349,7 +349,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                   <div className="mb-4 space-y-1">
                     <h3 className="text-base font-bold text-white tracking-tight">{post.title}</h3>
                     {post.description && (
-                      <p className="text-xs text-gray-400 leading-relaxed max-w-2xl">{post.description}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed max-w-2xl">{post.description === 'New upload' ? t('new_upload_desc', 'New upload') : post.description}</p>
                     )}
                   </div>
 

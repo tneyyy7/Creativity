@@ -230,7 +230,7 @@ export function Bookmarks({ onOpenPost }) {
                       {painting.title}
                     </h3>
                     <p className="text-xs font-medium text-gray-500 line-clamp-2 mt-1 leading-relaxed">
-                      {painting.description || t('no_description')}
+                      {painting.description === 'New upload' ? t('new_upload_desc', 'New upload') : (painting.description || t('no_description'))}
                     </p>
                   </div>
 
