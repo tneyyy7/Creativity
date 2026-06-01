@@ -25,12 +25,20 @@ const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ defa
 const parseInitialUrl = () => {
   const path = window.location.pathname.replace(/^\//, '')
   if (!path) {
-    return { tab: localStorage.getItem('creativity_active_tab') || 'dashboard', targetId: localStorage.getItem('creativity_target_user_id') || null }
+    return { tab: localStorage.getItem('creativity_active_tab') || 'dashboard', targetId: localStorage.getItem('creativity_target_user_id') || null, exploreCategory: 'All' }
   }
   
   if (path.startsWith('profile/')) {
     const targetId = path.split('profile/')[1] || null
-    return { tab: 'public_profile', targetId }
+    return { tab: 'public_profile', targetId, exploreCategory: 'All' }
+  }
+
+  if (path.startsWith('explore/')) {
+    const rawCat = path.split('explore/')[1] || 'All'
+    // Capitalize first letter to match component categories
+    const category = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase()
+    const formattedCategory = category === '3d' ? '3D' : category
+    return { tab: 'explore', targetId: null, exploreCategory: formattedCategory }
   }
   
   const validTabs = [
@@ -39,10 +47,10 @@ const parseInitialUrl = () => {
   ]
   
   if (validTabs.includes(path)) {
-    return { tab: path, targetId: null }
+    return { tab: path, targetId: null, exploreCategory: 'All' }
   }
   
-  return { tab: 'dashboard', targetId: null }
+  return { tab: 'dashboard', targetId: null, exploreCategory: 'All' }
 }
 
 function App() {
@@ -62,6 +70,10 @@ function App() {
     const initial = parseInitialUrl()
     return initial.targetId
   }) // Used for viewing public profiles
+  const [exploreCategory, setExploreCategory] = useState(() => {
+    const initial = parseInitialUrl()
+    return initial.exploreCategory
+  })
   const [postViewer, setPostViewer] = useState(null)
   const [isPro, setIsPro] = useState(false)
   const [avatarFrame, setAvatarFrame] = useState('default')
@@ -167,12 +179,17 @@ function App() {
     }
   }, [targetUserId])
 
-  // Synchronize activeTab and targetUserId state changes to URL path
+  // Synchronize activeTab, targetUserId, and exploreCategory state changes to URL path
   useEffect(() => {
     if (activeTab === 'public_profile' && targetUserId) {
       const targetPath = `/profile/${targetUserId}`
       if (window.location.pathname !== targetPath) {
         window.history.pushState(null, '', targetPath)
+      }
+    } else if (activeTab === 'explore') {
+      const catPath = exploreCategory && exploreCategory !== 'All' ? `/explore/${exploreCategory.toLowerCase()}` : '/explore'
+      if (window.location.pathname !== catPath) {
+        window.history.pushState(null, '', catPath)
       }
     } else if (activeTab && activeTab !== 'public_profile') {
       const targetPath = `/${activeTab}`
@@ -180,7 +197,7 @@ function App() {
         window.history.pushState(null, '', targetPath)
       }
     }
-  }, [activeTab, targetUserId])
+  }, [activeTab, targetUserId, exploreCategory])
 
   // Synchronize browser history navigation (back/forward) to state
   useEffect(() => {
@@ -188,6 +205,7 @@ function App() {
       const initial = parseInitialUrl()
       setActiveTab(initial.tab)
       setTargetUserId(initial.targetId)
+      setExploreCategory(initial.exploreCategory)
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
@@ -291,6 +309,8 @@ function App() {
               nickname={nickname}
               avatarUrl={avatarUrl}
               isPro={isPro}
+              initialCategory={exploreCategory}
+              onCategoryChange={setExploreCategory}
               onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
               onOpenPost={(id, painting, collection, index, profile) => setPostViewer({ 
                 painting, 

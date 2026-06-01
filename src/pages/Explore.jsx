@@ -8,7 +8,7 @@ import { ru, enUS } from 'date-fns/locale'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
-export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile }) {
+export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile, initialCategory = 'All', onCategoryChange }) {
   const { t, i18n } = useTranslation()
   const [activeSubTab, setActiveSubTab] = useState('feed') // 'feed' (subscriptions) or 'explore' (global search)
   
@@ -29,7 +29,21 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
   // Explore search & filter state variables
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory)
+
+  // Sync category changes from parent prop
+  useEffect(() => {
+    if (initialCategory && initialCategory !== selectedCategory) {
+      setSelectedCategory(initialCategory)
+    }
+  }, [initialCategory])
+
+  // Notify parent of internal category changes
+  useEffect(() => {
+    if (onCategoryChange && selectedCategory) {
+      onCategoryChange(selectedCategory)
+    }
+  }, [selectedCategory, onCategoryChange])
   const [selectedTag, setSelectedTag] = useState('')
   const [sortBy, setSortBy] = useState('recent') // 'recent' or 'popular'
   const [explorePaintings, setExplorePaintings] = useState([])
