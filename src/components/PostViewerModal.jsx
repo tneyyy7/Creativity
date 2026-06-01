@@ -33,14 +33,26 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const isAuthor = currentUserId === resolvedAuthor?.id
   const authorIsPro = !!resolvedAuthor?.isPro
 
+  // Resolve the author for the CURRENT painting. Feed/Explore arrays embed the
+  // author's profile on each painting (`.profiles` / `.user`), so when paging we
+  // must read from the current painting — not the initial `authorProfile` prop —
+  // otherwise the author stays stuck on whoever the viewer was opened with.
   useEffect(() => {
-    setResolvedAuthor(authorProfile)
-  }, [authorProfile])
+    const embedded = painting?.profiles || painting?.user
+    if (embedded) {
+      setResolvedAuthor(embedded)
+    } else if (authorProfile) {
+      setResolvedAuthor(authorProfile)
+    }
+  }, [painting?.id, painting?.profiles, painting?.user, authorProfile])
 
-  // Always fetch the correct author from DB by painting.user_id
+  // Enrich with the freshest profile + Pro status from the DB. Keyed on the
+  // current painting's author id so it refreshes on every page; the cancel guard
+  // prevents an earlier author's response from clobbering a newer one.
   useEffect(() => {
     const uid = painting?.user_id
     if (!uid) return
+    let cancelled = false
 
     supabase
       .from('profiles')
@@ -48,7 +60,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       .eq('id', uid)
       .single()
       .then(({ data }) => {
-        if (!data) return
+        if (cancelled || !data) return
         supabase
           .from('subscriptions')
           .select('status')
@@ -56,9 +68,11 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           .eq('status', 'active')
           .maybeSingle()
           .then(({ data: sub }) => {
-            setResolvedAuthor({ ...data, isPro: !!sub })
+            if (!cancelled) setResolvedAuthor({ ...data, isPro: !!sub })
           })
       })
+
+    return () => { cancelled = true }
   }, [painting?.user_id])
 
   const load = useCallback(async () => {
