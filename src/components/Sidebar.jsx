@@ -54,15 +54,17 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
   return (
     <>
       {/* Mobile backdrop: dark blur over the page behind the menu. Always mounted
-          so it can fade both in and out; opacity-only transition keeps it smooth
-          (the blur is cached while the page underneath stays still). */}
+          so it can fade both in and out via an opacity transition. The expensive
+          backdrop-filter is applied ONLY while open — leaving it on while closed
+          keeps a full-screen blur layer composited every frame and janks the
+          whole app on phones. */}
       <div
         onClick={onClose}
         aria-hidden="true"
         className={`
-          fixed inset-0 z-[60] lg:hidden bg-black/60 backdrop-blur-md
+          fixed inset-0 z-[60] lg:hidden bg-black/60
           transition-opacity duration-300 ease-out
-          ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+          ${isOpen ? 'opacity-100 backdrop-blur-md' : 'opacity-0 pointer-events-none'}
         `}
       />
 
