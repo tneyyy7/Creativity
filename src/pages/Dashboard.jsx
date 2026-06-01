@@ -1,18 +1,11 @@
-import { useState, useEffect } from 'react'
-import { Plus, ArrowUpRight, Star, BadgeCheck, TrendingUp, Eye, Heart, BarChart2, Calendar, Gem, Lock } from 'lucide-react'
+import { useState, useEffect, lazy, Suspense } from 'react'
+import { Plus, ArrowUpRight, Star, BadgeCheck, Eye, Heart, BarChart2, Gem, Lock } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { supabase } from '../lib/supabase'
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  BarChart, 
-  Bar,
-  Cell
-} from 'recharts'
+
+// recharts (~150 kB gzip) is split out so it never blocks the Dashboard's
+// first paint — it loads on demand after the page is interactive.
+const DashboardCharts = lazy(() => import('../components/DashboardCharts'))
 
 export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost, isViewerOpen }) {
   const { t } = useTranslation()
@@ -154,29 +147,6 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost,
     }
   }, [isPro, isViewerOpen])
 
-  // Static mock data for blurred free users preview
-  const dummyWeeklyViews = [
-    { name: 0, views: 40 },
-    { name: 1, views: 82 },
-    { name: 2, views: 56 },
-    { name: 3, views: 95 },
-    { name: 4, views: 120 },
-    { name: 5, views: 90 },
-    { name: 6, views: 140 }
-  ]
-
-  const dummyWeeklyLikes = [
-    { name: 0, likes: 12 },
-    { name: 1, likes: 25 },
-    { name: 2, likes: 18 },
-    { name: 3, likes: 32 },
-    { name: 4, likes: 45 },
-    { name: 5, likes: 28 },
-    { name: 6, likes: 50 }
-  ]
-
-  const DAY_KEYS = ['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun']
-
   // Setup stats list
   const stats = [
     { id: 'works', label: t('total_projects'), value: (counts.total || 0).toString(), change: '+1', trend: 'up', color: 'bg-purple-600', showArrow: true, link: 'gallery' },
@@ -299,86 +269,15 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost,
             </div>
           )}
 
-          {/* Charts Grid */}
-          <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 ${!isPro ? 'blur-md select-none pointer-events-none' : ''}`}>
-            {/* Views Chart Left */}
-            <div className="lg:col-span-7 glass-card p-6 md:p-8 border-white/5 flex flex-col space-y-6">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-cyan-400" /> {t('profile_views_chart')}
-                </h3>
-                <p className="text-xs text-gray-500 mt-1">{t('last_7_days')}</p>
-              </div>
-
-              <div className="h-64 sm:h-80 w-full min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={isPro ? proStats.weeklyViews : dummyWeeklyViews} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="name" stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} tickFormatter={(v) => t(DAY_KEYS[v])} />
-                    <YAxis
-                      stroke="#52525b"
-                      fontSize={11}
-                      fontWeight="bold"
-                      axisLine={false}
-                      tickLine={false}
-                      domain={[0, dataMax => Math.max(4, Math.ceil(dataMax * 1.2))]}
-                      tickCount={5}
-                    />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
-                      labelStyle={{ color: '#fff', fontWeight: 'bold' }}
-                      itemStyle={{ color: '#22d3ee', fontWeight: 'bold' }}
-                      labelFormatter={(v) => t(DAY_KEYS[v])}
-                    />
-                    <Area type="monotone" dataKey="views" stroke="#22d3ee" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Charts Grid (recharts is lazy-loaded — see DashboardCharts) */}
+          <Suspense fallback={
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+              <div className="lg:col-span-7 glass-card p-6 md:p-8 border-white/5 h-80 sm:h-96 animate-pulse" />
+              <div className="lg:col-span-5 glass-card p-6 md:p-8 border-white/5 h-80 sm:h-96 animate-pulse" />
             </div>
-
-            {/* Likes Chart Right */}
-            <div className="lg:col-span-5 glass-card p-6 md:p-8 border-white/5 flex flex-col space-y-6">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-rose-500 fill-rose-500/10" /> {t('likes_dynamics')}
-                </h3>
-                <p className="text-xs text-gray-500 mt-1">{t('weekly_activity')}</p>
-              </div>
-
-              <div className="h-64 sm:h-80 w-full min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={isPro ? proStats.weeklyLikes : dummyWeeklyLikes} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" stroke="#52525b" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} tickFormatter={(v) => t(DAY_KEYS[v])} />
-                    <YAxis 
-                      stroke="#52525b" 
-                      fontSize={11} 
-                      fontWeight="bold" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      domain={[0, dataMax => Math.max(4, Math.ceil(dataMax * 1.2))]}
-                      tickCount={5}
-                    />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
-                      labelStyle={{ color: '#fff', fontWeight: 'bold' }}
-                      itemStyle={{ color: '#f43f5e', fontWeight: 'bold' }}
-                      labelFormatter={(v) => t(DAY_KEYS[v])}
-                    />
-                    <Bar dataKey="likes" radius={[6, 6, 0, 0]}>
-                      {(isPro ? proStats.weeklyLikes : dummyWeeklyLikes).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#f43f5e' : '#fda4af'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+          }>
+            <DashboardCharts isPro={isPro} proStats={proStats} />
+          </Suspense>
         </div>
 
         {/* Top Artworks List - Pro Only */}
