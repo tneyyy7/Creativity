@@ -1,5 +1,5 @@
--- 1. Enable the HTTP extension (if not already enabled)
-CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "extensions";
+-- 1. Enable the pg_net extension (required for net.http_post)
+CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
 
 -- 2. Create the trigger function to call our Edge Function (with exception handling to prevent rollback)
 CREATE OR REPLACE FUNCTION public.handle_onesignal_notification()
