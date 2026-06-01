@@ -845,12 +845,13 @@ export async function fetchPostNotifications(userId) {
       }
     }
 
-    // Parallel fetch paintings
+    // Fetch the full post fields needed by PostViewerModal. The author lookup depends
+    // on user_id, and the info panel needs description/category/date.
     let paintingMap = {}
     if (paintingIds.length > 0) {
       const { data: paintings, error: ptError } = await supabase
         .from('paintings')
-        .select('id, title, image_url')
+        .select('id, user_id, title, description, category, image_url, created_at, is_finished')
         .in('id', paintingIds)
       if (!ptError && paintings) {
         paintingMap = Object.fromEntries(paintings.map(p => [p.id, p]))

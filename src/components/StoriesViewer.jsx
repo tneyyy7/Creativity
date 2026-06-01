@@ -351,7 +351,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
               </div>
               <div>
                 <h4
-                  className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 notranslate animate-in fade-in duration-300"
+                  className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 notranslate animate-in fade-in duration-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
                   translate="no"
                 >
                   <span style={getNicknameStyle(currentGroup.user.nickname_color)}>
@@ -367,7 +367,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
                     </span>
                   )}
                 </h4>
-                <p className="text-[10px] text-gray-400 font-bold">{getRelativeTime(currentStory.created_at)}</p>
+                <p className="text-[10px] text-white/85 font-bold drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">{getRelativeTime(currentStory.created_at)}</p>
               </div>
             </div>
 
@@ -527,8 +527,8 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
             if (!isVideo(currentStory.image_url) && parsedCaption) {
               return (
                 <div className="text-center px-2">
-                  <div className="inline-block px-4 py-2 rounded-2xl bg-purple-950/20 backdrop-blur-md border border-purple-500/20 max-w-[90%] mx-auto shadow-md">
-                    <p className="text-xs font-semibold text-white tracking-tight leading-relaxed text-pretty">
+                  <div className="inline-block px-4 py-2.5 rounded-2xl bg-black/70 backdrop-blur-md border border-white/15 max-w-[90%] mx-auto shadow-2xl shadow-black/60">
+                    <p className="text-xs font-bold text-white tracking-tight leading-relaxed text-pretty drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
                       {parsedCaption}
                     </p>
                   </div>
@@ -548,7 +548,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
                   onFocus={() => { commentFocused.current = true; setIsPaused(true); }}
                   onBlur={() => { commentFocused.current = false; if (!isSendingComment) setIsPaused(false); }}
                   placeholder={t('reply_to_story_placeholder')}
-                  className="flex-1 bg-white/5 border border-white/10 hover:border-white/20 focus:border-purple-500/50 rounded-full px-4 py-2 text-xs text-white placeholder-gray-500 transition-all focus:outline-none backdrop-blur-md"
+                  className="flex-1 bg-black/60 border border-white/25 hover:border-white/40 focus:border-purple-400/80 rounded-full px-4 py-2 text-xs font-semibold text-white placeholder-white/65 caret-white shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all focus:outline-none backdrop-blur-md"
                 />
                 {commentText.trim() && (
                   <button

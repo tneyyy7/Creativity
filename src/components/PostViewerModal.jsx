@@ -287,7 +287,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           )}
         </div>
         {/* Info Panel (mobile) */}
-        <div className="bg-[#0e0d14] rounded-t-3xl min-h-[40vh]">
+        <div className="bg-[#0c0b11] rounded-t-3xl min-h-[40vh]">
           <InfoPanel
             painting={painting}
             authorProfile={resolvedAuthor}
@@ -342,7 +342,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       </div>
 
       {/* Right panel (desktop) */}
-      <div className="hidden md:flex absolute top-0 right-0 bottom-0 w-[320px] lg:w-[380px] flex-col bg-[#0e0d14] border-l border-white/5 z-20">
+      <div className="hidden md:flex absolute top-0 right-0 bottom-0 w-[320px] lg:w-[380px] flex-col bg-[#0c0b11] border-l border-white/5 z-20">
         <InfoPanel
           painting={painting}
           authorProfile={resolvedAuthor}
