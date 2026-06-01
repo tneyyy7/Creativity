@@ -183,9 +183,7 @@ function App() {
 
   useEffect(() => {
     if (user) {
-      // Errors are logged inside initOneSignal; swallow the rejection here so a
-      // failed init doesn't surface as an unhandled promise rejection.
-      initOneSignal(user.id).catch(() => {})
+      initOneSignal(user.id)
 
       // Update online status immediately and setup interval
       updateLastSeen(user.id)
