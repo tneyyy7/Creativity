@@ -1,5 +1,6 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
+import { useNavigationGestures } from './hooks/useNavigationGestures'
 import { Navbar } from './components/Navbar'
 import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus } from './lib/supabase'
 import { Auth } from './pages/Auth'
@@ -110,6 +111,10 @@ function App() {
     return initial.authMode || 'login'
   })
 
+  // Monotonic index attached to each in-app history entry so "smart back"
+  // can tell whether there is a previous page to return to.
+  const navIndexRef = useRef(0)
+
   useEffect(() => {
     // Detect password recovery mode on initial load
     const initial = parseInitialUrl()
@@ -211,44 +216,50 @@ function App() {
     }
   }, [targetUserId])
 
+  // Tag the initial history entry so smart-back can tell whether there is any
+  // in-app history to return to (vs. a deep link opened from outside the app).
+  useEffect(() => {
+    const state = window.history.state
+    if (state && typeof state.navIndex === 'number') {
+      navIndexRef.current = state.navIndex
+    } else {
+      window.history.replaceState({ navIndex: 0 }, '')
+      navIndexRef.current = 0
+    }
+  }, [])
+
   // Synchronize activeTab, targetUserId, and exploreCategory state changes to URL path
   useEffect(() => {
-    if (!user) {
-      const targetPath = authMode === 'forgot' ? '/forgot-password' : `/${authMode}`
-      if (window.location.pathname !== targetPath) {
-        window.history.pushState(null, '', targetPath)
+    const pushPath = (path) => {
+      if (window.location.pathname !== path) {
+        navIndexRef.current += 1
+        window.history.pushState({ navIndex: navIndexRef.current }, '', path)
       }
+    }
+
+    if (!user) {
+      pushPath(authMode === 'forgot' ? '/forgot-password' : `/${authMode}`)
       return
     }
 
     if (isResettingPassword) {
-      if (window.location.pathname !== '/reset-password') {
-        window.history.pushState(null, '', '/reset-password')
-      }
+      pushPath('/reset-password')
       return
     }
 
     if (activeTab === 'public_profile' && targetUserId) {
-      const targetPath = `/profile/${targetUserId}`
-      if (window.location.pathname !== targetPath) {
-        window.history.pushState(null, '', targetPath)
-      }
+      pushPath(`/profile/${targetUserId}`)
     } else if (activeTab === 'explore') {
-      const catPath = exploreCategory && exploreCategory !== 'All' ? `/explore/${exploreCategory.toLowerCase()}` : '/explore'
-      if (window.location.pathname !== catPath) {
-        window.history.pushState(null, '', catPath)
-      }
+      pushPath(exploreCategory && exploreCategory !== 'All' ? `/explore/${exploreCategory.toLowerCase()}` : '/explore')
     } else if (activeTab && activeTab !== 'public_profile') {
-      const targetPath = `/${activeTab}`
-      if (window.location.pathname !== targetPath) {
-        window.history.pushState(null, '', targetPath)
-      }
+      pushPath(`/${activeTab}`)
     }
   }, [activeTab, targetUserId, exploreCategory, isResettingPassword, authMode, user])
 
   // Synchronize browser history navigation (back/forward) to state
   useEffect(() => {
     const handlePopState = () => {
+      navIndexRef.current = window.history.state?.navIndex ?? 0
       const initial = parseInitialUrl()
       setActiveTab(initial.tab)
       setTargetUserId(initial.targetId)
@@ -261,6 +272,17 @@ function App() {
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  // Smart back: return to the actual previous in-app page via browser history.
+  // If there is no previous in-app entry (deep link), fall back to the home tab.
+  const goBack = () => {
+    if ((window.history.state?.navIndex ?? 0) > 0) {
+      window.history.back()
+    } else {
+      setTargetUserId(null)
+      setActiveTab('dashboard')
+    }
+  }
 
   // const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark')
   
@@ -282,6 +304,29 @@ function App() {
   }
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // --- Phone edge-swipe "back" gesture --------------------------------------
+  // Screens that have their own internal levels (e.g. an open chat inside
+  // Messages) register a back handler here. A left-edge swipe runs, in order:
+  //   1. close an open post viewer, 2. the registered screen-level back,
+  //   3. browser history back, 4. otherwise open the burger menu.
+  const screenBackRef = useRef(null)
+  const registerScreenBack = useCallback((fn) => { screenBackRef.current = fn }, [])
+
+  const handleGestureBack = useCallback(() => {
+    if (postViewer) { setPostViewer(null); return }
+    if (screenBackRef.current) { screenBackRef.current(); return }
+    if ((window.history.state?.navIndex ?? 0) > 0) { window.history.back(); return }
+    setIsSidebarOpen(true)
+  }, [postViewer])
+
+  const closeSidebarGesture = useCallback(() => setIsSidebarOpen(false), [])
+
+  useNavigationGestures({
+    onBack: handleGestureBack,
+    onCloseSidebar: closeSidebarGesture,
+    isSidebarOpen,
+  })
 
   if (loading) {
     return null
@@ -424,7 +469,7 @@ function App() {
           { activeTab === 'public_profile' && <PublicProfile 
             currentUserId={user?.id}
             targetUserId={targetUserId}
-            onBack={() => setActiveTab('friends')}
+            onBack={goBack}
             onMessage={openMessageWithUser}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
             onOpenPost={(id, painting, collection, index, profile) => setPostViewer({ 
@@ -434,12 +479,13 @@ function App() {
               externalProfile: profile
             })}
           />}
-          {activeTab === 'messages' && <Messages 
-            currentUser={user} 
+          {activeTab === 'messages' && <Messages
+            currentUser={user}
             isPro={isPro}
             initialChatUser={initialMessageUser}
             onInitialChatOpened={() => setInitialMessageUser(null)}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
+            registerBack={registerScreenBack}
           />}
           {activeTab === 'subscription' && <Subscription />}
           {activeTab === 'settings' && <Settings userEmail={user?.email} currentTheme={theme} onThemeChange={setTheme} />}

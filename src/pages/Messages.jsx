@@ -7,7 +7,7 @@ import { ProfileAvatar } from '../components/ProfileAvatar'
 import { PostViewerModal } from '../components/PostViewerModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
-export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile }) {
+export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile, registerBack }) {
   const { t } = useTranslation()
   const [conversations, setConversations] = useState([])
   const [activeChat, setActiveChat] = useState(null)
@@ -25,6 +25,18 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
+
+  // Expose the "back" step (open chat → chat list) to the global edge-swipe
+  // gesture handled in App. Only registers while a chat is open on a phone.
+  useEffect(() => {
+    if (!registerBack) return
+    if (isMobile && activeChat) {
+      registerBack(() => { setIsMobileView(false); setActiveChat(null); })
+    } else {
+      registerBack(null)
+    }
+    return () => registerBack(null)
+  }, [registerBack, isMobile, activeChat])
 
   // Track the visual viewport height and offsets so the full-screen chat fits perfectly
   // when the on-screen keyboard opens, keeping the input field visible above it without zooming.
