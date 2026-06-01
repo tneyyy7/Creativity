@@ -1705,6 +1705,39 @@ export async function toggleStoryLike(storyId, userId) {
   }
 }
 
+// Fetch the set of story IDs the user has already viewed (cross-device sync via DB)
+export async function fetchViewedStoryIds(userId) {
+  try {
+    if (!userId) return []
+    const { data, error } = await supabase
+      .from('story_views')
+      .select('story_id')
+      .eq('user_id', userId)
+
+    if (error) throw error
+    return (data || []).map(r => r.story_id)
+  } catch (e) {
+    console.error('fetchViewedStoryIds error:', e)
+    return []
+  }
+}
+
+// Mark a story as viewed by the user (idempotent — ignores duplicates)
+export async function markStoryViewed(storyId, userId) {
+  try {
+    if (!storyId || !userId) return false
+    const { error } = await supabase
+      .from('story_views')
+      .upsert({ story_id: storyId, user_id: userId }, { onConflict: 'story_id,user_id', ignoreDuplicates: true })
+
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('markStoryViewed error:', e)
+    return false
+  }
+}
+
 // Delete a story by ID
 export async function deleteStory(storyId) {
   try {

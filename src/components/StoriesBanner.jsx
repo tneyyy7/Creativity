@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, X, Image as ImageIcon, Loader2, Gem, BadgeCheck, Camera, Video } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchActiveStories, uploadStory } from '../lib/supabase'
+import { fetchActiveStories, uploadStory, fetchViewedStoryIds } from '../lib/supabase'
 import { StoriesViewer } from './StoriesViewer'
 import { ProfileAvatar } from './ProfileAvatar'
 import { createPortal } from 'react-dom'
@@ -130,20 +130,24 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
     setLoadingStories(true)
     const groups = await fetchActiveStories()
 
-    // Prune viewed_stories to only active story IDs — prevents unbounded growth
-    // Skip pruning if no active stories were returned (could be a network error)
+    // Merge local (instant) and DB (cross-device) viewed state.
+    // DB is the source of truth for synced views; localStorage covers offline/just-viewed.
     try {
       const viewedStr = localStorage.getItem('viewed_stories') || '[]'
-      const viewed = JSON.parse(viewedStr)
+      const localViewed = JSON.parse(viewedStr)
+
+      // Pull views recorded on other devices for the same account
+      const dbViewed = currentUser?.id ? await fetchViewedStoryIds(currentUser.id) : []
+      const merged = [...new Set([...localViewed, ...dbViewed])]
+
       if (groups.length > 0) {
+        // Prune to only active story IDs — prevents unbounded localStorage growth
         const activeIds = new Set(groups.flatMap(g => g.stories?.map(s => s.id) || []))
-        const pruned = viewed.filter(id => activeIds.has(id))
-        if (pruned.length !== viewed.length) {
-          localStorage.setItem('viewed_stories', JSON.stringify(pruned))
-        }
+        const pruned = merged.filter(id => activeIds.has(id))
+        localStorage.setItem('viewed_stories', JSON.stringify(pruned))
         setViewedStoryIds(pruned)
       } else {
-        setViewedStoryIds(viewed)
+        setViewedStoryIds(merged)
       }
     } catch (e) {
       console.error("Error syncing viewed stories:", e)
@@ -155,7 +159,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
 
   useEffect(() => {
     loadStories()
-  }, [])
+  }, [currentUser?.id])
 
   const isGroupFullyViewed = (group) => {
     if (!group || !group.stories || group.stories.length === 0) return true

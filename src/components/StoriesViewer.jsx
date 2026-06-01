@@ -3,7 +3,7 @@ import { X, ChevronLeft, ChevronRight, Play, Pause, Heart, Volume2, VolumeX, Sen
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
-import { checkIfStoryLiked, toggleStoryLike, sendMessage, deleteStory } from '../lib/supabase'
+import { checkIfStoryLiked, toggleStoryLike, sendMessage, deleteStory, markStoryViewed } from '../lib/supabase'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 const isVideo = (url) => {
@@ -126,7 +126,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
     }
   }, [currentStory?.id, currentUser?.id])
 
-  // Track viewed stories in localStorage for read/unread bubble rings
+  // Track viewed stories — localStorage for instant local rings + DB for cross-device sync
   useEffect(() => {
     if (currentStory?.id) {
       try {
@@ -139,8 +139,12 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
       } catch (e) {
         console.error("Error saving viewed story ID:", e)
       }
+      // Persist to DB so the viewed state syncs across devices for the same account
+      if (currentUser?.id) {
+        markStoryViewed(currentStory.id, currentUser.id)
+      }
     }
-  }, [currentStory?.id])
+  }, [currentStory?.id, currentUser?.id])
 
   // Handle video element play/pause state
   useEffect(() => {

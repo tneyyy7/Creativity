@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Read(//Users/eugenebovsunsky/Desktop/Agents/Creativity/src/components/**)",
-      "Read(//Users/eugenebovsunsky/Desktop/Agents/Creativity/**)"
+      "Read(//Users/eugenebovsunsky/Desktop/Agents/Creativity/**)",
+      "Bash(npm run *)"
     ]
   },
   "$version": 4

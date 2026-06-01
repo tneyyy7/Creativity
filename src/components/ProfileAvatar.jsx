@@ -80,13 +80,15 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
   // uniform thickness all the way around (including the corners).
   const outerR = outerRadiusPx[size] || outerRadiusPx.md
   const frameWidth = isPro ? 4 : isHighRank ? 2.5 : 0
-  const innerR = Math.max(0, outerR - frameWidth)
+  const borderOffset = (!isPro && !isHighRank) ? 2 : 0
+  const innerR = Math.max(0, outerR - frameWidth - borderOffset)
+  const imageScaleClass = rank.id > 0 ? 'scale-[1.04] group-hover:scale-[1.12]' : 'group-hover:scale-110'
 
   return (
     <div
       style={{ borderRadius: outerR }}
       className={`
-      relative shrink-0 transition-all duration-500
+      relative shrink-0 transition-all duration-500 bg-[#0c0b11]
       ${sz}
       ${isPro
         ? proFrame.shadow
@@ -109,9 +111,9 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
       )}
 
       {/* ── Image container ──────────────────────────────────────────────────
-          Inset by the frame width so the gradient peeks through at the edges.
-          overflow-hidden clips the photo to the inner border-radius. The radius
-          is outerR - frameWidth so the corners stay concentric with the frame. */}
+          Gradient frames need an inset so the frame remains visible. Regular
+          rank borders sit on the outer element, so the photo fills the full box
+          without leaving a gap between the avatar and the border. */}
       <div
         style={{ borderRadius: innerR, inset: frameWidth }}
         className="absolute bg-[#0c0b11] overflow-hidden flex items-center justify-center">
@@ -119,7 +121,7 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
           <img
             src={avatarUrl}
             alt="Avatar"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className={`block w-full h-full object-cover object-center transition-transform duration-500 ${imageScaleClass}`}
           />
         ) : (
           <User className={`${iconSize} text-purple-500/70`} />

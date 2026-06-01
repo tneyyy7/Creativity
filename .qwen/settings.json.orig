@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/eugenebovsunsky/Desktop/Agents/Creativity/src/components/**)"
+      "Read(//Users/eugenebovsunsky/Desktop/Agents/Creativity/src/components/**)",
+      "Read(//Users/eugenebovsunsky/Desktop/Agents/Creativity/**)"
     ]
   },
   "$version": 4

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes, Box, PenTool } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes, Box, PenTool, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { useTranslation } from 'react-i18next'
@@ -10,6 +10,9 @@ export function Auth({ onAuth }) {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [nickname, setNickname] = useState('')
   const [specialization, setSpecialization] = useState('painter')
 
@@ -30,6 +33,10 @@ export function Auth({ onAuth }) {
         onAuth(data.user)
       } else {
         const trimmedNickname = nickname.trim()
+
+        if (password !== confirmPassword) {
+          throw new Error(t('password_mismatch') || "Passwords do not match")
+        }
 
         if (!isValidNickname(trimmedNickname)) {
           throw new Error(t('nickname_invalid') || "Nickname can only contain English letters, digits and underscore (max 10 characters)")
@@ -178,17 +185,59 @@ export function Auth({ onAuth }) {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
               <input
                 required
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-14 pl-12 pr-4 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
+                className="w-full h-14 pl-12 pr-12 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                tabIndex={-1}
+                aria-label={showPassword ? (t('hide_password') || 'Hide password') : (t('show_password') || 'Show password')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
+          {!isLogin && (
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('confirm_password') || 'Confirm Password'}</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  required
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={`w-full h-14 pl-12 pr-12 bg-white/5 border rounded-2xl focus:outline-none focus:ring-4 transition-all text-white ${
+                    confirmPassword && password !== confirmPassword
+                      ? 'border-red-500/40 focus:ring-red-500/10 focus:border-red-500/40'
+                      : 'border-white/5 focus:ring-purple-500/10 focus:border-purple-500/30'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  tabIndex={-1}
+                  aria-label={showConfirmPassword ? (t('hide_password') || 'Hide password') : (t('show_password') || 'Show password')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-[11px] font-bold text-red-500 pl-2">{t('password_mismatch') || 'Passwords do not match'}</p>
+              )}
+            </div>
+          )}
+
           <button
-            disabled={isLoading}
+            disabled={isLoading || (!isLogin && password !== confirmPassword)}
             type="submit"
             className="w-full py-5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl shadow-purple-900/20 group"
           >
