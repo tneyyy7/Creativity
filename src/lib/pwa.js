@@ -1,45 +1,51 @@
 const ONESIGNAL_APP_ID = '3aaec25a-5a3d-4029-8a79-7b2b93c86788';
 
 let isInitialized = false;
+let oneSignalInstance = null;
 
 // Safe accessor for window.OneSignal
 const getOS = () => {
-  if (typeof window !== 'undefined') {
+  if (oneSignalInstance) return oneSignalInstance;
+  if (typeof window !== 'undefined' && window.OneSignal && !Array.isArray(window.OneSignal)) {
     return window.OneSignal;
   }
   return null;
 };
 
-export async function initOneSignal(userId) {
+// Helper to push actions to OneSignalDeferred safely
+const runOnOneSignal = (callback) => {
   if (typeof window === 'undefined') return;
 
-  window.OneSignal = window.OneSignal || [];
-
-  if (isInitialized) {
-    if (userId) {
-      window.OneSignal.push(async function() {
-        try {
-          const os = getOS();
-          if (os && typeof os.login === 'function') {
-            await os.login(userId);
-            console.log('OneSignal user logged in (already initialized):', userId);
-          }
-        } catch (err) {
-          console.error('OneSignal login error:', err);
-        }
-      });
-    }
+  // If already initialized and we have the instance, run immediately
+  const os = getOS();
+  if (os) {
+    callback(os);
     return;
   }
 
-  window.OneSignal.push(async function() {
-    try {
-      const os = getOS();
-      if (!os || typeof os.init !== 'function') {
-        console.error('OneSignal SDK not loaded on window');
-        return;
-      }
+  // Otherwise, queue it in OneSignalDeferred (the official v16 command queue)
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async (instance) => {
+    oneSignalInstance = instance;
+    await callback(instance);
+  });
+};
 
+export async function initOneSignal(userId) {
+  runOnOneSignal(async (os) => {
+    if (isInitialized) {
+      if (userId && typeof os.login === 'function') {
+        try {
+          await os.login(userId);
+          console.log('OneSignal user logged in (already initialized):', userId);
+        } catch (err) {
+          console.error('OneSignal login error:', err);
+        }
+      }
+      return;
+    }
+
+    try {
       await os.init({
         appId: ONESIGNAL_APP_ID,
         allowLocalhostAsSecureOrigin: true,
@@ -85,14 +91,8 @@ export function isPushSubscribed() {
 
 export async function requestNotificationPermission() {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined') {
-      resolve(false);
-      return;
-    }
-    window.OneSignal = window.OneSignal || [];
-    window.OneSignal.push(async function() {
+    runOnOneSignal(async (os) => {
       try {
-        const os = getOS();
         if (os && os.Slidedown && typeof os.Slidedown.promptPush === 'function') {
           await os.Slidedown.promptPush();
           resolve(true);
@@ -109,14 +109,8 @@ export async function requestNotificationPermission() {
 
 export async function subscribeToPush(userId) {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined') {
-      resolve({ success: false, error: 'Window is undefined' });
-      return;
-    }
-    window.OneSignal = window.OneSignal || [];
-    window.OneSignal.push(async function() {
+    runOnOneSignal(async (os) => {
       try {
-        const os = getOS();
         if (!os || !os.User || !os.User.PushSubscription) {
           throw new Error('OneSignal SDK is not fully loaded or initialized yet.');
         }
@@ -135,14 +129,8 @@ export async function subscribeToPush(userId) {
 
 export async function unsubscribeFromPush() {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined') {
-      resolve(false);
-      return;
-    }
-    window.OneSignal = window.OneSignal || [];
-    window.OneSignal.push(async function() {
+    runOnOneSignal(async (os) => {
       try {
-        const os = getOS();
         if (os && os.User && os.User.PushSubscription && typeof os.User.PushSubscription.optOut === 'function') {
           await os.User.PushSubscription.optOut();
           resolve(true);
@@ -160,4 +148,5 @@ export async function unsubscribeFromPush() {
 export async function testPushNotification(userId) {
   return { success: true, message: "Use OneSignal dashboard to send test alerts" };
 }
+
 
