@@ -11,6 +11,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 // Localized push strings. Keep keys/phrasing in sync with src/i18n/config.js.
 // Templated emojis are intentionally omitted — only user-typed content keeps emojis.
 type Dict = Record<string, string>
+const LANGS = ["en", "ru", "it"] as const
 const TRANSLATIONS: Record<string, Dict> = {
   en: {
     new_message: "New message",
@@ -77,12 +78,6 @@ const TRANSLATIONS: Record<string, Dict> = {
   },
 }
 
-// Resolve the recipient's site language to a dictionary (fallback to English).
-function dictFor(lang?: string | null): Dict {
-  const code = (lang || "en").slice(0, 2).toLowerCase()
-  return TRANSLATIONS[code] || TRANSLATIONS.en
-}
-
 // Turn raw message content into a human-readable push preview.
 // Internal markers like custom-emoji tags or share payloads must never leak into notifications.
 // User-typed text/emojis are preserved as-is; only our own share previews are localized.
@@ -96,6 +91,46 @@ function cleanMessagePreview(content: string, d: Dict): string {
   // Replace custom-emoji stickers [EMOJI:url:name] with the sticker glyph.
   const cleaned = content.replace(/\[EMOJI:https?:\/\/[^:]+:[^\]]+\]/g, "🖼️").trim()
   return cleaned || d.sticker
+}
+
+// Build the title + message for a single language.
+function buildText(d: Dict, notifType: string, record: any, nickname: string | null): { title: string; message: string } {
+  if (notifType === 'message') {
+    return {
+      title: nickname ? `${d.message_from} ${nickname}` : d.new_message,
+      message: cleanMessagePreview(record.content, d),
+    }
+  }
+
+  let title = "Creativity"
+  let message = d.default_msg
+
+  if (notifType === 'like') {
+    title = d.like_title
+    message = d.like_msg
+  } else if (notifType === 'comment') {
+    title = d.comment_title
+    message = `${d.comment_msg}: ${record.content || ''}`
+  } else if (notifType === 'friend_request') {
+    title = d.friend_request_title
+    message = d.friend_request_msg
+  } else if (notifType === 'friend_accept') {
+    title = d.friend_accept_title
+    message = d.friend_accept_msg
+  } else if (notifType === 'follow') {
+    title = d.follow_title
+    message = d.follow_msg
+  } else if (notifType === 'bookmark') {
+    title = d.bookmark_title
+    message = d.bookmark_msg
+  } else {
+    message = record.content || d.default_msg
+  }
+
+  if (nickname) {
+    message = `${nickname} ${message}`
+  }
+  return { title, message }
 }
 
 const corsHeaders = {
@@ -135,81 +170,58 @@ serve(async (req) => {
       })
     }
 
-    // Fetch recipient profile: their site language + chat-presence state.
-    const { data: recipientProfile } = await supabase
-      .from('profiles')
-      .select('preferred_lang, active_chat_with_id, active_chat_updated_at')
-      .eq('id', receiverId)
-      .single()
-
-    const d = dictFor(recipientProfile?.preferred_lang)
-
     // Skip push if recipient is actively inside this chat right now
-    if (notifType === 'message' && recipientProfile) {
-      const { active_chat_with_id, active_chat_updated_at } = recipientProfile
-      if (active_chat_with_id === actorId && active_chat_updated_at) {
-        const updatedAt = new Date(active_chat_updated_at).getTime()
-        const now = Date.now()
+    if (notifType === 'message') {
+      try {
+        const { data: recipientProfile } = await supabase
+          .from('profiles')
+          .select('active_chat_with_id, active_chat_updated_at')
+          .eq('id', receiverId)
+          .single()
 
-        // If heartbeat was updated within the last 45 seconds, the recipient is in the chat
-        if (now - updatedAt < 45000) {
-          console.log(`Skip push: recipient ${receiverId} is actively in chat with sender ${actorId}`)
-          return new Response(JSON.stringify({ skipped: true, reason: "Recipient actively in chat" }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          })
+        if (recipientProfile) {
+          const { active_chat_with_id, active_chat_updated_at } = recipientProfile
+          if (active_chat_with_id === actorId && active_chat_updated_at) {
+            const updatedAt = new Date(active_chat_updated_at).getTime()
+            const now = Date.now()
+
+            // If heartbeat was updated within the last 45 seconds, the recipient is in the chat
+            if (now - updatedAt < 45000) {
+              console.log(`Skip push: recipient ${receiverId} is actively in chat with sender ${actorId}`)
+              return new Response(JSON.stringify({ skipped: true, reason: "Recipient actively in chat" }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+              })
+            }
+          }
         }
+      } catch (err) {
+        console.error("Error checking recipient chat presence:", err)
       }
     }
 
-    // Build localized title + message
-    let title = "Creativity"
-    let message = d.default_msg
-
-    if (notifType === 'message') {
-      title = d.new_message
-      message = cleanMessagePreview(record.content, d)
-    } else if (notifType === 'like') {
-      title = d.like_title
-      message = d.like_msg
-    } else if (notifType === 'comment') {
-      title = d.comment_title
-      message = `${d.comment_msg}: ${record.content || ''}`
-    } else if (notifType === 'friend_request') {
-      title = d.friend_request_title
-      message = d.friend_request_msg
-    } else if (notifType === 'friend_accept') {
-      title = d.friend_accept_title
-      message = d.friend_accept_msg
-    } else if (notifType === 'follow') {
-      title = d.follow_title
-      message = d.follow_msg
-    } else if (notifType === 'bookmark') {
-      title = d.bookmark_title
-      message = d.bookmark_msg
-    } else {
-      message = record.content || d.default_msg
-    }
-
     // Fetch actor nickname if we have an actorId
+    let nickname: string | null = null
     if (actorId) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('nickname')
         .eq('id', actorId)
         .single()
-
-      if (profile?.nickname) {
-        if (notifType === 'message') {
-          title = `${d.message_from} ${profile.nickname}`
-        } else {
-          message = `${profile.nickname} ${message}`
-        }
-      }
+      nickname = profile?.nickname || null
     }
 
-    // Send the already-localized text under the default "en" key so it shows
-    // on every device regardless of the device language (we follow the SITE language).
+    // Build a localized title/message for every supported language. OneSignal delivers
+    // the variant matching each subscription's language (set client-side to the SITE
+    // language via OneSignal.User.setLanguage), falling back to "en".
+    const headings: Record<string, string> = {}
+    const contents: Record<string, string> = {}
+    for (const lang of LANGS) {
+      const { title, message } = buildText(TRANSLATIONS[lang], notifType!, record, nickname)
+      headings[lang] = title
+      contents[lang] = message
+    }
+
     const response = await fetch("https://onesignal.com/api/v1/notifications", {
       method: "POST",
       headers: {
@@ -219,8 +231,8 @@ serve(async (req) => {
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
         include_external_user_ids: [receiverId],
-        contents: { "en": message },
-        headings: { "en": title }
+        contents,
+        headings
       })
     })
 

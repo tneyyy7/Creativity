@@ -35,6 +35,37 @@ const runOnOneSignal = (callback) => {
   });
 };
 
+// The current site language, used so push notifications are delivered in the
+// language the user picked on the site (independent of the device language).
+const getSiteLanguage = () => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return (localStorage.getItem('app_lang') || 'en').slice(0, 2).toLowerCase();
+    }
+  } catch { /* ignore */ }
+  return 'en';
+};
+
+// Tag the OneSignal subscription with a language so multilingual pushes resolve correctly.
+const applyLanguage = async (os, lang) => {
+  try {
+    const code = String(lang || 'en').slice(0, 2).toLowerCase();
+    if (os && os.User && typeof os.User.setLanguage === 'function') {
+      await os.User.setLanguage(code);
+      console.log('OneSignal language set:', code);
+    }
+  } catch (err) {
+    console.error('OneSignal setLanguage error:', err);
+  }
+};
+
+// Public helper: call whenever the user switches the site language.
+export function setOneSignalLanguage(lang) {
+  runOnOneSignal(async (os) => {
+    await applyLanguage(os, lang);
+  });
+}
+
 export async function initOneSignal(userId) {
   runOnOneSignal(async (os) => {
     if (isInitialized) {
@@ -46,6 +77,7 @@ export async function initOneSignal(userId) {
           console.error('OneSignal login error:', err);
         }
       }
+      await applyLanguage(os, getSiteLanguage());
       if (initPromiseResolve) initPromiseResolve(os);
       return;
     }
@@ -74,6 +106,8 @@ export async function initOneSignal(userId) {
           console.error('OneSignal login error during init:', loginErr);
         }
       }
+
+      await applyLanguage(os, getSiteLanguage());
 
       if (os.Notifications && typeof os.Notifications.addEventListener === 'function') {
         os.Notifications.addEventListener('foregroundWillDisplay', (event) => {
