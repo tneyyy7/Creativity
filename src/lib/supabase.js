@@ -613,6 +613,23 @@ export const markAsRead = async (receiverId, senderId) => {
   if (error) throw error
 }
 
+export const updateChatPresence = async (userId, partnerId) => {
+  if (!userId) return
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        active_chat_with_id: partnerId || null,
+        active_chat_updated_at: partnerId ? new Date().toISOString() : null
+      })
+      .eq('id', userId)
+
+    if (error) throw error
+  } catch (err) {
+    console.error("updateChatPresence error:", err)
+  }
+}
+
 export const deleteMessage = async (id) => {
   const { error } = await supabase
     .from('messages')

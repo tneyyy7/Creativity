@@ -48,6 +48,34 @@ serve(async (req) => {
       actorId = record.sender_id
       title = "Новое сообщение"
       message = cleanMessagePreview(record.content)
+
+      // Skip push if recipient is actively inside this chat right now
+      try {
+        const { data: recipientProfile } = await supabase
+          .from('profiles')
+          .select('active_chat_with_id, active_chat_updated_at')
+          .eq('id', receiverId)
+          .single()
+
+        if (recipientProfile) {
+          const { active_chat_with_id, active_chat_updated_at } = recipientProfile
+          if (active_chat_with_id === actorId && active_chat_updated_at) {
+            const updatedAt = new Date(active_chat_updated_at).getTime()
+            const now = Date.now()
+            
+            // If heartbeat was updated within the last 45 seconds, the recipient is in the chat
+            if (now - updatedAt < 45000) {
+              console.log(`Skip push: recipient ${receiverId} is actively in chat with sender ${actorId}`)
+              return new Response(JSON.stringify({ skipped: true, reason: "Recipient actively in chat" }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+              })
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error checking recipient chat presence:", err)
+      }
     } else if (table === 'notifications' && type === 'INSERT') {
       receiverId = record.user_id
       actorId = record.actor_id
@@ -82,30 +110,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
-    }
-
-    // For direct messages, give the recipient a brief moment to read it in an open chat.
-    // If they're actively viewing the conversation with the sender, the client marks the
-    // message read within ~1s (markAsRead), so we skip the OS push and avoid spamming a
-    // chat they're already looking at. This is per-conversation and works across devices:
-    // only the device with that exact chat open marks it read. Messages from other people,
-    // or while the app is closed/backgrounded, stay unread and still trigger a push.
-    if (table === 'messages' && record.id) {
-      await new Promise((resolve) => setTimeout(resolve, 3000))
-
-      const { data: msg } = await supabase
-        .from('messages')
-        .select('is_read')
-        .eq('id', record.id)
-        .single()
-
-      if (msg?.is_read) {
-        console.log(`Skip push: message ${record.id} already read (recipient is in the chat)`)
-        return new Response(JSON.stringify({ skipped: true, reason: "Message already read" }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
-      }
     }
 
     // Fetch actor nickname if we have an actorId

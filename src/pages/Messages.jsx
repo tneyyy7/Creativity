@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, updateMessageReactions } from '../lib/supabase'
+import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, updateMessageReactions } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { PostViewerModal } from '../components/PostViewerModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
@@ -342,6 +342,12 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       }
       loadMessages()
 
+      // Set chat presence immediately and launch a heartbeat interval (every 20s)
+      updateChatPresence(currentUser.id, activeChat.id)
+      const heartbeatInterval = setInterval(() => {
+        updateChatPresence(currentUser.id, activeChat.id)
+      }, 20000)
+
       // Simplified Realtime subscription - filter in callback for reliability
       const channel = supabase
         .channel(`chat_${currentUser.id}_${activeChat.id}`)
@@ -391,6 +397,8 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
         .subscribe()
 
       return () => {
+        clearInterval(heartbeatInterval)
+        updateChatPresence(currentUser.id, null)
         supabase.removeChannel(channel)
       }
     }
