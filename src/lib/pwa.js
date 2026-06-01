@@ -2,6 +2,11 @@ const ONESIGNAL_APP_ID = '3aaec25a-5a3d-4029-8a79-7b2b93c86788';
 
 let isInitialized = false;
 let oneSignalInstance = null;
+let initPromiseResolve = null;
+
+const initPromise = new Promise((resolve) => {
+  initPromiseResolve = resolve;
+});
 
 // Safe accessor for window.OneSignal
 const getOS = () => {
@@ -16,14 +21,12 @@ const getOS = () => {
 const runOnOneSignal = (callback) => {
   if (typeof window === 'undefined') return;
 
-  // If already initialized and we have the instance, run immediately
   const os = getOS();
   if (os) {
     callback(os);
     return;
   }
 
-  // Otherwise, queue it in OneSignalDeferred (the official v16 command queue)
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async (instance) => {
     oneSignalInstance = instance;
@@ -42,6 +45,7 @@ export async function initOneSignal(userId) {
           console.error('OneSignal login error:', err);
         }
       }
+      if (initPromiseResolve) initPromiseResolve(os);
       return;
     }
 
@@ -50,14 +54,18 @@ export async function initOneSignal(userId) {
         appId: ONESIGNAL_APP_ID,
         allowLocalhostAsSecureOrigin: true,
         serviceWorkerParam: { scope: '/' },
-        serviceWorkerPath: 'OneSignalSDKWorker.js',
+        serviceWorkerPath: '/OneSignalSDKWorker.js',
       });
       
       isInitialized = true;
       
       if (userId && typeof os.login === 'function') {
-        await os.login(userId);
-        console.log('OneSignal initialized and user logged in:', userId);
+        try {
+          await os.login(userId);
+          console.log('OneSignal initialized and user logged in:', userId);
+        } catch (loginErr) {
+          console.error('OneSignal login error during init:', loginErr);
+        }
       }
 
       if (os.Notifications && typeof os.Notifications.addEventListener === 'function') {
@@ -67,20 +75,48 @@ export async function initOneSignal(userId) {
           }
         });
       }
+      
+      if (initPromiseResolve) initPromiseResolve(os);
     } catch (error) {
       console.error('OneSignal Init Error:', error);
+      if (initPromiseResolve) initPromiseResolve(null);
     }
   });
 }
 
-export async function checkNotificationSupport() {
-  return true;
+export function checkNotificationSupport() {
+  if (typeof window === 'undefined') return { supported: false, reason: 'ssr', message: 'SSR' };
+
+  // Precise iOS detection
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  // Precise standalone PWA mode detection
+  const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  
+  const hasServiceWorker = 'serviceWorker' in navigator;
+  const hasPushManager = 'PushManager' in window;
+  const hasNotification = 'Notification' in window;
+
+  // On iOS Safari, W3C Web Push is ONLY supported in Standalone PWA mode (added to Home Screen)
+  if (isIOS && !isStandalone) {
+    return {
+      supported: false,
+      reason: 'ios_not_standalone',
+      message: 'Push notifications on iOS require adding the app to the Home Screen.'
+    };
+  }
+
+  const supported = hasServiceWorker && hasPushManager && hasNotification;
+  return {
+    supported,
+    reason: supported ? 'supported' : 'browser_unsupported',
+    message: supported ? 'Supported' : 'Your browser does not support push notifications.'
+  };
 }
 
 export function isPushSubscribed() {
   try {
     const os = getOS();
-    if (os && os.User && os.User.PushSubscription) {
+    if (os && isInitialized && os.User && os.User.PushSubscription) {
       return os.User.PushSubscription.optedIn || false;
     }
     return false;
@@ -108,45 +144,43 @@ export async function requestNotificationPermission() {
 }
 
 export async function subscribeToPush(userId) {
-  return new Promise((resolve) => {
-    runOnOneSignal(async (os) => {
-      try {
-        if (!os || !os.User || !os.User.PushSubscription) {
-          throw new Error('OneSignal SDK is not fully loaded or initialized yet.');
-        }
-        if (userId && typeof os.login === 'function') {
-          await os.login(userId);
-        }
-        await os.User.PushSubscription.optIn();
-        resolve({ success: true });
-      } catch (error) {
-        console.error('OneSignal Subscribe error:', error);
-        resolve({ success: false, error: error.message });
-      }
-    });
-  });
+  try {
+    // If initialization hasn't started yet, trigger it
+    if (!isInitialized && typeof window !== 'undefined') {
+      initOneSignal(userId);
+    }
+    const os = await initPromise;
+    if (!os) {
+      throw new Error('OneSignal SDK failed to initialize.');
+    }
+    if (!os.User || !os.User.PushSubscription) {
+      throw new Error('OneSignal User/PushSubscription namespace is not available.');
+    }
+    if (userId && typeof os.login === 'function') {
+      await os.login(userId);
+    }
+    await os.User.PushSubscription.optIn();
+    return { success: true };
+  } catch (error) {
+    console.error('OneSignal Subscribe error:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 export async function unsubscribeFromPush() {
-  return new Promise((resolve) => {
-    runOnOneSignal(async (os) => {
-      try {
-        if (os && os.User && os.User.PushSubscription && typeof os.User.PushSubscription.optOut === 'function') {
-          await os.User.PushSubscription.optOut();
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      } catch (error) {
-        console.error('OneSignal Unsubscribe error:', error);
-        resolve(false);
-      }
-    });
-  });
+  try {
+    const os = await initPromise;
+    if (os && os.User && os.User.PushSubscription && typeof os.User.PushSubscription.optOut === 'function') {
+      await os.User.PushSubscription.optOut();
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('OneSignal Unsubscribe error:', error);
+    return false;
+  }
 }
 
 export async function testPushNotification(userId) {
   return { success: true, message: "Use OneSignal dashboard to send test alerts" };
 }
-
-

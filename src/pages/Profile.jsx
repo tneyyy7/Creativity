@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar, Gem, Box, PenTool } from 'lucide-react'
+import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar, Gem, Box, PenTool, Share } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -21,6 +21,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   const [friendCount, setFriendCount] = useState(0)
   const [localWorkCount, setLocalWorkCount] = useState(workCount)
   const [notificationsSupported, setNotificationsSupported] = useState(false)
+  const [notificationSupport, setNotificationSupport] = useState({ supported: false, reason: '' })
   const [notificationsGranted, setNotificationsGranted] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
@@ -74,7 +75,9 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     }
     fetchProfileData()
     
-    setNotificationsSupported(true)
+    const support = checkNotificationSupport()
+    setNotificationSupport(support)
+    setNotificationsSupported(support.supported)
     setNotificationsGranted(isPushSubscribed())
   }, [user])
 
@@ -421,11 +424,12 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
               </div>
 
               {/* Push Notifications Toggle */}
-              {notificationsSupported && (
-                <div className="space-y-3 pt-1">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">
-                    {t('notifications') || 'Push Notifications'}
-                  </label>
+              <div className="space-y-3 pt-1">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">
+                  {t('notifications') || 'Push Notifications'}
+                </label>
+
+                {notificationsSupported ? (
                   <button
                     type="button"
                     onClick={notificationsGranted ? handleDisableNotifications : handleEnableNotifications}
@@ -455,9 +459,38 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                       </div>
                     )}
                   </button>
-                  
-                </div>
-              )}
+                ) : notificationSupport.reason === 'ios_not_standalone' ? (
+                  <div className="p-4 rounded-2xl border border-purple-500/20 bg-purple-500/5 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10 text-purple-400 flex-shrink-0">
+                        <Share className="w-5 h-5" />
+                      </div>
+                      <div className="text-left space-y-1">
+                        <p className="text-xs font-black uppercase tracking-tight text-purple-400">
+                          {t('notifications_unsupported') || 'Уведомления не поддерживаются'}
+                        </p>
+                        <p className="text-[10px] font-medium text-gray-400 leading-normal">
+                          {t('ios_pwa_instruction') || 'Чтобы включить уведомления на iOS, нажмите кнопку «Поделиться» и выберите «На экран "Домой"», после чего запустите приложение с экрана.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl border border-white/5 bg-white/5 flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 text-gray-500 flex-shrink-0">
+                      <BadgeCheck className="w-5 h-5 opacity-40" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-black uppercase tracking-tight text-gray-500">
+                        {t('notifications_unsupported') || 'Уведомления не поддерживаются'}
+                      </p>
+                      <p className="text-[9px] font-medium text-gray-600 leading-normal">
+                        {t('notifications_unsupported_desc') || 'Ваш браузер или устройство не поддерживает push-уведомления.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Bio */}
               <div className="space-y-1">
