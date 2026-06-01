@@ -489,7 +489,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
           <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-md max-h-[90vh] p-5 relative overflow-y-auto overflow-x-hidden shadow-2xl shadow-purple-500/10" onClick={e => e.stopPropagation()}>
             
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-white tracking-tight">{t('add_to_story')} (WIP)</h3>
+              <h3 className="text-lg font-bold text-white tracking-tight">{t('add_to_story')}</h3>
               <button 
                 type="button"
                 onClick={() => setUploadModalOpen(false)}
