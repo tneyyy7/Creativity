@@ -11,12 +11,24 @@ let initPromise = null;
 export function initOneSignal(userId) {
   if (!initPromise) {
     initPromise = (async () => {
-      await OneSignal.init({
-        appId: ONESIGNAL_APP_ID,
-        allowLocalhostAsSecureOrigin: true,
-        serviceWorkerParam: { scope: '/' },
-        serviceWorkerPath: 'OneSignalSDKWorker.js',
-      });
+      try {
+        await OneSignal.init({
+          appId: ONESIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          serviceWorkerParam: { scope: '/' },
+          serviceWorkerPath: 'OneSignalSDKWorker.js',
+        });
+      } catch (error) {
+        // The SDK keeps its "initialized" flag on the window across HMR reloads
+        // and re-mounts, while our module-level initPromise can reset. Calling
+        // init() again then rejects with "already initialized" — that's benign,
+        // the SDK is ready, so we treat it as success and continue. Any other
+        // init failure is re-thrown.
+        const msg = String(error?.message || error);
+        if (!msg.toLowerCase().includes('already initialized')) {
+          throw error;
+        }
+      }
 
       // Suppress system push notifications while the user is actively using the app.
       // Without this, every incoming message (and other events) fires an OS notification
