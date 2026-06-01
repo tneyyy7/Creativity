@@ -8,18 +8,94 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+// Localized push strings. Keep keys/phrasing in sync with src/i18n/config.js.
+// Templated emojis are intentionally omitted — only user-typed content keeps emojis.
+type Dict = Record<string, string>
+const TRANSLATIONS: Record<string, Dict> = {
+  en: {
+    new_message: "New message",
+    message_from: "Message from",
+    like_title: "New like",
+    like_msg: "liked your post",
+    comment_title: "New comment",
+    comment_msg: "commented on your post",
+    friend_request_title: "Friend request",
+    friend_request_msg: "wants to be friends",
+    friend_accept_title: "Request accepted",
+    friend_accept_msg: "accepted your friend request",
+    follow_title: "New follower",
+    follow_msg: "followed you",
+    bookmark_title: "Added to favorites",
+    bookmark_msg: "added your work to bookmarks",
+    default_msg: "You have a new notification",
+    share_profile: "Shared a profile",
+    share_post: "Shared a post",
+    share_story: "Story reply",
+    sticker: "Sticker",
+  },
+  ru: {
+    new_message: "Новое сообщение",
+    message_from: "Сообщение от",
+    like_title: "Новый лайк",
+    like_msg: "оценил вашу работу",
+    comment_title: "Новый комментарий",
+    comment_msg: "прокомментировал вашу работу",
+    friend_request_title: "Запрос в друзья",
+    friend_request_msg: "хочет дружить с вами",
+    friend_accept_title: "Запрос принят",
+    friend_accept_msg: "принял(а) ваш запрос в друзья",
+    follow_title: "Новый подписчик",
+    follow_msg: "подписался(ась) на ваши обновления",
+    bookmark_title: "В избранном",
+    bookmark_msg: "добавил(а) вашу работу в избранное",
+    default_msg: "У вас новое уведомление",
+    share_profile: "Поделился(ась) профилем",
+    share_post: "Поделился(ась) публикацией",
+    share_story: "Ответ на историю",
+    sticker: "Стикер",
+  },
+  it: {
+    new_message: "Nuovo messaggio",
+    message_from: "Messaggio da",
+    like_title: "Nuovo mi piace",
+    like_msg: "ha messo mi piace al tuo post",
+    comment_title: "Nuovo commento",
+    comment_msg: "ha commentato il tuo post",
+    friend_request_title: "Richiesta di amicizia",
+    friend_request_msg: "vuole essere tuo amico",
+    friend_accept_title: "Richiesta accettata",
+    friend_accept_msg: "ha accettato la tua richiesta di amicizia",
+    follow_title: "Nuovo follower",
+    follow_msg: "ha iniziato a seguirti",
+    bookmark_title: "Aggiunto ai preferiti",
+    bookmark_msg: "ha aggiunto la tua opera ai preferiti",
+    default_msg: "Hai una nuova notifica",
+    share_profile: "Ha condiviso un profilo",
+    share_post: "Ha condiviso un post",
+    share_story: "Risposta alla storia",
+    sticker: "Sticker",
+  },
+}
+
+// Resolve the recipient's site language to a dictionary (fallback to English).
+function dictFor(lang?: string | null): Dict {
+  const code = (lang || "en").slice(0, 2).toLowerCase()
+  return TRANSLATIONS[code] || TRANSLATIONS.en
+}
+
 // Turn raw message content into a human-readable push preview.
 // Internal markers like custom-emoji tags or share payloads must never leak into notifications.
-function cleanMessagePreview(content: string): string {
+// User-typed text/emojis are preserved as-is; only our own share previews are localized.
+function cleanMessagePreview(content: string, d: Dict): string {
   if (!content) return ""
 
-  if (content.startsWith("[PROFILE_SHARE:")) return "👤 Поделился(ась) профилем"
-  if (content.startsWith("[POST_SHARE:")) return "🖼️ Поделился(ась) публикацией"
-  if (content.startsWith("[STORY_SHARE:")) return "📖 Ответ на историю"
+  if (content.startsWith("[PROFILE_SHARE:")) return d.share_profile
+  if (content.startsWith("[POST_SHARE:")) return d.share_post
+  if (content.startsWith("[STORY_SHARE:")) return d.share_story
 
   // Replace custom-emoji stickers [EMOJI:url:name] with the sticker glyph.
   const cleaned = content.replace(/\[EMOJI:https?:\/\/[^:]+:[^\]]+\]/g, "🖼️").trim()
-  return cleaned || "🖼️ Стикер"
+  return cleaned || d.sticker
 }
 
 const corsHeaders = {
@@ -35,74 +111,21 @@ serve(async (req) => {
   try {
     const payload = await req.json()
     const { record, table, type } = payload
-    
+
     console.log(`Notification trigger for ${table} (${type})`)
 
     let receiverId = null
-    let title = "Creativity"
-    let message = ""
     let actorId = null
+    let notifType = null // 'message' for chat, otherwise the notifications.type value
 
     if (table === 'messages' && type === 'INSERT') {
       receiverId = record.receiver_id
       actorId = record.sender_id
-      title = "Новое сообщение"
-      message = cleanMessagePreview(record.content)
-
-      // Skip push if recipient is actively inside this chat right now
-      try {
-        const { data: recipientProfile } = await supabase
-          .from('profiles')
-          .select('active_chat_with_id, active_chat_updated_at')
-          .eq('id', receiverId)
-          .single()
-
-        if (recipientProfile) {
-          const { active_chat_with_id, active_chat_updated_at } = recipientProfile
-          if (active_chat_with_id === actorId && active_chat_updated_at) {
-            const updatedAt = new Date(active_chat_updated_at).getTime()
-            const now = Date.now()
-            
-            // If heartbeat was updated within the last 45 seconds, the recipient is in the chat
-            if (now - updatedAt < 45000) {
-              console.log(`Skip push: recipient ${receiverId} is actively in chat with sender ${actorId}`)
-              return new Response(JSON.stringify({ skipped: true, reason: "Recipient actively in chat" }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200,
-              })
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error checking recipient chat presence:", err)
-      }
+      notifType = 'message'
     } else if (table === 'notifications' && type === 'INSERT') {
       receiverId = record.user_id
       actorId = record.actor_id
-      
-      const notifType = record.type // 'like', 'comment', 'friend_request', etc.
-      
-      if (notifType === 'like') {
-        title = "Новый лайк ❤️"
-        message = "оценил(а) ваш рисунок"
-      } else if (notifType === 'comment') {
-        title = "Новый комментарий 💬"
-        message = `прокомментировал(а) ваш рисунок: ${record.content || ''}`
-      } else if (notifType === 'friend_request') {
-        title = "Запрос в друзья 👋"
-        message = "хочет добавить вас в друзья"
-      } else if (notifType === 'friend_accept') {
-        title = "Запрос принят 🎉"
-        message = "принял(а) ваш запрос в друзья"
-      } else if (notifType === 'follow') {
-        title = "Новый подписчик 👤"
-        message = "подписался(ась) на ваши обновления"
-      } else if (notifType === 'bookmark') {
-        title = "В избранном ⭐️"
-        message = "добавил(а) вашу работу в избранное"
-      } else {
-        message = record.content || "У вас новое уведомление"
-      }
+      notifType = record.type // 'like', 'comment', 'friend_request', etc.
     }
 
     if (!receiverId) {
@@ -112,6 +135,62 @@ serve(async (req) => {
       })
     }
 
+    // Fetch recipient profile: their site language + chat-presence state.
+    const { data: recipientProfile } = await supabase
+      .from('profiles')
+      .select('preferred_lang, active_chat_with_id, active_chat_updated_at')
+      .eq('id', receiverId)
+      .single()
+
+    const d = dictFor(recipientProfile?.preferred_lang)
+
+    // Skip push if recipient is actively inside this chat right now
+    if (notifType === 'message' && recipientProfile) {
+      const { active_chat_with_id, active_chat_updated_at } = recipientProfile
+      if (active_chat_with_id === actorId && active_chat_updated_at) {
+        const updatedAt = new Date(active_chat_updated_at).getTime()
+        const now = Date.now()
+
+        // If heartbeat was updated within the last 45 seconds, the recipient is in the chat
+        if (now - updatedAt < 45000) {
+          console.log(`Skip push: recipient ${receiverId} is actively in chat with sender ${actorId}`)
+          return new Response(JSON.stringify({ skipped: true, reason: "Recipient actively in chat" }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          })
+        }
+      }
+    }
+
+    // Build localized title + message
+    let title = "Creativity"
+    let message = d.default_msg
+
+    if (notifType === 'message') {
+      title = d.new_message
+      message = cleanMessagePreview(record.content, d)
+    } else if (notifType === 'like') {
+      title = d.like_title
+      message = d.like_msg
+    } else if (notifType === 'comment') {
+      title = d.comment_title
+      message = `${d.comment_msg}: ${record.content || ''}`
+    } else if (notifType === 'friend_request') {
+      title = d.friend_request_title
+      message = d.friend_request_msg
+    } else if (notifType === 'friend_accept') {
+      title = d.friend_accept_title
+      message = d.friend_accept_msg
+    } else if (notifType === 'follow') {
+      title = d.follow_title
+      message = d.follow_msg
+    } else if (notifType === 'bookmark') {
+      title = d.bookmark_title
+      message = d.bookmark_msg
+    } else {
+      message = record.content || d.default_msg
+    }
+
     // Fetch actor nickname if we have an actorId
     if (actorId) {
       const { data: profile } = await supabase
@@ -119,16 +198,18 @@ serve(async (req) => {
         .select('nickname')
         .eq('id', actorId)
         .single()
-      
+
       if (profile?.nickname) {
-        if (table === 'messages') {
-          title = `Сообщение от ${profile.nickname}`
+        if (notifType === 'message') {
+          title = `${d.message_from} ${profile.nickname}`
         } else {
           message = `${profile.nickname} ${message}`
         }
       }
     }
 
+    // Send the already-localized text under the default "en" key so it shows
+    // on every device regardless of the device language (we follow the SITE language).
     const response = await fetch("https://onesignal.com/api/v1/notifications", {
       method: "POST",
       headers: {
@@ -138,8 +219,8 @@ serve(async (req) => {
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
         include_external_user_ids: [receiverId],
-        contents: { "en": message, "ru": message },
-        headings: { "en": title, "ru": title }
+        contents: { "en": message },
+        headings: { "en": title }
       })
     })
 

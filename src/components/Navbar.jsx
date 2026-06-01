@@ -2,7 +2,7 @@ import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, He
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../lib/supabase'
+import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications, updatePreferredLang } from '../lib/supabase'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, onProfileClick, onFriendsClick, isVerified, workCount, onOpenPost, isPro, avatarFrame, nicknameColor }) {
@@ -74,8 +74,19 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
   const toggleLanguage = (code) => {
     i18n.changeLanguage(code)
     localStorage.setItem('app_lang', code)
+    // Persist to the profile so push notifications arrive in the user's site language
+    updatePreferredLang(user?.id, code)
     setShowLangs(false)
   }
+
+  // Sync the current site language into the profile on load so existing users
+  // get a stored value used by the push-notification edge function.
+  useEffect(() => {
+    if (!user?.id) return
+    const lang = i18n.language || localStorage.getItem('app_lang') || 'en'
+    updatePreferredLang(user.id, lang)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   const loadAll = useCallback(async () => {
     if (!user?.id) return

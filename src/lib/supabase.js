@@ -630,6 +630,20 @@ export const updateChatPresence = async (userId, partnerId) => {
   }
 }
 
+export const updatePreferredLang = async (userId, lang) => {
+  if (!userId || !lang) return
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ preferred_lang: lang })
+      .eq('id', userId)
+
+    if (error) throw error
+  } catch (err) {
+    console.error("updatePreferredLang error:", err)
+  }
+}
+
 export const deleteMessage = async (id) => {
   const { error } = await supabase
     .from('messages')
