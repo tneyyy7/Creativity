@@ -38,20 +38,20 @@ export function getNicknameStyle(nicknameColor, fallback) {
   return { color: nicknameColor }
 }
 
-// Nickname rules: English letters, digits and underscore only; 1–10 characters.
+// Nickname rules: English letters, digits, underscore, dot and hyphen; 1–10 characters.
 export const NICKNAME_MAX_LENGTH = 10
-const NICKNAME_PATTERN = /^[A-Za-z0-9_]{1,10}$/
+const NICKNAME_PATTERN = /^[A-Za-z0-9_.-]{1,10}$/
 
 /**
  * Strips any disallowed characters from a nickname as the user types and caps
- * the length. Keeps only English letters, digits and underscores.
+ * the length. Keeps only English letters, digits, underscores, dots and hyphens.
  *
  * @param {string} value - raw input value
  * @returns {string} sanitized nickname
  */
 export function sanitizeNickname(value) {
   return (value || '')
-    .replace(/[^A-Za-z0-9_]/g, '')
+    .replace(/[^A-Za-z0-9_.-]/g, '')
     .slice(0, NICKNAME_MAX_LENGTH)
 }
 

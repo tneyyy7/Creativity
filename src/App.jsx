@@ -22,9 +22,35 @@ const Bookmarks = lazy(() => import('./pages/Bookmarks').then(m => ({ default: m
 const Explore = lazy(() => import('./pages/Explore').then(m => ({ default: m.Explore })))
 const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })))
 
+const parseInitialUrl = () => {
+  const path = window.location.pathname.replace(/^\//, '')
+  if (!path) {
+    return { tab: localStorage.getItem('creativity_active_tab') || 'dashboard', targetId: localStorage.getItem('creativity_target_user_id') || null }
+  }
+  
+  if (path.startsWith('profile/')) {
+    const targetId = path.split('profile/')[1] || null
+    return { tab: 'public_profile', targetId }
+  }
+  
+  const validTabs = [
+    'dashboard', 'explore', 'gallery', 'bookmarks', 'productivity', 
+    'ranks', 'profile', 'friends', 'messages', 'subscription', 'settings'
+  ]
+  
+  if (validTabs.includes(path)) {
+    return { tab: path, targetId: null }
+  }
+  
+  return { tab: 'dashboard', targetId: null }
+}
+
 function App() {
   const [user, setUser] = useState(null)
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('creativity_active_tab') || 'dashboard')
+  const [activeTab, setActiveTab] = useState(() => {
+    const initial = parseInitialUrl()
+    return initial.tab
+  })
   const [theme, setTheme] = useState(getStoredTheme)
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
@@ -32,7 +58,10 @@ function App() {
   const [specialization, setSpecialization] = useState('painter')
   const [workCount, setWorkCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [targetUserId, setTargetUserId] = useState(() => localStorage.getItem('creativity_target_user_id') || null) // Used for viewing public profiles
+  const [targetUserId, setTargetUserId] = useState(() => {
+    const initial = parseInitialUrl()
+    return initial.targetId
+  }) // Used for viewing public profiles
   const [postViewer, setPostViewer] = useState(null)
   const [isPro, setIsPro] = useState(false)
   const [avatarFrame, setAvatarFrame] = useState('default')
@@ -137,6 +166,32 @@ function App() {
       localStorage.removeItem('creativity_target_user_id')
     }
   }, [targetUserId])
+
+  // Synchronize activeTab and targetUserId state changes to URL path
+  useEffect(() => {
+    if (activeTab === 'public_profile' && targetUserId) {
+      const targetPath = `/profile/${targetUserId}`
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath)
+      }
+    } else if (activeTab && activeTab !== 'public_profile') {
+      const targetPath = `/${activeTab}`
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath)
+      }
+    }
+  }, [activeTab, targetUserId])
+
+  // Synchronize browser history navigation (back/forward) to state
+  useEffect(() => {
+    const handlePopState = () => {
+      const initial = parseInitialUrl()
+      setActiveTab(initial.tab)
+      setTargetUserId(initial.targetId)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   // const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark')
   
