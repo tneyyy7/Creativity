@@ -53,23 +53,29 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
 
   return (
     <>
-      {/* Mobile Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden animate-in fade-in duration-300"
-          onClick={onClose}
-        />
-      )}
+      {/* Mobile backdrop: dark blur over the page behind the menu. Always mounted
+          so it can fade both in and out; opacity-only transition keeps it smooth
+          (the blur is cached while the page underneath stays still). */}
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className={`
+          fixed inset-0 z-[60] lg:hidden bg-black/60 backdrop-blur-md
+          transition-opacity duration-300 ease-out
+          ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+        `}
+      />
 
       <aside
         style={{
           paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+          willChange: 'transform',
         }}
         className={`
         fixed lg:relative inset-y-0 left-0 z-[70]
         w-72 flex flex-col bg-[#0c0b11] lg:bg-transparent
-        transition-transform duration-500 ease-out lg:translate-x-0
+        transform-gpu transition-transform duration-300 ease-out lg:translate-x-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="px-8 mb-6 flex items-center justify-between">
