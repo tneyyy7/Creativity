@@ -79,8 +79,18 @@ export function Auth({ onAuth }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#0c0b11] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500">
+    <div className="fixed inset-0 z-[100] bg-[#0c0b11] overflow-y-auto">
+      {/* min-h-full wrapper centers short content but lets tall content (signup form with
+          specialization grid) grow and scroll fully — avoids the flex `items-center` clipping bug.
+          Safe-area padding keeps the header/footer clear of the PWA status bar & home indicator. */}
+      <div
+        className="min-h-full flex items-center justify-center px-4 sm:px-6"
+        style={{
+          paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="text-center">
           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-600 rounded-[1.5rem] sm:rounded-[2rem] flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-2xl shadow-purple-900/40">
             <Lock className="text-white w-8 h-8 sm:w-10 sm:h-10" />
@@ -200,6 +210,7 @@ export function Auth({ onAuth }) {
             {isLogin ? t('auth_signup') : t('auth_signin')}
           </button>
         </p>
+        </div>
       </div>
     </div>
   )
