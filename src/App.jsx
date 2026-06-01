@@ -316,9 +316,20 @@ function App() {
   const handleGestureBack = useCallback(() => {
     if (postViewer) { setPostViewer(null); return }
     if (screenBackRef.current) { screenBackRef.current(); return }
-    if ((window.history.state?.navIndex ?? 0) > 0) { window.history.back(); return }
+    // A public profile is a nested view reached from another screen — step back
+    // to wherever the user came from. On every other (top-level) tab there is
+    // nothing deeper to close, so the gesture opens the burger menu.
+    if (activeTab === 'public_profile') {
+      if ((window.history.state?.navIndex ?? 0) > 0) {
+        window.history.back()
+      } else {
+        setTargetUserId(null)
+        setActiveTab('dashboard')
+      }
+      return
+    }
     setIsSidebarOpen(true)
-  }, [postViewer])
+  }, [postViewer, activeTab])
 
   const closeSidebarGesture = useCallback(() => setIsSidebarOpen(false), [])
 
