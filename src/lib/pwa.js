@@ -3,6 +3,7 @@ const ONESIGNAL_APP_ID = '3aaec25a-5a3d-4029-8a79-7b2b93c86788';
 let isInitialized = false;
 let oneSignalInstance = null;
 let initPromiseResolve = null;
+let initError = null;
 
 const initPromise = new Promise((resolve) => {
   initPromiseResolve = resolve;
@@ -50,11 +51,17 @@ export async function initOneSignal(userId) {
     }
 
     try {
+      // Enable detailed trace logs to easily debug iOS/PWA issues in Safari Web Inspector
+      if (os.Debug && typeof os.Debug.setLogLevel === 'function') {
+        os.Debug.setLogLevel('trace');
+      }
+
+      // Initialize with standard parameters.
+      // Removing serviceWorkerPath and serviceWorkerParam allows the SDK to automatically
+      // register OneSignalSDKWorker.js at the root, bypassing strict iOS Safari security checks.
       await os.init({
         appId: ONESIGNAL_APP_ID,
         allowLocalhostAsSecureOrigin: true,
-        serviceWorkerParam: { scope: '/' },
-        serviceWorkerPath: '/OneSignalSDKWorker.js',
       });
       
       isInitialized = true;
@@ -79,6 +86,7 @@ export async function initOneSignal(userId) {
       if (initPromiseResolve) initPromiseResolve(os);
     } catch (error) {
       console.error('OneSignal Init Error:', error);
+      initError = error;
       if (initPromiseResolve) initPromiseResolve(null);
     }
   });
@@ -151,7 +159,7 @@ export async function subscribeToPush(userId) {
     }
     const os = await initPromise;
     if (!os) {
-      throw new Error('OneSignal SDK failed to initialize.');
+      throw new Error(initError ? initError.message : 'OneSignal SDK failed to initialize.');
     }
     if (!os.User || !os.User.PushSubscription) {
       throw new Error('OneSignal User/PushSubscription namespace is not available.');
