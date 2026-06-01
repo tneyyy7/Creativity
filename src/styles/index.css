@@ -164,9 +164,8 @@ body {
 
 @media (max-width: 768px) {
   .app-container {
-    /* Full-bleed on phones, but keep clear of notches / home indicator
-       when running as an installed PWA (safe-area insets are 0 in browsers). */
-    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Full-bleed on phones. Content/interactive elements handle their own safe area padding. */
+    padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
     gap: 0;
     flex-direction: column;
   }
@@ -188,6 +187,10 @@ body {
   .main-content {
     border-radius: 0;
     border: none;
+  }
+  /* Make the main scrollable container allow scrolling past the safe area */
+  .main-content main:not(.overflow-hidden) {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important;
   }
 }
 

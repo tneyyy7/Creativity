@@ -162,7 +162,16 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
   const handleNotifClick = async (notif) => {
     if (onOpenPost && notif.painting_id) {
       setShowNotifications(false)
-      onOpenPost(notif.painting_id, notif.painting)
+      onOpenPost(notif.painting_id, notif.painting, null, 0, {
+        id: user?.id,
+        nickname,
+        avatar_url: avatarUrl,
+        is_verified: isVerified,
+        finished_work_count: workCount,
+        isPro,
+        avatar_frame: avatarFrame,
+        nickname_color: nicknameColor
+      })
     }
     
     // Mark as read in DB and local state
