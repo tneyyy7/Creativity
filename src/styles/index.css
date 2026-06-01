@@ -404,3 +404,83 @@ input[type="color"]::-moz-color-swatch {
 
 .border-\[\#0c0b11\] { border-color: var(--panel); }
 .from-\[\#0c0b11\] { --tw-gradient-from: var(--panel) var(--tw-gradient-from-position); }
+
+/*
+  StoriesViewer Light Theme Overrides Isolation
+  ---------------------------------------------
+  Предотвращает влияние светлой темы на темный интерфейс StoriesViewer.
+  Так как просмотр историй всегда имеет черный/темный фон, его тексты,
+  кнопки, границы и фоны должны сохранять свои светлые (dark-theme) цвета.
+*/
+[data-theme='light'] .stories-viewer-modal .text-white,
+.stories-viewer-modal .text-white {
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .text-white\/85,
+.stories-viewer-modal .text-white\/85 {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .text-gray-400,
+.stories-viewer-modal .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .placeholder-white\/65::placeholder,
+.stories-viewer-modal .placeholder-white\/65::placeholder {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .bg-white\/5,
+.stories-viewer-modal .bg-white\/5 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .bg-white\/10,
+.stories-viewer-modal .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .bg-white\/20,
+.stories-viewer-modal .bg-white\/20 {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .hover\:bg-white\/5:hover,
+.stories-viewer-modal .hover\:bg-white\/5:hover,
+[data-theme='light'] .stories-viewer-modal .hover\:bg-white\/10:hover,
+.stories-viewer-modal .hover\:bg-white\/10:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .border-white\/5,
+.stories-viewer-modal .border-white\/5 {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .border-white\/10,
+.stories-viewer-modal .border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .border-white\/20,
+.stories-viewer-modal .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .border-white\/25,
+.stories-viewer-modal .border-white\/25 {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .hover\:border-white\/40:hover,
+.stories-viewer-modal .hover\:border-white\/40:hover {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+[data-theme='light'] .stories-viewer-modal .bg-black\/60,
+.stories-viewer-modal .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+

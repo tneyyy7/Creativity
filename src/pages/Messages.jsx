@@ -595,6 +595,48 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     setInput('')
   }
 
+  const openSharedPost = async (data) => {
+    try {
+      let sharedPainting = null
+      if (data.painting_id) {
+        const { data: painting, error } = await supabase
+          .from('paintings')
+          .select('*')
+          .eq('id', data.painting_id)
+          .maybeSingle()
+        if (error) throw error
+        sharedPainting = painting
+      }
+
+      const authorId = data.author_id || sharedPainting?.user_id
+      if (!authorId) return
+
+      const [paintings, profile] = await Promise.all([
+        fetchPaintings(authorId),
+        fetchPublicProfile(authorId)
+      ])
+
+      const finished = (paintings || []).filter(p => p && p.is_finished)
+      const fallbackPainting = sharedPainting || {
+        id: data.painting_id,
+        user_id: authorId,
+        image_url: data.image_url,
+        title: data.title,
+        is_finished: true
+      }
+      const collection = finished.length > 0 ? finished : [fallbackPainting]
+      const idx = collection.findIndex(p => p.id === data.painting_id)
+
+      setPostViewer({
+        paintings: collection,
+        index: idx >= 0 ? idx : 0,
+        authorProfile: profile
+      })
+    } catch (e) {
+      console.error('Open post error:', e)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -957,19 +999,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                               return (
                                 <div
                                   className="py-2 cursor-pointer"
-                                  onClick={async () => {
-                                    try {
-                                      const paintings = await fetchPaintings(data.author_id)
-                                      const finished = (paintings || []).filter(p => p && p.is_finished)
-                                      const idx = finished.findIndex(p => p.id === data.painting_id)
-                                      const profile = await fetchPublicProfile(data.author_id)
-                                      setPostViewer({
-                                        paintings: finished,
-                                        index: idx >= 0 ? idx : 0,
-                                        authorProfile: profile
-                                      })
-                                    } catch (e) { console.error('Open post error:', e) }
-                                  }}
+                                  onClick={() => openSharedPost(data)}
                                 >
                                   <div className="bg-black/20 rounded-2xl overflow-hidden border border-white/5">
                                     {data.image_url && (

@@ -275,7 +275,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
   }
 
   return (
-    <div className="fixed inset-0 bg-black/95 z-[99] flex items-center justify-center select-none animate-in fade-in zoom-in duration-300">
+    <div data-theme="dark" className="fixed inset-0 bg-black/95 z-[99] flex items-center justify-center select-none animate-in fade-in zoom-in duration-300 stories-viewer-modal">
       
       {/* Background blur container */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

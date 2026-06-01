@@ -33,6 +33,10 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const isAuthor = currentUserId === resolvedAuthor?.id
   const authorIsPro = !!resolvedAuthor?.isPro
 
+  useEffect(() => {
+    setResolvedAuthor(authorProfile)
+  }, [authorProfile])
+
   // Always fetch the correct author from DB by painting.user_id
   useEffect(() => {
     const uid = painting?.user_id
@@ -206,7 +210,15 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const handleShareSend = async (friendProfile) => {
     if (!friendProfile || !painting) return
     try {
-      const shareData = { type: 'post', painting_id: painting.id, image_url: painting.image_url, title: painting.title, author_nickname: authorProfile?.nickname, author_id: authorProfile?.id }
+      const author = resolvedAuthor || authorProfile || painting.user || painting.profiles || null
+      const shareData = {
+        type: 'post',
+        painting_id: painting.id,
+        image_url: painting.image_url,
+        title: painting.title,
+        author_nickname: author?.nickname,
+        author_id: author?.id || painting.user_id
+      }
       await sendMessage(currentUserId, friendProfile.id, `[POST_SHARE:${JSON.stringify(shareData)}]`)
       setShowShareModal(false)
     } catch (e) { console.error(e) }
