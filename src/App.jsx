@@ -25,7 +25,16 @@ const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ defa
 const parseInitialUrl = () => {
   const path = window.location.pathname.replace(/^\//, '')
   if (path === 'reset-password') {
-    return { tab: 'dashboard', targetId: null, exploreCategory: 'All', isResettingPassword: true }
+    return { tab: 'dashboard', targetId: null, exploreCategory: 'All', isResettingPassword: true, authMode: 'reset' }
+  }
+  if (path === 'login') {
+    return { tab: 'dashboard', targetId: null, exploreCategory: 'All', authMode: 'login' }
+  }
+  if (path === 'signup') {
+    return { tab: 'dashboard', targetId: null, exploreCategory: 'All', authMode: 'signup' }
+  }
+  if (path === 'forgot' || path === 'forgot-password') {
+    return { tab: 'dashboard', targetId: null, exploreCategory: 'All', authMode: 'forgot' }
   }
   if (!path) {
     return { tab: localStorage.getItem('creativity_active_tab') || 'dashboard', targetId: localStorage.getItem('creativity_target_user_id') || null, exploreCategory: 'All' }
@@ -94,6 +103,11 @@ function App() {
       }
     }
     return false
+  })
+
+  const [authMode, setAuthMode] = useState(() => {
+    const initial = parseInitialUrl()
+    return initial.authMode || 'login'
   })
 
   useEffect(() => {
@@ -199,6 +213,14 @@ function App() {
 
   // Synchronize activeTab, targetUserId, and exploreCategory state changes to URL path
   useEffect(() => {
+    if (!user) {
+      const targetPath = authMode === 'forgot' ? '/forgot-password' : `/${authMode}`
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath)
+      }
+      return
+    }
+
     if (isResettingPassword) {
       if (window.location.pathname !== '/reset-password') {
         window.history.pushState(null, '', '/reset-password')
@@ -222,7 +244,7 @@ function App() {
         window.history.pushState(null, '', targetPath)
       }
     }
-  }, [activeTab, targetUserId, exploreCategory, isResettingPassword])
+  }, [activeTab, targetUserId, exploreCategory, isResettingPassword, authMode, user])
 
   // Synchronize browser history navigation (back/forward) to state
   useEffect(() => {
@@ -232,6 +254,9 @@ function App() {
       setTargetUserId(initial.targetId)
       setExploreCategory(initial.exploreCategory)
       setIsResettingPassword(initial.isResettingPassword || false)
+      if (initial.authMode) {
+        setAuthMode(initial.authMode)
+      }
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
@@ -262,10 +287,19 @@ function App() {
     return null
   }
   if (!user || isResettingPassword) {
+    const currentAuthMode = isResettingPassword ? 'reset' : authMode
     return (
       <Auth 
         onAuth={setUser} 
-        initialMode={isResettingPassword ? 'reset' : 'login'} 
+        initialMode={currentAuthMode} 
+        onModeChange={(newMode) => {
+          setAuthMode(newMode)
+          if (newMode === 'reset') {
+            setIsResettingPassword(true)
+          } else {
+            setIsResettingPassword(false)
+          }
+        }}
         onPasswordResetComplete={() => setIsResettingPassword(false)} 
       />
     )

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { useTranslation } from 'react-i18next'
 
-export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete }) {
+export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, onModeChange }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState(initialMode) // 'login' | 'signup' | 'forgot' | 'reset'
   const [isLoading, setIsLoading] = useState(false)
@@ -25,6 +25,15 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete })
     setError('')
     setMessage('')
   }, [initialMode])
+
+  const changeMode = (newMode) => {
+    setMode(newMode)
+    setError('')
+    setMessage('')
+    if (onModeChange) {
+      onModeChange(newMode)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -318,7 +327,7 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete })
             <div className="space-y-4 text-center font-bold text-sm">
               <button
                 type="button"
-                onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}
+                onClick={() => changeMode('forgot')}
                 className="text-purple-500 hover:text-purple-400 underline underline-offset-4 block mx-auto transition-colors"
               >
                 {t('auth_forgot_password') || "Забыли пароль?"}
@@ -326,7 +335,7 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete })
               <p className="text-gray-500">
                 {t('auth_no_account')}
                 <button
-                  onClick={() => { setMode('signup'); setError(''); setMessage(''); }}
+                  onClick={() => changeMode('signup')}
                   className="text-purple-500 hover:text-purple-400 underline underline-offset-4 ml-2 transition-colors"
                 >
                   {t('auth_signup')}
@@ -339,7 +348,7 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete })
             <p className="text-center text-gray-500 font-bold text-sm">
               {t('auth_has_account')}
               <button
-                onClick={() => { setMode('login'); setError(''); setMessage(''); }}
+                onClick={() => changeMode('login')}
                 className="text-purple-500 hover:text-purple-400 underline underline-offset-4 ml-2 transition-colors"
               >
                 {t('auth_signin')}
@@ -350,7 +359,7 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete })
           {(isForgot || isReset) && (
             <p className="text-center text-gray-500 font-bold text-sm">
               <button
-                onClick={() => { setMode('login'); setError(''); setMessage(''); }}
+                onClick={() => changeMode('login')}
                 className="text-purple-500 hover:text-purple-400 underline underline-offset-4 transition-colors"
               >
                 {t('auth_back_to_login') || "Вернуться к входу"}
