@@ -345,8 +345,8 @@ export function Gallery({ onOpenPost }) {
                   <div className="flex flex-col gap-2">
                    {painting.is_finished && (
                      <div className="px-3 py-1.5 bg-emerald-500/95 backdrop-blur-xl rounded-xl flex items-center gap-1.5 shadow-2xl border border-emerald-400/30 self-start pointer-events-auto">
-                        <Star className="w-2.5 h-2.5 text-white fill-white" />
-                        <span className="text-[9px] font-black text-white uppercase tracking-widest whitespace-nowrap">{t('masterpiece')}</span>
+                        <Star className="w-2.5 h-2.5 !text-white !fill-white" />
+                        <span className="text-[9px] font-black !text-white uppercase tracking-widest whitespace-nowrap">{t('masterpiece')}</span>
                      </div>
                    )}
                  </div>
@@ -357,14 +357,14 @@ export function Gallery({ onOpenPost }) {
                       e.stopPropagation();
                       startEditing(painting);
                     }}
-                    className="w-10 h-10 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl text-white flex items-center justify-center hover:bg-purple-600 transition-all shadow-xl"
+                    className="w-10 h-10 bg-black/60 backdrop-blur-xl !border-white/10 rounded-xl !text-white flex items-center justify-center hover:bg-purple-600 transition-all shadow-xl"
                     title={t('edit_metadata')}
                    >
                       <MoreHorizontal className="w-5 h-5" />
                    </button>
                    <button 
                     onClick={(e) => { e.stopPropagation(); setReplacingId(painting.id); replaceInputRef.current?.click(); }}
-                    className="w-10 h-10 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl text-white flex items-center justify-center hover:bg-indigo-600 transition-all shadow-xl"
+                    className="w-10 h-10 bg-black/60 backdrop-blur-xl !border-white/10 rounded-xl !text-white flex items-center justify-center hover:bg-indigo-600 transition-all shadow-xl"
                     title={t('replace_image')}
                    >
                       <Upload className="w-4 h-4" />

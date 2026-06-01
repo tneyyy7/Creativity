@@ -240,8 +240,12 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/95" onClick={onClose} />
 
-      {/* Close */}
-      <button onClick={onClose} className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 w-9 h-9 sm:w-10 sm:h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all">
+      {/* Close — offset by the safe-area inset so it clears the PWA status bar (battery/clock) */}
+      <button
+        onClick={onClose}
+        style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+        className="absolute right-3 sm:right-4 z-30 w-9 h-9 sm:w-10 sm:h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all"
+      >
         <X className="w-5 h-5" />
       </button>
 

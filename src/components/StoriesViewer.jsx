@@ -307,8 +307,9 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
       >
         
         {/* Top Control Bar & Progress lines */}
-        <div 
+        <div
           onClick={(e) => e.stopPropagation()}
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}
           className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-50 space-y-4"
         >
           
@@ -521,7 +522,10 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
         )}
 
         {/* Bottom Description & Interactive bar */}
-        <div className="z-30 w-full bg-gradient-to-t from-black via-black/95 to-transparent p-4 space-y-4">
+        <div
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+          className="z-30 w-full bg-gradient-to-t from-black via-black/95 to-transparent p-4 space-y-4"
+        >
           {(() => {
             const { caption: parsedCaption } = parseStoryCaptionAndTransform(currentStory.caption)
             if (!isVideo(currentStory.image_url) && parsedCaption) {
