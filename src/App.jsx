@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
-import { useNavigationGestures } from './hooks/useNavigationGestures'
 import { Navbar } from './components/Navbar'
 import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus } from './lib/supabase'
 import { Auth } from './pages/Auth'
@@ -321,48 +320,7 @@ function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  // --- Phone edge-swipe "back" gesture --------------------------------------
-  // Screens that have their own internal levels (e.g. an open chat inside
-  // Messages) register a back handler here. A left-edge swipe runs, in order:
-  //   1. close an open post viewer, 2. the registered screen-level back,
-  //   3. browser history back, 4. otherwise open the burger menu.
-  const screenBackRef = useRef(null)
-  const registerScreenBack = useCallback((fn) => { screenBackRef.current = fn }, [])
 
-  const handleGestureBack = useCallback(() => {
-    if (postViewer) { setPostViewer(null); return }
-    if (screenBackRef.current) { screenBackRef.current(); return }
-    // A public profile is a nested view reached from another screen — step back
-    // to wherever the user came from. On every other (top-level) tab there is
-    // nothing deeper to close, so the gesture opens the burger menu.
-    if (activeTab === 'public_profile') {
-      if ((window.history.state?.navIndex ?? 0) > 0) {
-        window.history.back()
-      } else {
-        setTargetUserId(null)
-        setActiveTab('dashboard')
-      }
-      return
-    }
-    setIsSidebarOpen(true)
-  }, [postViewer, activeTab])
-
-  const closeSidebarGesture = useCallback(() => setIsSidebarOpen(false), [])
-
-  // Swipe left on a normal page → step forward through in-app history (mirror
-  // of the edge-swipe "back"). When the menu is open, the left swipe closes it
-  // instead — that case is handled inside the gesture hook.
-  const handleGestureForward = useCallback(() => {
-    if (postViewer) return // let the viewer own horizontal swipes
-    window.history.forward()
-  }, [postViewer])
-
-  useNavigationGestures({
-    onBack: handleGestureBack,
-    onForward: handleGestureForward,
-    onCloseSidebar: closeSidebarGesture,
-    isSidebarOpen,
-  })
 
   if (loading) {
     return null
@@ -521,7 +479,6 @@ function App() {
             initialChatUser={initialMessageUser}
             onInitialChatOpened={() => setInitialMessageUser(null)}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
-            registerBack={registerScreenBack}
           />}
           {activeTab === 'subscription' && <Subscription />}
           {activeTab === 'settings' && <Settings userEmail={user?.email} currentTheme={theme} onThemeChange={setTheme} />}

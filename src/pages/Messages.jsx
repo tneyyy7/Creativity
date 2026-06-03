@@ -23,7 +23,7 @@ function GroupAvatar({ avatarUrl, size = 'sm' }) {
   )
 }
 
-export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile, registerBack }) {
+export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile }) {
   const { t } = useTranslation()
   const [conversations, setConversations] = useState([])
   const [activeChat, setActiveChat] = useState(null)
@@ -214,17 +214,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     }
   }, [chatMenu, chatMenuRect])
 
-  // Expose the "back" step (open chat → chat list) to the global edge-swipe
-  // gesture handled in App. Only registers while a chat is open on a phone.
-  useEffect(() => {
-    if (!registerBack) return
-    if (isMobile && activeChat) {
-      registerBack(() => { setIsMobileView(false); setActiveChat(null); })
-    } else {
-      registerBack(null)
-    }
-    return () => registerBack(null)
-  }, [registerBack, isMobile, activeChat])
+
 
   // Keyboard handling for the full-screen chat. The panel itself ALWAYS covers the
   // entire screen (fixed inset-0) — it is never resized to the visual viewport, which
@@ -1442,7 +1432,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       <div className="h-full flex flex-col md:flex-row gap-4 md:gap-6 max-w-none w-full min-h-0">
         {/* Conversations List */}
         <div className={`
-        flex-col w-full md:w-80 glass-card p-4 space-y-4
+        h-full flex-col w-full md:w-80 glass-card p-4 space-y-4 min-h-0
         ${activeChat && isMobileView && !isMobile ? 'hidden' : 'flex'}
         md:flex
       `}>
