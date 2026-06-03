@@ -22,6 +22,10 @@ drop policy if exists chat_mutes_insert on public.chat_mutes;
 create policy chat_mutes_insert on public.chat_mutes
   for insert with check (user_id = auth.uid());
 
+drop policy if exists chat_mutes_update on public.chat_mutes;
+create policy chat_mutes_update on public.chat_mutes
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+
 drop policy if exists chat_mutes_delete on public.chat_mutes;
 create policy chat_mutes_delete on public.chat_mutes
   for delete using (user_id = auth.uid());

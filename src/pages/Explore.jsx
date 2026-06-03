@@ -563,7 +563,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
               py/px + отрицательные margin дают мягкому свечению активной пилюли
               место для отрисовки: overflow-x-auto клипает и вертикаль, иначе glow
               обрезается в прямоугольник. */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full px-1 py-4 -my-3 -mx-1">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full px-1 py-4 -my-3">
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat
               const displayLabel = cat === 'All' ? t('filter_all') : t(`cat_${cat.toLowerCase()}`)
@@ -571,7 +571,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                 <button
                   key={cat}
                   onClick={() => { setSelectedCategory(cat); setSelectedTag(''); }}
-                  className={`lg-pill px-4 py-2 rounded-xl text-xs font-bold tracking-tight whitespace-nowrap ${
+                  className={`lg-pill flex-none px-4 py-2 rounded-xl text-xs font-bold tracking-tight whitespace-nowrap ${
                     isSelected ? 'lg-pill--active' : ''
                   }`}
                 >

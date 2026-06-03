@@ -157,6 +157,14 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
     }
   }, [isPaused, currentStoryIdx, currentGroupIdx])
 
+  // Sync isMuted state with the video element directly
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = isMuted
+    }
+  }, [isMuted, currentStoryIdx, currentGroupIdx])
+
+
   const handlePrev = () => {
     setProgress(0)
     if (currentStoryIdx > 0) {
