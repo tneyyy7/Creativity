@@ -142,6 +142,14 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Keep every text surface on one font. Form controls don't inherit
+   font-family by default, and Tailwind's Preflight forces a monospace
+   stack on code/kbd/samp/pre — override both so everything follows body. */
+button, input, optgroup, select, textarea,
+code, kbd, samp, pre {
+  font-family: inherit;
+}
+
 /* Reference-like background */
 .app-container {
   background: var(--app-gradient);
@@ -319,7 +327,7 @@ input[type="color"]::-moz-color-swatch {
 
 .pro-badge-text {
   font-size: 0.5rem; /* text-[8px] */
-  font-weight: 900; /* font-black */
+  font-weight: 700; /* font-black, lightened to match the lighter UI weights */
   color: #ffffff !important; /* text-white */
   -webkit-text-fill-color: #ffffff !important; /* reset inherited gradient text transparency */
   text-transform: uppercase;

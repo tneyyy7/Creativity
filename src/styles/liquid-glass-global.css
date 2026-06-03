@@ -16,7 +16,13 @@
 */
 
 .lg-fx-host {
-  position: relative;
+  /* НЕ задаём здесь position: relative. Селектор `.lg-fx-host` равен по
+     специфичности Tailwind-утилите `.absolute`, а этот файл грузится ПОЗЖЕ —
+     поэтому relative перебивал бы `absolute` у уже спозиционированных хостов.
+     Так, кнопка «+» на сторис (bg-purple-600 + absolute bottom-0 right-0) при
+     наведении теряла absolute и «улетала» в левый верхний угол. Контекст
+     позиционирования для оверлея ставим инлайном из liquidGlassAuto.js —
+     только если хост ещё `static`. */
   isolation: isolate; /* локализуем z-index:-1 оверлея внутри хоста */
 }
 
@@ -27,6 +33,14 @@
   border-radius: inherit;
   overflow: hidden;
   pointer-events: none;
+  /* Обнуляем margin принудительно. Оверлей вставляется ПОСЛЕДНИМ ребёнком хоста,
+     и если у хоста есть Tailwind-утилита `space-y-*` (селектор
+     `> :not([hidden]) ~ :not([hidden])`), оверлей как не-первый ребёнок получает
+     margin-top. Для absolute-элемента с `top:0` этот margin не меняет раскладку,
+     но СДВИГАЕТ сам оверлей вниз — стеклянная кромка/блик уезжали ниже верхней
+     грани карточки, оставляя непокрытую полосу сверху (видно на блоках Настроек).
+     `margin:0` возвращает оверлей точно по `inset:0`. */
+  margin: 0 !important;
   /* По умолчанию оверлей НЕВИДИМ. Стеклянная кромка появляется только при
      наведении (ниже, по [data-lg-hot]) и плавно гаснет при уходе курсора —
      иначе подсветка «залипала» бы навсегда после первого ховера. */
@@ -72,12 +86,18 @@
   will-change: width, height, opacity;
 }
 
-/* Лёгкий «отклик» главных кнопок на нажатие — упруго, как в iOS. */
+/* Лёгкий «отклик» главных кнопок на нажатие — упруго, как в iOS.
+   ВАЖНО: используем ОТДЕЛЬНОЕ свойство `scale`, а НЕ `transform: scale()`.
+   Многие absolute-кнопки центрируются трансформом (`-translate-y-1/2` и т.п.),
+   и `transform: scale()` затёр бы это центрирование на :active — иконки
+   «сползали» бы с места (а на тач/PWA :active часто залипает, и они оставались
+   смещёнными и некликабельными). Свойство `scale` композится с `transform`
+   независимо, поэтому центрирование сохраняется. */
 button.lg-fx-host {
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: scale 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 button.lg-fx-host:active {
-  transform: scale(0.97);
+  scale: 0.97;
 }
 
 /* Светлая тема: блик и капля чуть мягче, чтобы не выбеливать поверхности. */
@@ -113,13 +133,13 @@ button.lg-fx-host:active {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: rgb(156 163 175); /* gray-400 — неактивный текст */
   transition: color 0.25s ease, background 0.25s ease, border-color 0.25s ease,
-    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+    scale 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .lg-pill:hover {
   color: #fff;
 }
 .lg-pill:active {
-  transform: scale(0.96);
+  scale: 0.96;
 }
 
 /* Активное состояние — стеклянный акцент (фирменный цвет темы). */
@@ -150,7 +170,8 @@ button.lg-fx-host:active {
   .lg-fx-ripple {
     display: none;
   }
-  button.lg-fx-host:active {
-    transform: none;
+  button.lg-fx-host:active,
+  .lg-pill:active {
+    scale: none;
   }
 }

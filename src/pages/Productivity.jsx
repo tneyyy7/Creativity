@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp, Award, Calendar, Zap, Sparkles, Image as ImageIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
 
 export function Productivity() {
   const { t } = useTranslation()
@@ -97,20 +98,17 @@ export function Productivity() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3">{t('productivity')}</h1>
           <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">{t('productivity_subtitle')}</p>
         </div>
-        <div className="flex gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/5 self-start lg:self-auto">
-          <button
-            onClick={() => setView('weekly')}
-            className={`lg-pill px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest ${view === 'weekly' ? 'lg-pill--active' : ''}`}
-          >
-            {t('weekly')}
-          </button>
-          <button
-            onClick={() => setView('monthly')}
-            className={`lg-pill px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest ${view === 'monthly' ? 'lg-pill--active' : ''}`}
-          >
-            {t('monthly')}
-          </button>
-        </div>
+        <AnimatedPillGroup
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'weekly', label: t('weekly') },
+            { value: 'monthly', label: t('monthly') },
+          ]}
+          containerClassName="flex items-center gap-2 bg-white/[0.03] p-1 rounded-2xl border border-white/5 self-start lg:self-auto"
+          buttonClassName="lg-pill px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-tighter"
+          pillVariant="glass"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:gap-10">

@@ -162,6 +162,7 @@ export function Settings({ userEmail, currentTheme = 'purple', onThemeChange }) 
                 <button
                   key={th.id}
                   type="button"
+                  data-lg-fx
                   onClick={() => handleSelectTheme(th.id)}
                   className={`relative flex flex-col items-center gap-3 p-3 md:p-4 rounded-2xl border transition-all ${
                     active
@@ -219,6 +220,7 @@ export function Settings({ userEmail, currentTheme = 'purple', onThemeChange }) 
               />
             </div>
             <button
+              data-lg-fx
               onClick={handleChangePassword}
               disabled={changingPassword || !newPassword}
               className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-40 text-sm"

@@ -117,6 +117,7 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
             <span>{isSaveMode ? t('bookmark_save_btn') : t('save_to_collection')}</span>
           </h3>
           <button
+            data-lg-fx
             onClick={onClose}
             className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
           >
@@ -203,6 +204,7 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
               <div className="flex gap-3">
                 <button
                   type="button"
+                  data-lg-fx
                   onClick={() => setShowCreator(false)}
                   className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-400 hover:text-white rounded-xl transition-all"
                 >

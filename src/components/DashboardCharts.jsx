@@ -93,6 +93,7 @@ export default function DashboardCharts({ isPro, proStats }) {
                 tickCount={5}
               />
               <Tooltip
+                cursor={false}
                 contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
                 labelStyle={{ color: '#fff', fontWeight: 'bold' }}
                 itemStyle={{ color: '#f43f5e', fontWeight: 'bold' }}

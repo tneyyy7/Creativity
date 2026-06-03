@@ -48,12 +48,24 @@ function sheenAllowed(host, rect) {
 function ensureOverlay(host) {
   if (host.__lgOverlay && host.__lgOverlay.isConnected) return host.__lgOverlay
   host.classList.add('lg-fx-host')
+  // Оверлею (inset:0) нужен спозиционированный предок. Если хост ещё `static` —
+  // делаем его relative. Но НЕ трогаем уже спозиционированные элементы
+  // (absolute/relative/fixed/sticky): перебив их position, мы бы сбили их с
+  // места — напр. кнопка «+» на сторис улетала в левый верхний угол.
+  if (getComputedStyle(host).position === 'static') {
+    host.style.position = 'relative'
+  }
   const overlay = document.createElement('span')
   overlay.className = 'lg-fx-overlay'
   overlay.setAttribute('aria-hidden', 'true')
-  // Вставляем первым ребёнком: position:absolute убирает его из потока,
-  // поэтому на flex/grid-раскладку это не влияет.
-  host.insertBefore(overlay, host.firstChild)
+  // Добавляем ПОСЛЕДНИМ ребёнком (а не первым!). position:absolute убирает
+  // оверлей из flex/grid-потока, но НЕ из CSS-селектора Tailwind `space-y-*`
+  // (`> :not([hidden]) ~ :not([hidden])`), который раздаёт margin-top по ПОРЯДКУ
+  // в DOM. Если вставить оверлей первым, то первый реальный ребёнок получает
+  // лишний margin-top → карточка «подрастает» по высоте при наведении. Вставка
+  // последним сохраняет порядок реальных детей, а порядок отрисовки оверлея
+  // (под контентом) задаёт z-index:-1 + isolation:isolate, а не позиция в DOM.
+  host.appendChild(overlay)
   host.__lgOverlay = overlay
   return overlay
 }

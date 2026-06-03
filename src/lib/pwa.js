@@ -1,6 +1,11 @@
 const ONESIGNAL_APP_ID = '3aaec25a-5a3d-4029-8a79-7b2b93c86788';
 
 let isInitialized = false;
+// Set synchronously the moment the very first init callback starts running, so
+// rapid repeat calls (React StrictMode double-mount, the [user] effect re-firing)
+// don't each fire their own os.init() before isInitialized flips — that race is
+// what produced the storm of "SDK already initialized" errors in the console.
+let initStarted = false;
 let oneSignalInstance = null;
 let initPromiseResolve = null;
 let initError = null;
@@ -68,8 +73,12 @@ export function setOneSignalLanguage(lang) {
 
 export async function initOneSignal(userId) {
   runOnOneSignal(async (os) => {
-    if (isInitialized) {
-      if (userId && typeof os.login === 'function') {
+    if (isInitialized || initStarted) {
+      // Init has already completed (isInitialized) or is in flight (initStarted).
+      // Either way, never call os.init() again — just make sure the right user
+      // is logged in. Skip login() until init has actually finished, otherwise
+      // os.User isn't ready yet and login throws.
+      if (isInitialized && userId && typeof os.login === 'function') {
         try {
           await os.login(userId);
           console.log('OneSignal user logged in (already initialized):', userId);
@@ -77,11 +86,14 @@ export async function initOneSignal(userId) {
           console.error('OneSignal login error:', err);
         }
       }
-      await applyLanguage(os, getSiteLanguage());
-      if (initPromiseResolve) initPromiseResolve(os);
+      if (isInitialized) {
+        await applyLanguage(os, getSiteLanguage());
+        if (initPromiseResolve) initPromiseResolve(os);
+      }
       return;
     }
 
+    initStarted = true;
     try {
       // Enable detailed trace logs to easily debug iOS/PWA issues in Safari Web Inspector
       if (os.Debug && typeof os.Debug.setLogLevel === 'function') {
@@ -128,7 +140,9 @@ export async function initOneSignal(userId) {
         if (initPromiseResolve) initPromiseResolve(os);
         return;
       }
-      
+
+      // Genuine failure — allow a later call (e.g. subscribeToPush) to retry init.
+      initStarted = false;
       initError = error;
       if (initPromiseResolve) initPromiseResolve(null);
     }

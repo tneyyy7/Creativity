@@ -87,7 +87,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
               alt="Creativity Logo"
               className="w-12 h-12 rounded-2xl object-cover shadow-lg shadow-purple-900/40"
             />
-            <span className="text-2xl font-bold font-outfit text-white tracking-tight">Creativity</span>
+            <span className="text-2xl font-bold text-white tracking-tight">Creativity</span>
           </div>
           <button 
             onClick={onClose}

@@ -16,6 +16,20 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      // The UI read a touch too heavy in every language. Shift the prominent
+      // weights down one notch (the lighter ones stay put) so headings and
+      // bold labels are a bit slimmer everywhere, with zero markup changes.
+      // All target values map to weights already bundled (see main.jsx).
+      fontWeight: {
+        medium: '400',
+        semibold: '500',
+        bold: '500',
+        extrabold: '600',
+        black: '700',
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

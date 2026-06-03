@@ -1,6 +1,7 @@
 import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
+import { AnimatedPillGroup } from './AnimatedPillGroup'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchPendingRequests, respondToFriendRequest, fetchPostNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../lib/supabase'
 import { setOneSignalLanguage } from '../lib/pwa'
@@ -278,30 +279,43 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
                       )}
                     </div>
                     {/* Tabs */}
-                    <div className="flex gap-2">
-                      {[
-                        { key: 'all', label: t('all', 'All') },
-                        { key: 'requests', label: t('requests', 'Requests'), count: pendingRequests.length },
-                        { key: 'activity', label: t('activity', 'Activity'), count: postNotifications.length },
-                      ].map(tab => (
-                        <button
-                          key={tab.key}
-                          onClick={() => setActiveNotifTab(tab.key)}
-                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 ${
-                            activeNotifTab === tab.key
-                              ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
-                              : 'bg-white/5 text-gray-500 hover:text-gray-300 border border-white/5'
-                          }`}
-                        >
-                          {tab.label}
-                          {tab.count > 0 && (
-                            <span className="min-w-[16px] h-[16px] px-1 bg-red-500/80 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                              {tab.count}
+                    <AnimatedPillGroup
+                      value={activeNotifTab}
+                      onChange={setActiveNotifTab}
+                      options={[
+                        { value: 'all', label: t('all', 'All') },
+                        {
+                          value: 'requests',
+                          label: (
+                            <span className="inline-flex items-center gap-1.5">
+                              {t('requests', 'Requests')}
+                              {pendingRequests.length > 0 && (
+                                <span className="min-w-[16px] h-[16px] px-1 bg-red-500/80 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                                  {pendingRequests.length}
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                          ),
+                        },
+                        {
+                          value: 'activity',
+                          label: (
+                            <span className="inline-flex items-center gap-1.5">
+                              {t('activity', 'Activity')}
+                              {postNotifications.length > 0 && (
+                                <span className="min-w-[16px] h-[16px] px-1 bg-red-500/80 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                                  {postNotifications.length}
+                                </span>
+                              )}
+                            </span>
+                          ),
+                        },
+                      ]}
+                      containerClassName="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit"
+                      buttonClassName="lg-pill rounded-xl px-3 py-1.5 text-[11px] font-black uppercase tracking-tighter"
+                      pillClassName="rounded-xl"
+                      pillVariant="glass"
+                    />
                   </div>
                   
                   {/* Items */}

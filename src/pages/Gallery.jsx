@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Plus, Search, Trash2, MoreHorizontal, User, Palette, X, Upload, Loader2, Star, Medal, Zap, Crown, Sparkles, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, uploadPainting, fetchPaintings, savePaintingMetadata, deletePainting, fetchPaintingTags, savePaintingTags } from '../lib/supabase'
+import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
 
 export function Gallery({ onOpenPost }) {
   const { t } = useTranslation()
@@ -274,23 +275,18 @@ export function Gallery({ onOpenPost }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit">
-        {[
-          { id: 'all', label: t('filter_all') },
-          { id: 'finished', label: t('filter_finished') },
-          { id: 'in_progress', label: t('filter_in_progress') }
-        ].map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={`lg-pill px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-tighter ${
-              filter === f.id ? 'lg-pill--active' : ''
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <AnimatedPillGroup
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { value: 'all', label: t('filter_all') },
+          { value: 'finished', label: t('filter_finished') },
+          { value: 'in_progress', label: t('filter_in_progress') },
+        ]}
+        containerClassName="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit"
+        buttonClassName="lg-pill px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-tighter"
+        pillVariant="glass"
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
         <div className="flex flex-col gap-4">
@@ -487,6 +483,7 @@ export function Gallery({ onOpenPost }) {
 
               <div className="flex gap-4 pt-2">
                 <button
+                  data-lg-fx
                   onClick={() => {
                     if (pendingUploads.length > 0) {
                       setPendingUploads([])

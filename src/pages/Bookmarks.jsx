@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus, Gem, X, BadgeCheck, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchBookmarks, fetchUserCollections, createCollection } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { getNicknameStyle } from '../lib/nicknameStyle'
+import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
 
 export function Bookmarks({ onOpenPost }) {
   const { t } = useTranslation()
@@ -115,41 +117,40 @@ export function Bookmarks({ onOpenPost }) {
           </p>
         </div>
 
-        {/* Sub-tab selection row */}
+        {/* Right-side controls: action button + sub-tab selector grouped together so
+            появление кнопки «Create» не сдвигает переключатель из правого угла.
+            Переключатель — последний (правый) элемент, поэтому остаётся на месте. */}
         {!selectedCollection && (
-          <div className="flex bg-[#12111a] p-1 rounded-2xl border border-white/5 self-start lg:self-center">
-            <button
-              onClick={() => setActiveSubTab('bookmarks')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeSubTab === 'bookmarks' 
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {t('all_bookmarks')}
-            </button>
-            <button
-              onClick={() => setActiveSubTab('collections')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeSubTab === 'collections' 
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {t('my_collections')}
-            </button>
-          </div>
-        )}
+          <div className="flex items-center gap-5 self-start lg:self-auto">
+            {/* Кнопка «Create» рядом с переключателем — только когда альбомы УЖЕ есть.
+                Если альбомов нет, остаётся только центральный блок с кнопкой ниже. */}
+            {activeSubTab === 'collections' && collections.length > 0 && (
+              <button
+                onClick={() => setShowAlbumCreator(true)}
+                className="lg-pill px-5 py-2.5 rounded-2xl text-xs font-bold text-white flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(160deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.55) 100%)',
+                  border: '1px solid hsl(var(--primary) / 0.7)',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45), 0 3px 12px hsl(var(--primary) / 0.4)',
+                }}
+              >
+                <FolderPlus className="w-4 h-4" />
+                <span>{t('create_collection')}</span>
+              </button>
+            )}
 
-        {/* Action button inside Collections */}
-        {activeSubTab === 'collections' && !selectedCollection && (
-          <button
-            onClick={() => setShowAlbumCreator(true)}
-            className="px-5 py-3.5 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-purple-900/30"
-          >
-            <FolderPlus className="w-4 h-4" />
-            <span>{t('create_collection')}</span>
-          </button>
+            <AnimatedPillGroup
+              value={activeSubTab}
+              onChange={setActiveSubTab}
+              options={[
+                { value: 'bookmarks', label: t('all_bookmarks') },
+                { value: 'collections', label: t('my_collections') },
+              ]}
+              containerClassName="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit"
+              buttonClassName="lg-pill px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-tighter"
+              pillVariant="glass"
+            />
+          </div>
         )}
       </div>
 
@@ -349,16 +350,24 @@ export function Bookmarks({ onOpenPost }) {
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">{t('no_collections_yet')}</h3>
             <button
               onClick={() => setShowAlbumCreator(true)}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all mx-auto"
+              className="lg-pill px-5 py-2.5 rounded-2xl text-xs font-bold text-white inline-flex items-center gap-2 mx-auto"
+              style={{
+                background: 'linear-gradient(160deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.55) 100%)',
+                border: '1px solid hsl(var(--primary) / 0.7)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45), 0 3px 12px hsl(var(--primary) / 0.4)',
+              }}
             >
-              {t('create_collection')}
+              <FolderPlus className="w-4 h-4" />
+              <span>{t('create_collection')}</span>
             </button>
           </div>
         )
       )}
 
-      {/* Album Creation Panel Modal Overlay */}
-      {showAlbumCreator && (
+      {/* Album Creation Panel Modal Overlay.
+          Рендерим через портал в document.body, иначе fixed-оверлей привязывается
+          к контейнеру .tab-transition (will-change: transform) и выглядит как чёрный квадрат. */}
+      {showAlbumCreator && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-md p-6 relative shadow-2xl">
             <div className="flex justify-between items-center mb-6">
@@ -367,6 +376,7 @@ export function Bookmarks({ onOpenPost }) {
                 <span>{t('create_collection')}</span>
               </h3>
               <button 
+                data-lg-fx
                 onClick={() => setShowAlbumCreator(false)}
                 className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10"
               >
@@ -407,7 +417,8 @@ export function Bookmarks({ onOpenPost }) {
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

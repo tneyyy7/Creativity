@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchActiveStories, uploadStory, fetchViewedStoryIds } from '../lib/supabase'
 import { StoriesViewer } from './StoriesViewer'
 import { ProfileAvatar } from './ProfileAvatar'
+import { AnimatedPillGroup } from './AnimatedPillGroup'
 import { createPortal } from 'react-dom'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
@@ -353,56 +354,57 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
 
   return (
     <div className="w-full py-4 px-2 select-none">
-      <div className="flex flex-row flex-nowrap items-start gap-4 overflow-x-auto pb-2 scrollbar-none w-full">
+      <div className="flex flex-row flex-nowrap items-start gap-4 overflow-x-auto py-1 pb-2 scrollbar-none w-full">
         
         {/* Current User Upload Bubble */}
         <div className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
-          <div className="relative">
-            {currentUserGroup ? (
-              // If current user has stories, show with neon glowing gradient ring or simple gray border if fully viewed
-              <div
-                onClick={() => handleOpenGroup(activeStoryGroups.indexOf(currentUserGroup))}
-                className="relative w-16 h-16 hover:scale-105 active:scale-95 transition-transform duration-300 cursor-pointer"
-              >
-                {/* Ring layer */}
-                <div className={`absolute inset-0 rounded-full ${
-                  isGroupFullyViewed(currentUserGroup)
-                    ? 'border border-white/10 bg-[#181622]'
-                    : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500'
-                }`} />
-                {/* Dark gap between ring and image */}
-                <div className="absolute inset-[3px] rounded-full bg-[#0c0b11]" />
-                {/* Avatar — rounded-full clips directly on the img, no overflow-hidden needed */}
-                <img
-                  src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
-                  alt="Me"
-                  className="absolute rounded-full object-cover"
-                  style={{ inset: '4px', width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}
-                />
-              </div>
-            ) : (
-              // Otherwise just standard avatar with plus icon, no ring
-              <div
-                onClick={() => setUploadModalOpen(true)}
-                className="relative w-16 h-16 hover:scale-105 active:scale-95 transition-transform duration-300 cursor-pointer"
-              >
-                <div className="absolute inset-0 rounded-full bg-[#181622] border border-white/5" />
-                <img
-                  src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
-                  alt="Me"
-                  className="absolute rounded-full object-cover"
-                  style={{ inset: '3px', width: 'calc(100% - 6px)', height: 'calc(100% - 6px)' }}
-                />
-              </div>
-            )}
-            
-            {/* Pulsing Plus Button */}
-            <div 
-              onClick={() => setUploadModalOpen(true)}
-              className="absolute bottom-0 right-0 w-5 h-5 bg-purple-600 rounded-full border border-[#0c0b11] flex items-center justify-center text-white cursor-pointer shadow-lg shadow-purple-500/20 group-hover:scale-110 active:scale-90 transition-transform z-10"
+          {/* Fixed 64×64 box: avatar may scale inside; plus stays put (sibling, not transformed) */}
+          <div className="relative w-16 h-16 flex-shrink-0">
+            <div
+              onClick={() => currentUserGroup
+                ? handleOpenGroup(activeStoryGroups.indexOf(currentUserGroup))
+                : setUploadModalOpen(true)}
+              className="absolute inset-0 group-hover:opacity-90 active:opacity-80 transition-opacity duration-300 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
+              {currentUserGroup ? (
+                <>
+                  <div className={`absolute inset-0 rounded-full ${
+                    isGroupFullyViewed(currentUserGroup)
+                      ? 'border border-white/10 bg-[#181622]'
+                      : 'bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-500'
+                  }`} />
+                  <div className="absolute inset-[3px] rounded-full bg-[#0c0b11]" />
+                  <img
+                    src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
+                    alt="Me"
+                    className="absolute rounded-full object-cover"
+                    style={{ inset: '4px', width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="absolute inset-0 rounded-full bg-[#181622] border border-white/5" />
+                  <img
+                    src={avatarUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=150'}
+                    alt="Me"
+                    className="absolute rounded-full object-cover"
+                    style={{ inset: '3px', width: 'calc(100% - 6px)', height: 'calc(100% - 6px)' }}
+                  />
+                </>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setUploadModalOpen(true)
+              }}
+              className="absolute bottom-0 right-0 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-[#0c0b11] bg-purple-600 text-white shadow-lg shadow-purple-500/20 cursor-pointer hover:bg-purple-500 active:scale-95 transition-colors"
+              aria-label={t('add_to_story')}
+            >
+              <Plus className="w-3.5 h-3.5 pointer-events-none" />
+            </button>
           </div>
           <span className="text-[11px] font-bold text-gray-400 group-hover:text-white transition-colors tracking-tight text-center max-w-[70px] truncate">
             {t('you')}
@@ -586,26 +588,19 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                       <div className="flex flex-col gap-2 absolute top-3 left-3 right-3 z-30 pointer-events-auto" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between bg-black/85 p-1.5 rounded-2xl border border-white/5 shadow-xl backdrop-blur-md">
                           {/* Mode toggle */}
-                          <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5">
-                            <button
-                              type="button"
-                              onClick={() => setEditMode('pan')}
-                              className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
-                                editMode === 'pan' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-                              }`}
-                            >
-                              Pan/Zoom
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditMode('draw')}
-                              className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
-                                editMode === 'draw' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-                              }`}
-                            >
-                              Draw
-                            </button>
-                          </div>
+                          <AnimatedPillGroup
+                            value={editMode}
+                            onChange={setEditMode}
+                            options={[
+                              { value: 'pan', label: 'Pan/Zoom' },
+                              { value: 'draw', label: 'Draw' },
+                            ]}
+                            containerClassName="flex items-center gap-1 bg-white/[0.03] p-0.5 rounded-xl border border-white/5"
+                            buttonClassName="lg-pill px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter"
+                            inactiveClassName="text-gray-400 hover:text-white"
+                            pillClassName="rounded-lg"
+                            pillVariant="glass"
+                          />
                           
                           {editMode === 'draw' && (
                             <button
@@ -635,20 +630,20 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                               ))}
                             </div>
                             {/* Brush Sizes */}
-                            <div className="flex gap-1">
-                              {[2, 4, 8].map(size => (
-                                <button
-                                  key={size}
-                                  type="button"
-                                  onClick={() => setBrushSize(size)}
-                                  className={`px-1.5 py-0.5 rounded text-[8px] font-black border transition-all ${
-                                    brushSize === size ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-transparent hover:text-white'
-                                  }`}
-                                >
-                                  {size === 2 ? 'Thin' : size === 4 ? 'Med' : 'Thick'}
-                                </button>
-                              ))}
-                            </div>
+                            <AnimatedPillGroup
+                              value={brushSize}
+                              onChange={setBrushSize}
+                              options={[
+                                { value: 2, label: 'Thin' },
+                                { value: 4, label: 'Med' },
+                                { value: 8, label: 'Thick' },
+                              ]}
+                              containerClassName="flex items-center gap-1 bg-white/[0.03] p-0.5 rounded-lg border border-white/5"
+                              buttonClassName="lg-pill px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter"
+                              inactiveClassName="text-gray-400 hover:text-white"
+                              pillClassName="rounded-md"
+                              pillVariant="glass"
+                            />
                           </div>
                         )}
                       </div>

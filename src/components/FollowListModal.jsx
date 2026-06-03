@@ -4,6 +4,7 @@ import { X, Loader2, BadgeCheck, Gem, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchFollowers, fetchFollowing } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
+import { AnimatedPillGroup } from './AnimatedPillGroup'
 
 /**
  * Modal showing a user's followers / following lists with two switchable tabs.
@@ -39,20 +40,6 @@ export function FollowListModal({ userId, initialTab = 'followers', onClose, onV
     (u?.nickname || '').toLowerCase().includes((search || '').toLowerCase())
   )
 
-  const TabButton = ({ id, label }) => (
-    <button
-      type="button"
-      onClick={() => setTab(id)}
-      className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${
-        tab === id
-          ? 'text-white border-purple-500'
-          : 'text-gray-500 border-transparent hover:text-gray-300'
-      }`}
-    >
-      {label}
-    </button>
-  )
-
   return createPortal(
     <div
       className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
@@ -76,9 +63,20 @@ export function FollowListModal({ userId, initialTab = 'followers', onClose, onV
         </div>
 
         {/* Tabs */}
-        <div className="flex px-5 border-b border-white/10">
-          <TabButton id="followers" label={t('followers') || 'Followers'} />
-          <TabButton id="following" label={t('following') || 'Following'} />
+        <div className="px-5 pt-1 pb-3 border-b border-white/10">
+          <AnimatedPillGroup
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'followers', label: t('followers') || 'Followers' },
+              { value: 'following', label: t('following') || 'Following' },
+            ]}
+            containerClassName="flex items-center gap-2 p-1 rounded-2xl bg-white/[0.03] border border-white/5"
+            buttonClassName="lg-pill flex-1 py-2.5 text-xs font-black uppercase tracking-tighter rounded-xl"
+            inactiveClassName="text-gray-500 hover:text-gray-300"
+            pillClassName="rounded-xl"
+            pillVariant="glass"
+          />
         </div>
 
         {/* Search */}
@@ -93,12 +91,12 @@ export function FollowListModal({ userId, initialTab = 'followers', onClose, onV
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pb-5 space-y-1">
-          {loading ? (
+        <div className="h-[380px] overflow-y-auto custom-scrollbar px-3 pb-5 space-y-1 relative">
+          {loading && users.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filtered.length === 0 && !loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500 gap-3">
               <Users className="w-10 h-10 opacity-40" />
               <p className="text-sm font-bold">
@@ -108,34 +106,42 @@ export function FollowListModal({ userId, initialTab = 'followers', onClose, onV
               </p>
             </div>
           ) : (
-            filtered.map(u => (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => handleSelect(u.id)}
-                className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-white/5 transition-all text-left"
-              >
-                <ProfileAvatar
-                  avatarUrl={u.avatar_url}
-                  workCount={u.finished_work_count}
-                  size="sm"
-                  isPro={u.isPro}
-                  avatarFrame={u.avatar_frame}
-                />
-                <span className="flex items-center gap-1.5 font-bold text-white notranslate" translate="no" style={{ color: u.nickname_color || undefined }}>
-                  {u.nickname || 'Unknown'}
-                  {u.is_verified && (
-                    <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
-                  )}
-                  {u.isPro && (
-                    <span className="pro-badge">
-                      <Gem className="pro-badge-icon" />
-                      <span className="pro-badge-text">Pro</span>
-                    </span>
-                  )}
-                </span>
-              </button>
-            ))
+            <div className={loading ? 'opacity-40 pointer-events-none transition-opacity duration-200' : 'transition-opacity duration-200'}>
+              {filtered.map(u => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => handleSelect(u.id)}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-white/5 transition-all text-left"
+                >
+                  <ProfileAvatar
+                    avatarUrl={u.avatar_url}
+                    workCount={u.finished_work_count}
+                    size="sm"
+                    isPro={u.isPro}
+                    avatarFrame={u.avatar_frame}
+                  />
+                  <span className="flex items-center gap-1.5 font-bold text-white notranslate" translate="no" style={{ color: u.nickname_color || undefined }}>
+                    {u.nickname || 'Unknown'}
+                    {u.is_verified && (
+                      <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
+                    )}
+                    {u.isPro && (
+                      <span className="pro-badge">
+                        <Gem className="pro-badge-icon" />
+                        <span className="pro-badge-text">Pro</span>
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))
+              }
+            </div>
+          )}
+          {loading && users.length > 0 && (
+            <div className="absolute inset-0 bg-[#15131d]/40 backdrop-blur-[1px] flex items-center justify-center z-10">
+              <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+            </div>
           )}
         </div>
       </div>

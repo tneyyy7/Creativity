@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff } from 'lucide-react'
+import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat } from '../lib/supabase'
+import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat, uploadAvatar } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { CreateGroupModal } from '../components/CreateGroupModal'
 import { PostViewerModal } from '../components/PostViewerModal'
+import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 // Small avatar used for group chats (image if set, otherwise a Users glyph).
@@ -30,9 +31,42 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [isMobileView, setIsMobileView] = useState(false)
+  const [selectedContextMsg, setSelectedContextMsg] = useState(null)
+  // Screen rect of the tapped bubble (so the context menu can be anchored to it
+  // instead of being centered) and the resolved on-screen positions.
+  const [contextMenuRect, setContextMenuRect] = useState(null)
+  const [contextMenuPos, setContextMenuPos] = useState(null)
+  const [ctxReady, setCtxReady] = useState(false)
+  const contextMenuRef = useRef(null)
   // Tracks whether we are on a phone-sized viewport (Tailwind's md breakpoint = 768px).
   // On phones the open chat is rendered as a full-screen overlay for a real messenger feel.
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches)
+  const isMobileOrTablet = isMobile || (typeof window !== 'undefined' && window.innerWidth <= 1024)
+  const longPressTimerRef = useRef(null)
+  const pointerStartPos = useRef({ x: 0, y: 0 })
+  const wasLongPressRef = useRef(false)
+
+  // Open the message action menu, remembering exactly where the tapped bubble
+  // sits on screen so the panel can appear right under/over it (iOS/Telegram style).
+  const openContextMenu = (msg, el) => {
+    let rect = null
+    if (el && typeof el.getBoundingClientRect === 'function') {
+      const b = el.getBoundingClientRect()
+      rect = { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }
+    }
+    setContextMenuRect(rect)
+    setContextMenuPos(null)
+    setCtxReady(false)
+    setSelectedContextMsg(msg)
+  }
+
+  const closeContextMenu = () => {
+    setSelectedContextMsg(null)
+    setContextMenuRect(null)
+    setContextMenuPos(null)
+    setCtxReady(false)
+  }
+
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)')
@@ -40,6 +74,62 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
+
+  // Resolve where the message action panel should sit: keep the tapped bubble in
+  // place and drop the panel directly below it, or flip above it when there is
+  // not enough room below. Falls back to a near-bottom position only when the
+  // panel cannot fit on either side of the bubble.
+  useLayoutEffect(() => {
+    if (!selectedContextMsg) return
+    let rafId
+    const compute = () => {
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const MARGIN = 12
+      const GAP = 8
+      const menuW = Math.min(340, vw - MARGIN * 2)
+      const menuH = contextMenuRef.current ? contextMenuRef.current.offsetHeight : 0
+      const isMine = selectedContextMsg.sender_id === currentUser.id
+
+      const rect = contextMenuRect || {
+        top: vh * 0.4, bottom: vh * 0.4, left: (vw - menuW) / 2,
+        right: (vw + menuW) / 2, width: menuW, height: 0,
+      }
+
+      // Align the panel to the same side as the bubble, clamped to the viewport.
+      let menuLeft = isMine ? rect.right - menuW : rect.left
+      menuLeft = Math.max(MARGIN, Math.min(menuLeft, vw - MARGIN - menuW))
+
+      let bubbleTop = rect.top
+      let menuTop
+      const fitsBelow = rect.bottom + GAP + menuH <= vh - MARGIN
+      const fitsAbove = rect.top - GAP - menuH >= MARGIN
+      if (fitsBelow) {
+        menuTop = rect.bottom + GAP
+      } else if (fitsAbove) {
+        menuTop = rect.top - GAP - menuH
+      } else {
+        // Pin the panel to the bottom margin and lift the bubble just above it.
+        menuTop = Math.max(MARGIN, vh - MARGIN - menuH)
+        bubbleTop = Math.max(MARGIN, menuTop - GAP - rect.height)
+      }
+
+      setContextMenuPos({
+        bubbleTop, bubbleLeft: rect.left, bubbleWidth: rect.width,
+        menuTop, menuLeft, menuWidth: menuW,
+        maxMenuHeight: vh - MARGIN * 2,
+        placedAbove: !fitsBelow && fitsAbove,
+      })
+      rafId = requestAnimationFrame(() => setCtxReady(true))
+    }
+    compute()
+    const onResize = () => compute()
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      if (rafId) cancelAnimationFrame(rafId)
+    }
+  }, [selectedContextMsg, contextMenuRect, currentUser.id])
 
   // Expose the "back" step (open chat → chat list) to the global edge-swipe
   // gesture handled in App. Only registers while a chat is open on a phone.
@@ -123,6 +213,8 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [showAddMembers, setShowAddMembers] = useState(false)
   const [showMembersPanel, setShowMembersPanel] = useState(false)
+  const [uploadingGroupAvatar, setUploadingGroupAvatar] = useState(false)
+  const groupAvatarInputRef = useRef(null)
   // Group "typing": map of userId -> nickname for everyone currently typing.
   const [groupTypers, setGroupTypers] = useState({})
   const groupTyperTimeouts = useRef({})
@@ -776,6 +868,24 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     }
   }
 
+  // Admins can swap the group photo. Reuses the avatars bucket + group_chats.avatar_url.
+  const handleGroupAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = '' // allow re-picking the same file later
+    if (!file || !activeChat?.id || !isGroupAdmin) return
+    try {
+      setUploadingGroupAvatar(true)
+      const url = await uploadAvatar(file, currentUser.id)
+      await updateGroupChat(activeChat.id, { avatar_url: url })
+      setActiveChat((prev) => ({ ...prev, avatar_url: url }))
+      loadConversations()
+    } catch (err) {
+      console.error('Group avatar upload error:', err)
+    } finally {
+      setUploadingGroupAvatar(false)
+    }
+  }
+
   const handleDelete = async (id) => {
     if (!window.confirm(t('confirm_delete_message'))) return
     try {
@@ -801,6 +911,275 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   const handleCancelEdit = () => {
     setEditingId(null)
     setInput('')
+  }
+
+  const handlePointerDown = (e, msg) => {
+    if (!isMobileOrTablet) return
+    // Only handle primary (left click / touch) pointer actions
+    if (e.button !== 0) return
+
+    // Ignore if pointer is on an interactive child element
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('[role="button"]') || e.target.closest('img') || e.target.closest('video')) {
+      return
+    }
+
+    pointerStartPos.current = { x: e.clientX, y: e.clientY }
+    wasLongPressRef.current = false
+    // Remember the bubble element now; e.currentTarget is reset by the time the timer fires.
+    const bubbleEl = e.currentTarget
+
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+
+    longPressTimerRef.current = setTimeout(() => {
+      wasLongPressRef.current = true
+      openContextMenu(msg, bubbleEl)
+      if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+        try {
+          window.navigator.vibrate(50)
+        } catch (err) {
+          // Ignore vibration errors if restricted by browser security sandbox
+        }
+      }
+    }, 500)
+  }
+
+  const handlePointerMove = (e) => {
+    if (!isMobileOrTablet) return
+    if (!longPressTimerRef.current) return
+
+    const diffX = Math.abs(e.clientX - pointerStartPos.current.x)
+    const diffY = Math.abs(e.clientY - pointerStartPos.current.y)
+    // Cancel long press if pointer moved more than 10px (e.g. during a scroll gesture)
+    if (diffX > 10 || diffY > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+    }
+  }
+
+  const handlePointerUp = (e) => {
+    if (!isMobileOrTablet) return
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    if (wasLongPressRef.current) {
+      e.preventDefault()
+      e.stopPropagation()
+      try {
+        e.target.releasePointerCapture(e.pointerId)
+      } catch (err) {}
+    }
+  }
+
+  const handlePointerCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    wasLongPressRef.current = false
+  }
+
+  const isGroupMessageRead = (msg) => {
+
+    if (!isGroup || !groupMembers || groupMembers.length === 0) return false
+    return groupMembers.some(member => {
+      if (member.id === msg.sender_id) return false
+      if (!member.last_read_at) return false
+      return new Date(member.last_read_at) >= new Date(msg.created_at)
+    })
+  }
+
+  // Per-person read-receipt list shown in the message-info card (own messages only).
+  // For groups every other member is listed with their read/delivered state; for
+  // direct chats it's just the single interlocutor. `readTime` is null when unread.
+  const getMessageReaders = (msg) => {
+    if (!msg) return []
+    if (isGroup) {
+      return groupMembers
+        .filter((m) => m.id !== currentUser.id)
+        .map((m) => {
+          const read = !!m.last_read_at && new Date(m.last_read_at) >= new Date(msg.created_at)
+          return {
+            id: m.id,
+            nickname: m.nickname,
+            nickname_color: m.nickname_color,
+            avatar_url: m.avatar_url,
+            avatar_frame: m.avatar_frame,
+            finished_work_count: m.finished_work_count,
+            isPro: m.isPro,
+            is_verified: m.is_verified,
+            read,
+            readTime: read ? m.last_read_at : null,
+          }
+        })
+        // Readers first, then people who haven't seen it yet.
+        .sort((a, b) => (a.read === b.read ? 0 : a.read ? -1 : 1))
+    }
+    if (activeChat) {
+      const read = !!msg.is_read
+      return [{
+        id: activeChat.id,
+        nickname: activeChat.nickname,
+        nickname_color: activeChat.nickname_color,
+        avatar_url: activeChat.avatar_url,
+        avatar_frame: activeChat.avatar_frame,
+        finished_work_count: activeChat.finished_work_count,
+        isPro: activeChat.isPro,
+        is_verified: activeChat.is_verified,
+        read,
+        readTime: read ? (msg.read_at || null) : null,
+      }]
+    }
+    return []
+  }
+
+  const renderMessageContent = (msg) => {
+    if (!msg) return null;
+    return (
+      <>
+        {isGroup && msg.sender_id !== currentUser.id && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onViewProfile?.(msg.sender_id); }}
+            className="block text-[11px] font-black mb-1 hover:underline"
+            style={getNicknameStyle(groupMemberMap.current.get(msg.sender_id)?.nickname_color, '#c4b5fd')}
+          >
+            {groupMemberMap.current.get(msg.sender_id)?.nickname || t('user') || 'User'}
+          </button>
+        )}
+        {msg.reply_to_id && (() => {
+          const repliedMsg = messages.find(m => m.id === msg.reply_to_id)
+          const repliedName = repliedMsg?.sender_id === currentUser.id
+            ? (t('you') || 'You')
+            : isGroup
+              ? (groupMemberMap.current.get(repliedMsg?.sender_id)?.nickname || t('user') || 'User')
+              : activeChat.nickname
+          return (
+            <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-2 border-purple-400/50 text-xs opacity-80 max-w-full truncate flex flex-col">
+              <span className="text-[10px] uppercase font-bold text-purple-300/70 mb-1">{repliedName}</span>
+              <span className="truncate italic">"{cleanEmojiTags(repliedMsg?.content) || t('message_deleted')}"</span>
+            </div>
+          )
+        })()}
+        {msg.content?.startsWith('[PROFILE_SHARE:') ? (() => {
+          try {
+            const data = JSON.parse(msg.content.replace('[PROFILE_SHARE:', '').replace(']', ''))
+            return (
+              <div className="py-2 space-y-4">
+                <div className="flex flex-col items-center text-center gap-3 p-4 bg-black/20 rounded-2xl border border-white/5 shadow-inner">
+                  <ProfileAvatar avatarUrl={data.avatar_url} workCount={data.work_count} size="lg" isPro={data.isPro} avatarFrame={data.avatar_frame} />
+                  <div>
+                    <h4 className="font-black text-white text-lg flex items-center justify-center gap-1.5 notranslate" translate="no">
+                      <span style={getNicknameStyle(data.nickname_color)}>
+                        {data.nickname}
+                      </span>
+                      {data.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
+                      {data.isPro && (
+                        <span className="pro-badge">
+                          <Gem className="pro-badge-icon" />
+                          <span className="pro-badge-text">Pro</span>
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-[10px] text-purple-400 font-bold uppercase tracking-[0.2em] mt-1">{t('artist_profile')}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onViewProfile?.(data.id); }}
+                  className="w-full py-3 bg-white text-purple-600 font-black rounded-xl hover:bg-purple-50 transition-all shadow-lg active:scale-95"
+                >
+                  {t('view_profile')}
+                </button>
+              </div>
+            )
+          } catch (e) {
+            return msg.content
+          }
+        })() : msg.content?.startsWith('[POST_SHARE:') ? (() => {
+          try {
+            const data = JSON.parse(msg.content.slice('[POST_SHARE:'.length, -1))
+            return (
+              <div
+                className="py-2 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); openSharedPost(data); }}
+              >
+                <div className="bg-black/20 rounded-2xl overflow-hidden border border-white/5">
+                  {data.image_url && (
+                    <img
+                      src={data.image_url}
+                      alt={data.title || 'artwork'}
+                      className="w-full max-h-48 object-cover"
+                    />
+                  )}
+                  <div className="p-3">
+                    {data.title && <p className="text-white font-black text-sm">{data.title}</p>}
+                    {data.author_nickname && (
+                      <p className="text-[10px] text-purple-300/70 font-bold uppercase tracking-widest mt-0.5">
+                        by {data.author_nickname}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          } catch (e) {
+            return msg.content
+          }
+        })() : msg.content?.startsWith('[STORY_SHARE:') ? (() => {
+          try {
+            const data = JSON.parse(msg.content.slice('[STORY_SHARE:'.length, -1))
+            const isVid = data.image_url && ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(data.image_url.split('?')[0].split('.').pop().toLowerCase())
+            return (
+              <div className="py-1.5 space-y-2.5 max-w-[260px]">
+                <div className="bg-black/30 rounded-2xl overflow-hidden border border-white/5 p-2 flex gap-3 items-center backdrop-blur-md">
+                  {data.image_url && (
+                    <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-white/10 bg-black flex items-center justify-center">
+                      {isVid ? (
+                        <video src={data.image_url} className="w-full h-full object-cover" muted playsInline autoPlay loop />
+                      ) : (
+                        <img src={data.image_url} alt="" className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] text-purple-300 font-black uppercase tracking-wider">{t('reply_to_story', 'Ответ на историю')}</p>
+                    {data.caption && <p className="text-gray-400 text-[10px] italic truncate mt-0.5">"{data.caption}"</p>}
+                  </div>
+                </div>
+                {data.comment && (
+                  <p className="text-white text-xs leading-relaxed px-1 font-medium">{data.comment}</p>
+                )}
+              </div>
+            )
+          } catch (e) {
+            return msg.content
+          }
+        })() : (() => {
+          // Telegram-style: a lone emoji is shown big; several stay small.
+          const custom = singleCustomEmoji(msg.content)
+          if (custom) {
+            return (
+              <img
+                src={custom.url}
+                alt={`:${custom.name}:`}
+                title={`:${custom.name}:`}
+                className="block w-20 h-20 sm:w-24 sm:h-24 object-contain select-none animate-in fade-in zoom-in-50 duration-200"
+              />
+            )
+          }
+          if (soleEmojiCount(msg.content) === 1) {
+            return (
+              <span className="block text-5xl sm:text-6xl leading-none py-0.5">
+                {msg.content.trim()}
+              </span>
+            )
+          }
+          return parseMessageContent(msg.content)
+        })()}
+      </>
+    );
   }
 
   const openSharedPost = async (data) => {
@@ -1155,6 +1534,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                             return (
                               <button
                                 key={themeKey}
+                                data-lg-fx
                                 onClick={async () => {
                                   try {
                                     setChatTheme(themeKey)
@@ -1222,6 +1602,12 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                               >
                                 <Pencil className="w-3.5 h-3.5" /> {t('rename_group') || 'Rename'}
                               </button>
+                              <button
+                                onClick={() => { setShowThemeMenu(false); if (!uploadingGroupAvatar) groupAvatarInputRef.current?.click() }}
+                                className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                              >
+                                <Camera className="w-3.5 h-3.5" /> {t('change_group_photo') || 'Change photo'}
+                              </button>
                             </>
                           )}
                           <button
@@ -1248,271 +1634,159 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                     key={msg.id || i}
                     className={`flex group ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`
-                    max-w-[85%] sm:max-w-[75%] md:max-w-[70%] relative pt-2.5 pb-1.5 px-3.5 sm:pt-3 sm:pb-2 sm:px-4 rounded-2xl md:rounded-[1.5rem] text-sm md:text-[15px] font-medium shadow-xl transition-all
-                    ${msg.sender_id === currentUser.id
-                        ? `${activeTheme.myBubble} rounded-tr-none ml-auto`
-                        : `${activeTheme.theirBubble} rounded-tl-none mr-auto`}
-                  `}>
-                      {isGroup && msg.sender_id !== currentUser.id && (
-                        <button
-                          type="button"
-                          onClick={() => onViewProfile?.(msg.sender_id)}
-                          className="block text-[11px] font-black mb-1 hover:underline"
-                          style={getNicknameStyle(groupMemberMap.current.get(msg.sender_id)?.nickname_color, '#c4b5fd')}
-                        >
-                          {groupMemberMap.current.get(msg.sender_id)?.nickname || t('user') || 'User'}
-                        </button>
-                      )}
-                      {msg.reply_to_id && (() => {
-                            const repliedMsg = messages.find(m => m.id === msg.reply_to_id)
-                            const repliedName = repliedMsg?.sender_id === currentUser.id
-                              ? (t('you') || 'You')
-                              : isGroup
-                                ? (groupMemberMap.current.get(repliedMsg?.sender_id)?.nickname || t('user') || 'User')
-                                : activeChat.nickname
+                    <div 
+                      onPointerDown={(e) => handlePointerDown(e, msg)}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={handlePointerUp}
+                      onPointerCancel={handlePointerCancel}
+                      onClick={(e) => {
+                        if (isMobileOrTablet) {
+                          if (e.target.closest('button') || e.target.closest('a') || e.target.closest('[role="button"]') || e.target.closest('img') || e.target.closest('video')) {
+                            return
+                          }
+                          e.stopPropagation()
+                          if (wasLongPressRef.current) {
+                            wasLongPressRef.current = false
+                            return
+                          }
+                          openContextMenu(msg, e.currentTarget)
+                        }
+                      }}
+                      className={`
+                      max-w-[85%] sm:max-w-[75%] md:max-w-[70%] relative pt-2.5 pb-1.5 px-3.5 sm:pt-3 sm:pb-2 sm:px-4 rounded-2xl md:rounded-[1.5rem] text-sm md:text-[15px] font-medium shadow-xl transition-all
+                      ${msg.sender_id === currentUser.id
+                          ? `${activeTheme.myBubble} rounded-tr-none ml-auto`
+                          : `${activeTheme.theirBubble} rounded-tl-none mr-auto`}
+                      ${isMobileOrTablet ? 'cursor-pointer active:scale-[0.99] select-none' : ''}
+                    `}>
+                      {renderMessageContent(msg)}
+
+                      {/* Message Reactions */}
+                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1.5 mb-0.5 justify-start">
+                          {Object.entries(
+                            Object.entries(msg.reactions).reduce((acc, [uid, emos]) => {
+                              const emosArray = Array.isArray(emos) ? emos : (emos ? [emos] : [])
+                              emosArray.forEach(emo => {
+                                acc[emo] = acc[emo] || []
+                                acc[emo].push(uid)
+                              })
+                              return acc
+                            }, {})
+                          ).map(([emo, uids]) => {
+                            const hasReacted = uids.includes(currentUser.id)
                             return (
-                            <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-2 border-purple-400/50 text-xs opacity-80 max-w-full truncate flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-purple-300/70 mb-1">{repliedName}</span>
-                              <span className="truncate italic">"{cleanEmojiTags(repliedMsg?.content) || t('message_deleted')}"</span>
-                            </div>
-                          )})()}
-                          {msg.content?.startsWith('[PROFILE_SHARE:') ? (() => {
-                            try {
-                              const data = JSON.parse(msg.content.replace('[PROFILE_SHARE:', '').replace(']', ''))
-                              return (
-                                <div className="py-2 space-y-4">
-                                  <div className="flex flex-col items-center text-center gap-3 p-4 bg-black/20 rounded-2xl border border-white/5 shadow-inner">
-                                    <ProfileAvatar avatarUrl={data.avatar_url} workCount={data.work_count} size="lg" isPro={data.isPro} avatarFrame={data.avatar_frame} />
-                                    <div>
-                                      <h4 className="font-black text-white text-lg flex items-center justify-center gap-1.5 notranslate" translate="no">
-                                        <span style={getNicknameStyle(data.nickname_color)}>
-                                          {data.nickname}
-                                        </span>
-                                        {data.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
-                                        {data.isPro && (
-                                          <span className="pro-badge">
-                                            <Gem className="pro-badge-icon" />
-                                            <span className="pro-badge-text">Pro</span>
-                                          </span>
-                                        )}
-                                      </h4>
-                                      <p className="text-[10px] text-purple-400 font-bold uppercase tracking-[0.2em] mt-1">{t('artist_profile')}</p>
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() => onViewProfile?.(data.id)}
-                                    className="w-full py-3 bg-white text-purple-600 font-black rounded-xl hover:bg-purple-50 transition-all shadow-lg active:scale-95"
-                                  >
-                                    {t('view_profile')}
-                                  </button>
-                                </div>
-                              )
-                            } catch (e) {
-                              return msg.content
-                            }
-                          })() : msg.content?.startsWith('[POST_SHARE:') ? (() => {
-                            try {
-                              const data = JSON.parse(msg.content.slice('[POST_SHARE:'.length, -1))
-                              return (
-                                <div
-                                  className="py-2 cursor-pointer"
-                                  onClick={() => openSharedPost(data)}
-                                >
-                                  <div className="bg-black/20 rounded-2xl overflow-hidden border border-white/5">
-                                    {data.image_url && (
-                                      <img
-                                        src={data.image_url}
-                                        alt={data.title || 'artwork'}
-                                        className="w-full max-h-48 object-cover"
-                                      />
-                                    )}
-                                    <div className="p-3">
-                                      {data.title && <p className="text-white font-black text-sm">{data.title}</p>}
-                                      {data.author_nickname && (
-                                        <p className="text-[10px] text-purple-300/70 font-bold uppercase tracking-widest mt-0.5">
-                                          by {data.author_nickname}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            } catch (e) {
-                              return msg.content
-                            }
-                          })() : msg.content?.startsWith('[STORY_SHARE:') ? (() => {
-                            try {
-                              const data = JSON.parse(msg.content.slice('[STORY_SHARE:'.length, -1))
-                              const isVid = data.image_url && ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(data.image_url.split('?')[0].split('.').pop().toLowerCase())
-                              return (
-                                <div className="py-1.5 space-y-2.5 max-w-[260px]">
-                                  <div className="bg-black/30 rounded-2xl overflow-hidden border border-white/5 p-2 flex gap-3 items-center backdrop-blur-md">
-                                    {data.image_url && (
-                                      <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-white/10 bg-black flex items-center justify-center">
-                                        {isVid ? (
-                                          <video src={data.image_url} className="w-full h-full object-cover" muted playsInline autoPlay loop />
-                                        ) : (
-                                          <img src={data.image_url} alt="" className="w-full h-full object-cover" />
-                                        )}
-                                      </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-[9px] text-purple-300 font-black uppercase tracking-wider">{t('reply_to_story', 'Ответ на историю')}</p>
-                                      {data.caption && <p className="text-gray-400 text-[10px] italic truncate mt-0.5">"{data.caption}"</p>}
-                                    </div>
-                                  </div>
-                                  {data.comment && (
-                                    <p className="text-white text-xs leading-relaxed px-1 font-medium">{data.comment}</p>
-                                  )}
-                                </div>
-                              )
-                            } catch (e) {
-                              return msg.content
-                            }
-                          })() : (() => {
-                            // Telegram-style: a lone emoji is shown big; several stay small.
-                            const custom = singleCustomEmoji(msg.content)
-                            if (custom) {
-                              return (
-                                <img
-                                  src={custom.url}
-                                  alt={`:${custom.name}:`}
-                                  title={`:${custom.name}:`}
-                                  className="block w-20 h-20 sm:w-24 sm:h-24 object-contain select-none animate-in fade-in zoom-in-50 duration-200"
-                                />
-                              )
-                            }
-                            if (soleEmojiCount(msg.content) === 1) {
-                              return (
-                                <span className="block text-5xl sm:text-6xl leading-none py-0.5">
-                                  {msg.content.trim()}
+                              <button
+                                key={emo}
+                                onClick={(e) => { e.stopPropagation(); handleToggleReaction(msg, emo); }}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs border transition-all ${
+                                  msg.sender_id === currentUser.id
+                                    ? hasReacted
+                                      ? 'bg-black/35 border-white/20 text-white font-bold'
+                                      : 'bg-black/15 border-black/10 text-white/80 hover:bg-black/25 hover:text-white'
+                                    : hasReacted
+                                      ? 'bg-purple-600/20 border-purple-500/30 text-purple-300'
+                                      : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
+                                }`}
+                              >
+                                <span className="shrink-0 flex items-center [&_img]:w-5 [&_img]:h-5 [&_img]:mx-0">
+                                  {emo.startsWith('[EMOJI:') ? parseMessageContent(emo) : emo}
                                 </span>
-                              )
-                            }
-                            return parseMessageContent(msg.content)
-                          })()}
+                                <span className="font-bold leading-none">{uids.length}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
 
-                          {/* Message Reactions */}
-                          {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-1.5 mb-0.5 justify-start">
-                              {Object.entries(
-                                Object.entries(msg.reactions).reduce((acc, [uid, emos]) => {
-                                  const emosArray = Array.isArray(emos) ? emos : (emos ? [emos] : [])
-                                  emosArray.forEach(emo => {
-                                    acc[emo] = acc[emo] || []
-                                    acc[emo].push(uid)
-                                  })
-                                  return acc
-                                }, {})
-                              ).map(([emo, uids]) => {
-                                const hasReacted = uids.includes(currentUser.id)
-                                return (
-                                  <button
-                                    key={emo}
-                                    onClick={() => handleToggleReaction(msg, emo)}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs border transition-all ${
-                                      msg.sender_id === currentUser.id
-                                        ? hasReacted
-                                          ? 'bg-black/35 border-white/20 text-white font-bold'
-                                          : 'bg-black/15 border-black/10 text-white/80 hover:bg-black/25 hover:text-white'
-                                        : hasReacted
-                                          ? 'bg-purple-600/20 border-purple-500/30 text-purple-300'
-                                          : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
-                                    }`}
-                                  >
-                                    <span className="shrink-0 flex items-center [&_img]:w-5 [&_img]:h-5 [&_img]:mx-0">
-                                      {emo.startsWith('[EMOJI:') ? parseMessageContent(emo) : emo}
-                                    </span>
-                                    <span className="font-bold leading-none">{uids.length}</span>
-                                  </button>
-                                )
-                              })}
-                            </div>
+                      <div className="flex items-center justify-between mt-2 gap-4">
+                        <div className="flex items-center gap-1 opacity-50">
+                          <span className="text-[9px]">
+                            {msg.updated_at && msg.updated_at !== msg.created_at ? `(${t('edited')}) ` : ''}
+                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {msg.sender_id === currentUser.id && (
+                            <span className="text-[10px] font-bold tracking-tighter">
+                              {isGroup 
+                                ? (isGroupMessageRead(msg) ? '✓✓' : '✓')
+                                : (msg.is_read ? '✓✓' : '✓')}
+                            </span>
                           )}
-
-                          <div className="flex items-center justify-between mt-2 gap-4">
-                            <div className="flex items-center gap-1 opacity-50">
-                              <span className="text-[9px]">
-                                {msg.updated_at && msg.updated_at !== msg.created_at ? `(${t('edited')}) ` : ''}
-                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              {msg.sender_id === currentUser.id && !isGroup && (
-                                <span className="text-[10px] font-bold tracking-tighter">
-                                  {msg.is_read ? '✓✓' : '✓'}
-                                </span>
-                              )}
-                            </div>
-                            {msg.sender_id === currentUser.id ? (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div className="relative">
-                                  <button onClick={() => setShowReactionPickerId(showReactionPickerId === msg.id ? null : msg.id)} className="p-1 hover:text-purple-300 transition-colors" title={t('add_reaction', 'Добавить реакцию')}>
-                                    <Smile className="w-3.5 h-3.5" />
-                                  </button>
-                                  {showReactionPickerId === msg.id && (
-                                    <div className="absolute bottom-full right-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex flex-wrap items-center justify-center gap-1 w-[min(17rem,calc(100vw-2rem))] shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
-                                      {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
-                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all text-base">
-                                          {emoji}
-                                        </button>
-                                      ))}
-                                      {isPro && customEmojis.length > 0 && (
-                                        <>
-                                          <div className="w-px h-4 bg-white/10 self-center mx-1" />
-                                          {customEmojis.slice(0, 10).map(emoji => (
-                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all">
-                                              <img src={emoji.image_url} alt={emoji.name} className="w-[22px] h-[22px] object-contain" />
-                                            </button>
-                                          ))}
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <button onClick={() => setReplyingTo(msg)} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
-                                  <Reply className="w-3.5 h-3.5" />
+                        </div>
+                        
+                        {/* Inline actions (Smile, Reply, Edit, Delete) - Desktop only */}
+                        {!isMobileOrTablet && (
+                          msg.sender_id === currentUser.id ? (
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="relative">
+                                <button onClick={(e) => { e.stopPropagation(); setShowReactionPickerId(showReactionPickerId === msg.id ? null : msg.id); }} className="p-1 hover:text-purple-300 transition-colors" title={t('add_reaction', 'Добавить реакцию')}>
+                                  <Smile className="w-3.5 h-3.5" />
                                 </button>
-                                {!msg.content?.startsWith('[PROFILE_SHARE:') && !msg.content?.startsWith('[POST_SHARE:') && (
-                                  <button onClick={() => handleStartEdit(msg)} className="p-1 hover:text-purple-300 transition-colors">
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                  </button>
+                                {showReactionPickerId === msg.id && (
+                                  <div className="absolute bottom-full right-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex flex-wrap items-center justify-center gap-1 w-[min(17rem,calc(100vw-2rem))] shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
+                                    {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
+                                      <button key={emoji} onClick={(e) => { e.stopPropagation(); handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all text-base">
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                    {isPro && customEmojis.length > 0 && (
+                                      <>
+                                        <div className="w-px h-4 bg-white/10 self-center mx-1" />
+                                        {customEmojis.slice(0, 10).map(emoji => (
+                                          <button key={emoji.id} onClick={(e) => { e.stopPropagation(); handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all">
+                                            <img src={emoji.image_url} alt={emoji.name} className="w-[22px] h-[22px] object-contain" />
+                                          </button>
+                                        ))}
+                                      </>
+                                    )}
+                                  </div>
                                 )}
-                                <button onClick={() => handleDelete(msg.id)} className="p-1 hover:text-red-400 transition-colors">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
                               </div>
-                            ) : (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div className="relative">
-                                  <button onClick={() => setShowReactionPickerId(showReactionPickerId === msg.id ? null : msg.id)} className="p-1 hover:text-purple-300 transition-colors" title={t('add_reaction', 'Добавить реакцию')}>
-                                    <Smile className="w-3.5 h-3.5" />
-                                  </button>
-                                  {showReactionPickerId === msg.id && (
-                                    <div className="absolute bottom-full left-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex flex-wrap items-center justify-center gap-1 w-[min(17rem,calc(100vw-2rem))] shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
-                                      {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
-                                        <button key={emoji} onClick={() => { handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all text-base">
-                                          {emoji}
-                                        </button>
-                                      ))}
-                                      {isPro && customEmojis.length > 0 && (
-                                        <>
-                                          <div className="w-px h-4 bg-white/10 self-center mx-1" />
-                                          {customEmojis.slice(0, 10).map(emoji => (
-                                            <button key={emoji.id} onClick={() => { handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all">
-                                              <img src={emoji.image_url} alt={emoji.name} className="w-[22px] h-[22px] object-contain" />
-                                            </button>
-                                          ))}
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <button onClick={() => setReplyingTo(msg)} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
-                                  <Reply className="w-3.5 h-3.5" />
+                              <button onClick={(e) => { e.stopPropagation(); setReplyingTo(msg); }} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
+                                <Reply className="w-3.5 h-3.5" />
+                              </button>
+                              {!msg.content?.startsWith('[PROFILE_SHARE:') && !msg.content?.startsWith('[POST_SHARE:') && (
+                                <button onClick={(e) => { e.stopPropagation(); handleStartEdit(msg); }} className="p-1 hover:text-purple-300 transition-colors">
+                                  <Edit3 className="w-3.5 h-3.5" />
                                 </button>
+                              )}
+                              <button onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }} className="p-1 hover:text-red-400 transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="relative">
+                                <button onClick={(e) => { e.stopPropagation(); setShowReactionPickerId(showReactionPickerId === msg.id ? null : msg.id); }} className="p-1 hover:text-purple-300 transition-colors" title={t('add_reaction', 'Добавить реакцию')}>
+                                  <Smile className="w-3.5 h-3.5" />
+                                </button>
+                                {showReactionPickerId === msg.id && (
+                                  <div className="absolute bottom-full left-0 mb-1 z-[100] bg-[#121214]/90 border border-white/10 backdrop-blur-md px-1.5 py-1 rounded-2xl flex flex-wrap items-center justify-center gap-1 w-[min(17rem,calc(100vw-2rem))] shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
+                                    {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
+                                      <button key={emoji} onClick={(e) => { e.stopPropagation(); handleToggleReaction(msg, emoji); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all text-base">
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                    {isPro && customEmojis.length > 0 && (
+                                      <>
+                                        <div className="w-px h-4 bg-white/10 self-center mx-1" />
+                                        {customEmojis.slice(0, 10).map(emoji => (
+                                          <button key={emoji.id} onClick={(e) => { e.stopPropagation(); handleToggleReaction(msg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); setShowReactionPickerId(null); }} className="w-[34px] h-[34px] flex items-center justify-center rounded-xl hover:bg-white/5 active:scale-90 transition-all">
+                                            <img src={emoji.image_url} alt={emoji.name} className="w-[22px] h-[22px] object-contain" />
+                                          </button>
+                                        ))}
+                                      </>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                              <button onClick={(e) => { e.stopPropagation(); setReplyingTo(msg); }} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
+                                <Reply className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1582,30 +1856,24 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                       className="absolute bottom-16 left-0 w-80 max-h-80 bg-[#121214] border border-white/10 rounded-2xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-in slide-in-from-bottom-3 duration-200"
                     >
                       {/* Tabs Header */}
-                      <div className="flex border-b border-white/5 pb-2">
-                        <button
-                          type="button"
-                          onClick={() => setActiveEmojiTab('standard')}
-                          className={`flex-1 pb-1.5 text-xs font-black uppercase tracking-wider text-center transition-all border-b ${
-                            activeEmojiTab === 'standard'
-                              ? 'text-purple-400 border-purple-500'
-                              : 'text-gray-500 border-transparent hover:text-gray-300'
-                          }`}
-                        >
-                          {t('standard_emojis', 'Стандартные')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveEmojiTab('custom')}
-                          className={`flex-1 pb-1.5 text-xs font-black uppercase tracking-wider text-center transition-all border-b flex items-center justify-center gap-1.5 ${
-                            activeEmojiTab === 'custom'
-                              ? 'text-purple-400 border-purple-500'
-                              : 'text-gray-500 border-transparent hover:text-gray-300'
-                          }`}
-                        >
-                          <Gem className="w-3 h-3 text-cyan-400 animate-pulse" />
-                          {t('custom_emojis_tab', 'Кастомные')}
-                        </button>
+                      <div className="pb-2 border-b border-white/5">
+                        <AnimatedPillGroup
+                          value={activeEmojiTab}
+                          onChange={setActiveEmojiTab}
+                          options={[
+                            { value: 'standard', label: t('standard_emojis', 'Стандартные') },
+                            {
+                              value: 'custom',
+                              icon: <Gem className="w-3 h-3 text-cyan-400 animate-pulse" />,
+                              label: t('custom_emojis_tab', 'Кастомные'),
+                            },
+                          ]}
+                          containerClassName="flex items-center gap-2 p-1 rounded-2xl bg-white/[0.03] border border-white/5"
+                          buttonClassName="lg-pill flex-1 py-1.5 text-xs font-black uppercase tracking-tighter rounded-xl"
+                          inactiveClassName="text-gray-500 hover:text-gray-300"
+                          pillClassName="rounded-xl"
+                          pillVariant="glass"
+                        />
                       </div>
 
                       {/* Tab Content */}
@@ -1675,13 +1943,18 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                   )}
 
                   <div className="relative flex-1 group">
-                    <button
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      type="button"
-                      className={`absolute left-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors z-10 ${showEmojiPicker ? 'text-purple-400 bg-white/5' : 'text-gray-500 hover:text-white'}`}
-                    >
-                      <Smile className="w-5 h-5" />
-                    </button>
+                    {/* Иконку-эмодзи держим в full-height flex-обёртке: центрируем
+                        её БЕЗ трансформа и жёстко привязываем к границам поля
+                        (inset-y-0), поэтому она не может «сползти» со своего места. */}
+                    <div className="absolute left-4 inset-y-0 flex items-center z-10 pointer-events-none">
+                      <button
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        type="button"
+                        className={`pointer-events-auto p-1.5 rounded-lg transition-colors ${showEmojiPicker ? 'text-purple-400 bg-white/5' : 'text-gray-500 hover:text-white'}`}
+                      >
+                        <Smile className="w-5 h-5" />
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={input}
@@ -1694,17 +1967,21 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                           : 'border-white/5 focus:border-purple-500/30'
                       }`}
                     />
-                    <button
-                      onClick={handleSend}
-                      disabled={!input.trim()}
-                      className={`absolute right-2 top-2 w-10 h-10 disabled:bg-gray-700 disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-all shadow-lg z-10 ${
-                        editingId 
-                          ? 'bg-cyan-600 hover:bg-cyan-500' 
-                          : 'bg-purple-600 hover:bg-purple-500'
-                      }`}
-                    >
-                      {editingId ? <SaveIcon className="w-5 h-5" /> : <Send className="w-5 h-5" />}
-                    </button>
+                    {/* Кнопку отправки — так же в full-height flex-обёртке, чтобы
+                        она оставалась статичной и не выходила за границы поля. */}
+                    <div className="absolute right-2 inset-y-0 flex items-center z-10">
+                      <button
+                        onClick={handleSend}
+                        disabled={!input.trim()}
+                        className={`w-10 h-10 disabled:bg-gray-700 disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-all shadow-lg ${
+                          editingId 
+                            ? 'bg-cyan-600 hover:bg-cyan-500' 
+                            : 'bg-purple-600 hover:bg-purple-500'
+                        }`}
+                      >
+                        {editingId ? <SaveIcon className="w-5 h-5" /> : <Send className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1727,6 +2004,15 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
           onViewProfile={onViewProfile}
         />
       )}
+
+      {/* Shared hidden picker for swapping the active group's photo (admins only) */}
+      <input
+        ref={groupAvatarInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleGroupAvatarChange}
+      />
 
       {/* Create group */}
       {showCreateGroup && (
@@ -1759,14 +2045,44 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
             className="w-full max-w-md bg-[#15131d] border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[80vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <h3 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-                <Users className="w-5 h-5 text-purple-400" />
-                {t('group_members') || 'Members'} ({groupMembers.length})
-              </h3>
-              <button onClick={() => setShowMembersPanel(false)} className="p-2 -mr-2 text-gray-400 hover:text-white transition-colors">
+            <div className="flex items-center justify-end px-3 pt-3">
+              <button onClick={() => setShowMembersPanel(false)} className="p-2 text-gray-400 hover:text-white transition-colors">
                 <CloseIcon className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Group identity — admins tap the avatar to change the group photo */}
+            <div className="flex flex-col items-center px-5 pb-3 -mt-1">
+              <button
+                type="button"
+                onClick={() => { if (isGroupAdmin && !uploadingGroupAvatar) groupAvatarInputRef.current?.click() }}
+                disabled={!isGroupAdmin || uploadingGroupAvatar}
+                title={isGroupAdmin ? (t('change_group_photo') || 'Change photo') : undefined}
+                className={`relative w-20 h-20 rounded-3xl overflow-hidden flex items-center justify-center bg-purple-600/15 border border-purple-500/20 flex-shrink-0 transition-transform ${isGroupAdmin ? 'cursor-pointer hover:scale-[1.03] active:scale-95' : 'cursor-default'}`}
+              >
+                {activeChat.avatar_url ? (
+                  <img src={activeChat.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Users className="w-9 h-9 text-purple-300" />
+                )}
+                {uploadingGroupAvatar && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </span>
+                )}
+                {isGroupAdmin && !uploadingGroupAvatar && (
+                  <span className="absolute bottom-0 right-0 w-7 h-7 flex items-center justify-center bg-purple-600 border-2 border-[#15131d] rounded-full">
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                  </span>
+                )}
+              </button>
+              <h3 className="mt-3 max-w-full text-lg font-black text-white tracking-tight flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                <span className="truncate notranslate" translate="no">{activeChat.name}</span>
+              </h3>
+              <p className="mt-0.5 text-[11px] text-purple-500 font-black uppercase tracking-widest">
+                {groupMembers.length} {t('members_count') || 'members'}
+              </p>
             </div>
             {isGroupAdmin && (
               <div className="px-5 pb-3">
@@ -1811,6 +2127,211 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                 </div>
               ))}
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Telegram-style mobile/tablet context menu overlay.
+          The tapped bubble is cloned in place and the action panel is anchored
+          directly below it (or above it when there isn't room below). */}
+      {selectedContextMsg && createPortal(
+        <div 
+          className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeContextMenu}
+        >
+          {/* 1. Cloned Message Bubble Preview (anchored to the original position) */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: contextMenuPos ? contextMenuPos.bubbleTop : 0,
+              left: contextMenuPos ? contextMenuPos.bubbleLeft : 0,
+              width: contextMenuPos ? contextMenuPos.bubbleWidth : undefined,
+              visibility: contextMenuPos ? 'visible' : 'hidden',
+              opacity: ctxReady ? 1 : 0,
+              transition: 'opacity 0.15s ease-out',
+            }}
+          >
+            <div className={`
+              w-full relative pt-2.5 pb-1.5 px-3.5 rounded-2xl text-sm font-medium shadow-xl
+              ${selectedContextMsg.sender_id === currentUser.id
+                ? `${activeTheme.myBubble} rounded-tr-none`
+                : `${activeTheme.theirBubble} rounded-tl-none`}
+            `}>
+              {renderMessageContent(selectedContextMsg)}
+
+              {/* Cloned reactions list */}
+              {selectedContextMsg.reactions && Object.keys(selectedContextMsg.reactions).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1.5 mb-0.5 justify-start">
+                  {Object.entries(
+                    Object.entries(selectedContextMsg.reactions).reduce((acc, [uid, emos]) => {
+                      const emosArray = Array.isArray(emos) ? emos : (emos ? [emos] : [])
+                      emosArray.forEach(emo => {
+                        acc[emo] = acc[emo] || []
+                        acc[emo].push(uid)
+                      })
+                      return acc
+                    }, {})
+                  ).map(([emo, uids]) => {
+                    const hasReacted = uids.includes(currentUser.id)
+                    return (
+                      <button
+                        key={emo}
+                        onClick={(e) => { e.stopPropagation(); handleToggleReaction(selectedContextMsg, emo); closeContextMenu(); }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs border transition-all ${
+                          selectedContextMsg.sender_id === currentUser.id
+                            ? hasReacted
+                              ? 'bg-black/35 border-white/20 text-white font-bold'
+                              : 'bg-black/15 border-black/10 text-white/80 hover:bg-black/25 hover:text-white'
+                            : hasReacted
+                              ? 'bg-purple-600/20 border-purple-500/30 text-purple-300'
+                              : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="shrink-0 flex items-center [&_img]:w-5 [&_img]:h-5 [&_img]:mx-0">
+                          {emo.startsWith('[EMOJI:') ? parseMessageContent(emo) : emo}
+                        </span>
+                        <span className="font-bold leading-none">{uids.length}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between mt-2 gap-4">
+                <span className="text-[9px] opacity-50">
+                  {selectedContextMsg.updated_at && selectedContextMsg.updated_at !== selectedContextMsg.created_at ? `(${t('edited')}) ` : ''}
+                  {new Date(selectedContextMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                {selectedContextMsg.sender_id === currentUser.id && (
+                  <span className="text-[10px] font-bold tracking-tighter opacity-50">
+                    {isGroup 
+                      ? (isGroupMessageRead(selectedContextMsg) ? '✓✓' : '✓')
+                      : (selectedContextMsg.is_read ? '✓✓' : '✓')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Action panel + info card (anchored below/above the bubble) */}
+          <div
+            ref={contextMenuRef}
+            onClick={(e) => e.stopPropagation()}
+            className="space-y-2 overflow-y-auto scrollbar-none"
+            style={{
+              position: 'fixed',
+              top: contextMenuPos ? contextMenuPos.menuTop : 0,
+              left: contextMenuPos ? contextMenuPos.menuLeft : 0,
+              width: contextMenuPos ? contextMenuPos.menuWidth : Math.min(340, (typeof window !== 'undefined' ? window.innerWidth : 360) - 24),
+              maxHeight: contextMenuPos ? contextMenuPos.maxMenuHeight : undefined,
+              visibility: contextMenuPos ? 'visible' : 'hidden',
+              opacity: ctxReady ? 1 : 0,
+              transform: ctxReady ? 'scale(1)' : 'scale(0.96)',
+              transformOrigin: contextMenuPos?.placedAbove ? 'bottom center' : 'top center',
+              transition: 'opacity 0.15s ease-out, transform 0.15s ease-out',
+            }}
+          >
+            {/* Context Menu Actions */}
+            <div className="bg-neutral-900/90 border border-white/10 rounded-3xl p-2.5 shadow-2xl backdrop-blur-xl space-y-2">
+              {/* Reactions row */}
+              <div className="flex items-center justify-between px-2 py-1.5 border-b border-white/5 overflow-x-auto scrollbar-none gap-2">
+                {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
+                  <button 
+                    key={emoji} 
+                    onClick={() => { handleToggleReaction(selectedContextMsg, emoji); closeContextMenu(); }} 
+                    className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-white/5 active:scale-90 transition-all text-xl"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                {isPro && customEmojis.length > 0 && customEmojis.slice(0, 5).map(emoji => (
+                  <button 
+                    key={emoji.id} 
+                    onClick={() => { handleToggleReaction(selectedContextMsg, `[EMOJI:${emoji.image_url}:${emoji.name}]`); closeContextMenu(); }} 
+                    className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-white/5 active:scale-90 transition-all"
+                  >
+                    <img src={emoji.image_url} alt={emoji.name} className="w-6 h-6 object-contain" />
+                  </button>
+                ))}
+              </div>
+
+              {/* Menu Buttons */}
+              <div className="space-y-1">
+                <button 
+                  onClick={() => { setReplyingTo(selectedContextMsg); closeContextMenu(); }} 
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-gray-200 hover:bg-white/5 active:bg-white/10 transition-all text-left"
+                >
+                  <Reply className="w-4 h-4 text-purple-400" />
+                  <span>{t('reply') || 'Reply'}</span>
+                </button>
+
+                {selectedContextMsg.sender_id === currentUser.id && !selectedContextMsg.content?.startsWith('[PROFILE_SHARE:') && !selectedContextMsg.content?.startsWith('[POST_SHARE:') && (
+                  <button 
+                    onClick={() => { handleStartEdit(selectedContextMsg); closeContextMenu(); }} 
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-gray-200 hover:bg-white/5 active:bg-white/10 transition-all text-left"
+                  >
+                    <Edit3 className="w-4 h-4 text-purple-400" />
+                    <span>{t('edit') || 'Edit'}</span>
+                  </button>
+                )}
+
+                {(selectedContextMsg.sender_id === currentUser.id || isGroupAdmin) && (
+                  <button 
+                    onClick={() => { handleDelete(selectedContextMsg.id); closeContextMenu(); }} 
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-all text-left"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{t('delete') || 'Delete'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Read receipts — shown only for the user's own messages. Each reader
+                is a single row: avatar · nickname + badges · status + time. */}
+            {selectedContextMsg.sender_id === currentUser.id && (() => {
+              const readers = getMessageReaders(selectedContextMsg)
+              return (
+                <div className="bg-neutral-900/90 border border-white/10 rounded-3xl p-3 shadow-2xl backdrop-blur-xl">
+                  <h4 className="text-[10px] text-purple-400 font-bold uppercase tracking-wider px-1.5 pt-0.5 pb-2">
+                    {t('message_info', 'Информация о сообщении')}
+                  </h4>
+                  {readers.length === 0 ? (
+                    <p className="text-gray-500 italic text-[11px] px-1.5 pb-1">{t('no_views_yet', 'Еще не прочитано')}</p>
+                  ) : (
+                    <div className="max-h-52 overflow-y-auto space-y-0.5 pr-0.5 custom-scrollbar">
+                      {readers.map((r) => (
+                        <div key={r.id} className="flex items-center gap-2.5 px-1.5 py-1.5 rounded-2xl">
+                          <ProfileAvatar avatarUrl={r.avatar_url} workCount={r.finished_work_count} size="xs" isPro={r.isPro} avatarFrame={r.avatar_frame} />
+                          <div className="flex items-center gap-1 min-w-0 flex-1 notranslate" translate="no">
+                            <span className="truncate font-bold text-sm" style={getNicknameStyle(r.nickname_color, '#fff')}>{r.nickname}</span>
+                            {r.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
+                            {r.isPro && (
+                              <span className="pro-badge flex-shrink-0">
+                                <Gem className="pro-badge-icon" />
+                                <span className="pro-badge-text">Pro</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`text-[11px] font-bold ${r.read ? 'text-purple-400' : 'text-gray-500'}`}>
+                              {r.read ? t('read', 'Прочитано') : t('delivered', 'Доставлено')}
+                            </span>
+                            {r.readTime && (
+                              <span className="text-[10px] text-gray-500 tabular-nums">
+                                {new Date(r.readTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>,
         document.body

@@ -534,11 +534,12 @@ export const fetchMessages = async (userId, otherId) => {
 
 export const fetchConversations = async (userId) => {
   try {
-    // Get all messages where user is sender or receiver to find conversation partners
+    // Get all messages where user is sender or receiver to find conversation partners (DMs only)
     const { data: messages, error: mError } = await supabase
       .from('messages')
       .select('sender_id, receiver_id, created_at, is_read')
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .is('group_id', null)
       .order('created_at', { ascending: false })
 
     if (mError) throw mError
@@ -562,7 +563,8 @@ export const fetchConversations = async (userId) => {
       }
     })
 
-    const otherUserIds = Array.from(conversationMap.keys())
+    const otherUserIds = Array.from(conversationMap.keys()).filter(Boolean)
+    if (otherUserIds.length === 0) return []
 
     // Fetch profiles for these users
     const { data: profiles, error: pError } = await supabase
@@ -603,14 +605,24 @@ export const fetchTotalUnreadCount = async (userId) => {
 }
 
 export const markAsRead = async (receiverId, senderId) => {
+  // Stamp read_at so the sender can see exactly when their message was read.
   const { error } = await supabase
     .from('messages')
-    .update({ is_read: true })
+    .update({ is_read: true, read_at: new Date().toISOString() })
     .eq('receiver_id', receiverId)
     .eq('sender_id', senderId)
     .eq('is_read', false)
 
-  if (error) throw error
+  if (error) {
+    // Fallback for databases that haven't added the read_at column yet.
+    const { error: fallbackError } = await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('receiver_id', receiverId)
+      .eq('sender_id', senderId)
+      .eq('is_read', false)
+    if (fallbackError) throw fallbackError
+  }
 }
 
 export const updateChatPresence = async (userId, partnerId) => {
@@ -769,7 +781,7 @@ export const sendGroupMessage = async (senderId, groupId, content, replyToId = n
 export const fetchGroupMembers = async (groupId) => {
   const { data: members, error } = await supabase
     .from('group_members')
-    .select('user_id, role, joined_at')
+    .select('user_id, role, joined_at, last_read_at')
     .eq('group_id', groupId)
   if (error) throw error
   if (!members || members.length === 0) return []
@@ -785,7 +797,8 @@ export const fetchGroupMembers = async (groupId) => {
   return enriched.map((p) => ({
     ...p,
     role: roleMap.get(p.id)?.role || 'member',
-    joined_at: roleMap.get(p.id)?.joined_at
+    joined_at: roleMap.get(p.id)?.joined_at,
+    last_read_at: roleMap.get(p.id)?.last_read_at
   }))
 }
 
@@ -1108,20 +1121,6 @@ export async function markNotificationAsRead(notifId) {
 // =============================================
 // Tags & Painting Tags
 // =============================================
-
-export async function fetchAllTags() {
-  try {
-    const { data, error } = await supabase
-      .from('tags')
-      .select('*')
-      .order('name', { ascending: true })
-    if (error) throw error
-    return data || []
-  } catch (e) {
-    console.error('fetchAllTags error:', e)
-    return []
-  }
-}
 
 export async function fetchPaintingTags(paintingId) {
   try {

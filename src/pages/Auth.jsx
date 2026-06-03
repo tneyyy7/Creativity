@@ -233,10 +233,8 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
                         key={item.id}
                         type="button"
                         onClick={() => setSpecialization(item.id)}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
-                          specialization === item.id
-                            ? 'bg-purple-600/20 border-purple-500 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.15)]'
-                            : 'bg-white/5 border-white/5 text-gray-500 hover:border-white/10 hover:text-gray-300'
+                        className={`lg-pill flex flex-col items-center gap-2 p-3 rounded-2xl ${
+                          specialization === item.id ? 'lg-pill--active' : ''
                         }`}
                       >
                         <item.icon className={`w-6 h-6 ${specialization === item.id ? 'animate-pulse' : ''}`} />

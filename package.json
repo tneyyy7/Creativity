@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
     "@supabase/supabase-js": "^2.39.7",
-    "clsx": "^2.1.0",
     "date-fns": "^4.3.0",
     "framer-motion": "^11.0.8",
     "heic-to": "^1.5.2",
@@ -20,9 +20,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-i18next": "^14.1.0",
-    "react-onesignal": "^3.5.1",
-    "recharts": "^2.12.2",
-    "tailwind-merge": "^2.2.1"
+    "recharts": "^2.12.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.64",

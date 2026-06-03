@@ -7,11 +7,16 @@ import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { getNicknameStyle } from '../lib/nicknameStyle'
+import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
+
+// Базовые классы переключателей (как в оригинальной вёрстке) — общие для групп.
+const TAB_CONTAINER = 'relative flex items-center gap-2 bg-white/[0.03] p-1 rounded-2xl border border-white/5 shadow-inner'
+const TAB_BUTTON = 'lg-pill flex items-center justify-center gap-1.5 font-black uppercase tracking-tighter text-xs whitespace-nowrap rounded-xl px-3.5 py-2'
 
 export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile, initialCategory = 'All', onCategoryChange }) {
   const { t, i18n } = useTranslation()
   const [activeSubTab, setActiveSubTab] = useState('feed') // 'feed' (subscriptions) or 'explore' (global search)
-  
+
   // Loading states
   const [loading, setLoading] = useState(true)
   
@@ -222,7 +227,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
     <div className="w-full max-w-5xl mx-auto space-y-6 pb-16 animate-in fade-in duration-500">
       
       {/* 1. WIP Stories horizontal banner (Always Visible at the Top) */}
-      <div className="glass-card p-2 border-white/5 rounded-3xl w-full">
+      <div className="glass-card overflow-visible p-2 border-white/5 rounded-3xl w-full">
         <StoriesBanner
           currentUser={currentUser}
           avatarUrl={avatarUrl}
@@ -234,57 +239,36 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
       {/* Tab Switcher & Unified Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
-        <div className="flex gap-1.5 bg-[#12111a] p-1.5 rounded-2xl border border-white/5 shadow-inner">
-          <button
-            onClick={() => setActiveSubTab('feed')}
-            className={`lg-pill px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${
-              activeSubTab === 'feed' ? 'lg-pill--active' : ''
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{t('feed')}</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('explore')}
-            className={`lg-pill px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${
-              activeSubTab === 'explore' ? 'lg-pill--active' : ''
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>{t('explore')}</span>
-          </button>
-        </div>
+        <AnimatedPillGroup
+          value={activeSubTab}
+          onChange={setActiveSubTab}
+          options={[
+            { value: 'feed',    icon: <Sparkles className="w-3.5 h-3.5" />, label: t('feed') },
+            { value: 'explore', icon: <Compass  className="w-3.5 h-3.5" />, label: t('explore') },
+          ]}
+          containerClassName={TAB_CONTAINER}
+          buttonClassName={TAB_BUTTON}
+        />
 
         {/* Explore Sub-Filters (Only rendered under Explore sub-tab) */}
         {activeSubTab === 'explore' && (
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            {/* Sorting controls */}
-            <div className="flex gap-1.5 bg-[#12111a] p-1.5 rounded-2xl border border-white/5 shadow-inner w-full sm:w-auto">
-              <button
-                onClick={() => setSortBy('recent')}
-                className={`lg-pill flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold ${
-                  sortBy === 'recent' ? 'lg-pill--active' : ''
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>{t('recent')}</span>
-              </button>
-              <button
-                onClick={() => setSortBy('popular')}
-                className={`lg-pill flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold ${
-                  sortBy === 'popular' ? 'lg-pill--active' : ''
-                }`}
-              >
-                <Flame className="w-3.5 h-3.5" />
-                <span>{t('popular')}</span>
-              </button>
-            </div>
+            <AnimatedPillGroup
+              value={sortBy}
+              onChange={setSortBy}
+              options={[
+                { value: 'recent',  icon: <Calendar className="w-3.5 h-3.5" />, label: t('recent') },
+                { value: 'popular', icon: <Flame    className="w-3.5 h-3.5" />, label: t('popular') },
+              ]}
+              containerClassName={`${TAB_CONTAINER} w-full sm:w-auto`}
+              buttonClassName={`${TAB_BUTTON} flex-1 sm:flex-none`}
+            />
           </div>
         )}
       </div>
 
       {/* 2. SUB-TAB CONTENT PANEL */}
-      
+
       {/* Tab A: Chronological subscription Feed */}
       {activeSubTab === 'feed' && (
         loading ? (
@@ -559,27 +543,17 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
             )}
           </div>
 
-          {/* Category scrolling slider.
-              py/px + отрицательные margin дают мягкому свечению активной пилюли
-              место для отрисовки: overflow-x-auto клипает и вертикаль, иначе glow
-              обрезается в прямоугольник. */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full px-1 py-4 -my-3">
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat
-              const displayLabel = cat === 'All' ? t('filter_all') : t(`cat_${cat.toLowerCase()}`)
-              return (
-                <button
-                  key={cat}
-                  onClick={() => { setSelectedCategory(cat); setSelectedTag(''); }}
-                  className={`lg-pill flex-none px-4 py-2 rounded-xl text-xs font-bold tracking-tight whitespace-nowrap ${
-                    isSelected ? 'lg-pill--active' : ''
-                  }`}
-                >
-                  {displayLabel}
-                </button>
-              )
-            })}
-          </div>
+          {/* Category scrolling slider — жидкая капсула скользит между категориями */}
+          <AnimatedPillGroup
+            value={selectedCategory}
+            onChange={(cat) => { setSelectedCategory(cat); setSelectedTag('') }}
+            options={categories.map(cat => ({
+              value: cat,
+              label: cat === 'All' ? t('filter_all') : t(`cat_${cat.toLowerCase()}`),
+            }))}
+            containerClassName="relative flex items-center gap-2 overflow-x-auto scrollbar-none w-full px-1 py-4 -my-3"
+            buttonClassName="lg-pill flex-none flex items-center justify-center gap-1.5 font-black uppercase tracking-tighter text-xs whitespace-nowrap rounded-xl px-4 py-2"
+          />
 
           {/* Active Tag indicator panel */}
           {selectedTag && (

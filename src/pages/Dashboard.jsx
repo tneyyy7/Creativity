@@ -261,6 +261,7 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost,
                 </p>
               </div>
               <button
+                data-lg-fx
                 onClick={handleUpgradeClick}
                 className="bg-cyan-500 hover:bg-cyan-400 text-neutral-900 font-black px-6 py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(34,211,238,0.25)] flex items-center gap-2 text-sm active:scale-95"
               >

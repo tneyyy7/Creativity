@@ -268,6 +268,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
       {/* Close — offset by the safe-area inset so it clears the PWA status bar (battery/clock) */}
       <button
+        data-lg-fx
         onClick={onClose}
         style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
         className="absolute right-3 sm:right-4 z-30 w-9 h-9 sm:w-10 sm:h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all"
@@ -277,12 +278,12 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
       {/* Navigation arrows — left/right edges of image area (before right panel) */}
       {currentIndex > 0 && (
-        <button onClick={() => setCurrentIndex(i => i - 1)} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
+        <button data-lg-fx onClick={() => setCurrentIndex(i => i - 1)} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
           <ChevronLeft className="w-5 h-5" />
         </button>
       )}
       {currentIndex < (paintings?.length ?? 1) - 1 && (
-        <button onClick={() => setCurrentIndex(i => i + 1)} className="hidden md:flex absolute right-[336px] lg:right-[396px] top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
+        <button data-lg-fx onClick={() => setCurrentIndex(i => i + 1)} className="hidden md:flex absolute right-[336px] lg:right-[396px] top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
           <ChevronRight className="w-5 h-5" />
         </button>
       )}
@@ -306,12 +307,12 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
         {/* Mobile nav arrows */}
         <div className="flex justify-center gap-4 py-2">
           {currentIndex > 0 && (
-            <button onClick={() => setCurrentIndex(i => i - 1)} className="w-9 h-9 bg-white/10 text-white rounded-full flex items-center justify-center">
+            <button data-lg-fx onClick={() => setCurrentIndex(i => i - 1)} className="w-9 h-9 bg-white/10 text-white rounded-full flex items-center justify-center">
               <ChevronLeft className="w-4 h-4" />
             </button>
           )}
           {currentIndex < (paintings?.length ?? 1) - 1 && (
-            <button onClick={() => setCurrentIndex(i => i + 1)} className="w-9 h-9 bg-white/10 text-white rounded-full flex items-center justify-center">
+            <button data-lg-fx onClick={() => setCurrentIndex(i => i + 1)} className="w-9 h-9 bg-white/10 text-white rounded-full flex items-center justify-center">
               <ChevronRight className="w-4 h-4" />
             </button>
           )}

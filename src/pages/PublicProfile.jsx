@@ -296,6 +296,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
 
                     {isAccepted && (
                       <button 
+                        data-lg-fx
                         onClick={() => onMessage?.(profile)}
                         className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-all flex items-center gap-2 mx-auto md:mx-0 border border-white/10"
                       >
@@ -339,6 +340,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                   )
                 ) : isAccepted ? (
                   <button 
+                    data-lg-fx
                     onClick={handleRemoveFriend}
                     disabled={actionLoading}
                     className="px-6 py-3 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 font-bold rounded-xl transition-all flex items-center gap-2 mx-auto md:mx-0"

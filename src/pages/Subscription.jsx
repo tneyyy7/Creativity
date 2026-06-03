@@ -275,6 +275,7 @@ export function Subscription() {
                     {PRESETS.colors.map((color) => (
                       <button
                         key={color.id}
+                        data-lg-fx
                         onClick={() => setProfileSettings({ ...profileSettings, nickname_color: color.value })}
                         className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${
                           profileSettings.nickname_color === color.value
@@ -439,6 +440,7 @@ export function Subscription() {
                 </ul>
               </div>
               <button
+                data-lg-fx
                 onClick={() => handleCheckout('yearly')}
                 disabled={checkoutLoading !== null}
                 className="w-full mt-8 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-500/40 text-neutral-900 font-black py-3.5 rounded-xl transition-all text-sm shadow-[0_4px_20px_rgba(34,211,238,0.3)] flex items-center justify-center gap-2"

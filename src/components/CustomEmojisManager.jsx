@@ -292,6 +292,7 @@ export function CustomEmojisManager({ userId, isPro }) {
             </div>
 
             <button
+              data-lg-fx
               onClick={handleUpload}
               disabled={uploading || !croppedBlob || !emojiName}
               className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-500/10 disabled:text-gray-500 text-neutral-900 font-black py-3.5 rounded-xl transition-all text-sm shadow-[0_4px_20px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2"

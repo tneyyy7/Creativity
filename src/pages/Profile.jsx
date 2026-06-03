@@ -27,6 +27,15 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
   const [followModalTab, setFollowModalTab] = useState(null) // 'followers' | 'following' | null
 
+  // The nickname prop arrives asynchronously (App fetches the profile after auth),
+  // so it can still be the 'Artist User' default when this lazy route first mounts.
+  // useState(nickname) only captures that initial value, which left the edit field
+  // showing the default while the profile card showed the real nickname. Keep the
+  // form in sync whenever the resolved nickname comes in (or changes after a save).
+  useEffect(() => {
+    setFormNickname(nickname)
+  }, [nickname])
+
   useEffect(() => {
     // Fetch bio when component mounts
     const fetchProfileData = async () => {
@@ -410,10 +419,8 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                       key={item.id}
                       type="button"
                       onClick={() => setSpecialization(item.id)}
-                      className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all ${
-                        specialization === item.id
-                          ? 'bg-purple-600/20 border-purple-500 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.15)]'
-                          : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20 hover:text-gray-300'
+                      className={`lg-pill flex flex-col items-center gap-1.5 p-3 rounded-2xl ${
+                        specialization === item.id ? 'lg-pill--active' : ''
                       }`}
                     >
                       <item.icon className={`w-5 h-5 ${specialization === item.id ? 'animate-pulse' : ''}`} />

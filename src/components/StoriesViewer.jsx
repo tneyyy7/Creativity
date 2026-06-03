@@ -388,6 +388,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
               {/* Volume Control Button */}
               {isVideo(currentStory.image_url) && (
                 <button 
+                  data-lg-fx
                   onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
                   className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all text-white"
                 >
@@ -397,6 +398,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
 
               {/* Play / Pause indicator */}
               <button 
+                data-lg-fx
                 onClick={togglePause}
                 className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all text-white"
               >
@@ -407,6 +409,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
               {currentUser && currentUser.id === currentGroup.user.id && (
                 <div ref={menuRef} className="relative z-50">
                   <button
+                    data-lg-fx
                     onClick={(e) => {
                       e.stopPropagation();
                       const opening = !showMoreMenu
@@ -462,6 +465,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
 
               {/* Close Button */}
               <button 
+                data-lg-fx
                 onClick={onClose}
                 className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all text-white"
               >
@@ -578,6 +582,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
               </form>
 
               <button
+                data-lg-fx
                 onClick={handleLikeToggle}
                 className="w-8 h-8 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center transition-all active:scale-75 group flex-shrink-0"
               >
@@ -596,6 +601,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
 
       {/* Desktop navigation side controls (Hidden on Mobile) */}
       <button 
+        data-lg-fx
         onClick={handlePrev}
         className="hidden md:flex absolute left-4 lg:left-12 w-14 h-14 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 text-white items-center justify-center active:scale-90 transition-all z-20 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
       >
@@ -603,6 +609,7 @@ export function StoriesViewer({ groups, initialGroupIndex, currentUser, onClose,
       </button>
 
       <button 
+        data-lg-fx
         onClick={handleNext}
         className="hidden md:flex absolute right-4 lg:right-12 w-14 h-14 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 text-white items-center justify-center active:scale-90 transition-all z-20 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
       >
