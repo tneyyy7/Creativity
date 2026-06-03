@@ -83,7 +83,13 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     let rect = null
     if (el && typeof el.getBoundingClientRect === 'function') {
       const b = el.getBoundingClientRect()
-      rect = { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }
+      // The bubble carries `active:scale-[0.99]`, so while it's still pressed
+      // getBoundingClientRect() reports the *scaled* (≈1% narrower) box. Pinning
+      // that onto the cloned preview shrinks it just enough to wrap the last word
+      // onto a second line. Use offsetWidth, which is the untransformed layout
+      // width, so the clone keeps the original's line breaks.
+      const layoutWidth = el.offsetWidth || b.width
+      rect = { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: layoutWidth, height: b.height }
     }
     setContextMenuRect(rect)
     setContextMenuPos(null)
