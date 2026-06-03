@@ -1,11 +1,26 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool } from 'lucide-react'
+import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, updateMessageReactions } from '../lib/supabase'
+import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { CreateGroupModal } from '../components/CreateGroupModal'
 import { PostViewerModal } from '../components/PostViewerModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
+
+// Small avatar used for group chats (image if set, otherwise a Users glyph).
+function GroupAvatar({ avatarUrl, size = 'sm' }) {
+  const dim = size === 'lg' ? 'w-12 h-12' : 'w-10 h-10'
+  return (
+    <div className={`${dim} rounded-2xl overflow-hidden flex items-center justify-center bg-purple-600/15 border border-purple-500/20 flex-shrink-0`}>
+      {avatarUrl ? (
+        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <Users className="w-1/2 h-1/2 text-purple-300" />
+      )}
+    </div>
+  )
+}
 
 export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile, registerBack }) {
   const { t } = useTranslation()
@@ -100,6 +115,18 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   const shouldAutoScrollRef = useRef(true)
   const [showReactionPickerId, setShowReactionPickerId] = useState(null)
 
+  // Group chat state. `isGroup` switches every chat code path between the
+  // direct-message model (sender/receiver) and the group model (group_id).
+  const isGroup = !!activeChat?.is_group
+  const [groupMembers, setGroupMembers] = useState([])
+  const groupMemberMap = useRef(new Map()) // id -> profile, for sender labels & reply previews
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [showAddMembers, setShowAddMembers] = useState(false)
+  const [showMembersPanel, setShowMembersPanel] = useState(false)
+  // Group "typing": map of userId -> nickname for everyone currently typing.
+  const [groupTypers, setGroupTypers] = useState({})
+  const groupTyperTimeouts = useRef({})
+
   const handleMessagesScroll = () => {
     const el = scrollRef.current
     if (!el) return
@@ -123,6 +150,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   // Pro Chat Theme States and Styles
   const [chatTheme, setChatTheme] = useState('default')
   const [showThemeMenu, setShowThemeMenu] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
   const themeMenuRef = useRef(null)
 
   // Click outside to close theme popup
@@ -148,6 +176,29 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       setChatTheme('default')
     }
   }, [currentUser?.id, activeChat?.id, isPro])
+
+  // Load mute state for active chat
+  useEffect(() => {
+    if (currentUser?.id && activeChat?.id) {
+      fetchChatMute(currentUser.id, activeChat.id)
+        .then(setIsMuted)
+        .catch(err => console.error("Error loading chat mute:", err))
+    } else {
+      setIsMuted(false)
+    }
+  }, [currentUser?.id, activeChat?.id])
+
+  const handleToggleMute = async () => {
+    if (!currentUser?.id || !activeChat?.id) return
+    const next = !isMuted
+    setIsMuted(next) // optimistic
+    try {
+      await toggleChatMute(currentUser.id, activeChat.id, next, isGroup)
+    } catch (err) {
+      console.error('Error toggling chat mute:', err)
+      setIsMuted(!next) // revert on failure
+    }
+  }
 
   const THEME_STYLES = {
     default: {
@@ -311,8 +362,14 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
 
   // Load conversations
   const loadConversations = async () => {
-    const data = await fetchConversations(currentUser.id)
-    setConversations(data)
+    const [dms, groups] = await Promise.all([
+      fetchConversations(currentUser.id),
+      fetchGroupChats(currentUser.id)
+    ])
+    const merged = [...dms, ...groups].sort((a, b) =>
+      (b.last_message_at || '').localeCompare(a.last_message_at || '')
+    )
+    setConversations(merged)
     setLoading(false)
   }
 
@@ -347,18 +404,26 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   // Load messages when active chat changes
   useEffect(() => {
     if (activeChat) {
+      const chatIsGroup = !!activeChat.is_group
+
       const loadMessages = async () => {
-        const data = await fetchMessages(currentUser.id, activeChat.id)
+        const data = chatIsGroup
+          ? await fetchGroupMessages(activeChat.id)
+          : await fetchMessages(currentUser.id, activeChat.id)
         setMessages(data)
-        markAsRead(currentUser.id, activeChat.id)
+        if (chatIsGroup) markGroupRead(activeChat.id, currentUser.id)
+        else markAsRead(currentUser.id, activeChat.id)
       }
       loadMessages()
 
-      // Set chat presence immediately and launch a heartbeat interval (every 20s)
-      updateChatPresence(currentUser.id, activeChat.id)
-      const heartbeatInterval = setInterval(() => {
+      // Presence + heartbeat only applies to 1-on-1 chats.
+      let heartbeatInterval = null
+      if (!chatIsGroup) {
         updateChatPresence(currentUser.id, activeChat.id)
-      }, 20000)
+        heartbeatInterval = setInterval(() => {
+          updateChatPresence(currentUser.id, activeChat.id)
+        }, 20000)
+      }
 
       // Simplified Realtime subscription - filter in callback for reliability
       const channel = supabase
@@ -375,16 +440,21 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
               const newMsg = payload.new
 
               // 1. Update messages list if this is the active chat
-              const isRelevant =
-                (newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChat.id) ||
-                (newMsg.sender_id === activeChat.id && newMsg.receiver_id === currentUser.id)
+              const isRelevant = chatIsGroup
+                ? newMsg.group_id === activeChat.id
+                : (newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChat.id) ||
+                  (newMsg.sender_id === activeChat.id && newMsg.receiver_id === currentUser.id)
 
               if (isRelevant) {
                 setMessages((prev) => {
                   if (prev.find(m => m.id === newMsg.id)) return prev
                   return [...prev, newMsg]
                 })
-                if (newMsg.receiver_id === currentUser.id) markAsRead(currentUser.id, activeChat.id)
+                if (chatIsGroup) {
+                  if (newMsg.sender_id !== currentUser.id) markGroupRead(activeChat.id, currentUser.id)
+                } else if (newMsg.receiver_id === currentUser.id) {
+                  markAsRead(currentUser.id, activeChat.id)
+                }
               }
 
               // 2. Refresh conversation list to update unread counts and sorting
@@ -409,64 +479,113 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
         .subscribe()
 
       return () => {
-        clearInterval(heartbeatInterval)
-        updateChatPresence(currentUser.id, null)
+        if (heartbeatInterval) clearInterval(heartbeatInterval)
+        if (!chatIsGroup) updateChatPresence(currentUser.id, null)
         supabase.removeChannel(channel)
       }
     }
   }, [activeChat, currentUser.id])
+
+  // Load group members (for sender labels, reply previews and the members panel)
+  // and keep them fresh when membership changes in realtime.
+  useEffect(() => {
+    if (!isGroup || !activeChat?.id) {
+      setGroupMembers([])
+      groupMemberMap.current = new Map()
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      const members = await fetchGroupMembers(activeChat.id)
+      if (cancelled) return
+      setGroupMembers(members)
+      groupMemberMap.current = new Map(members.map((m) => [m.id, m]))
+    }
+    load()
+
+    const channel = supabase
+      .channel(`group_members_${activeChat.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${activeChat.id}` }, load)
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+  }, [isGroup, activeChat?.id])
 
   // Typing indicator channel. Both participants must join the SAME channel name,
   // so we build a deterministic name from the sorted pair of user ids.
   useEffect(() => {
     if (!activeChat?.id || !currentUser?.id) return
     setIsPartnerTyping(false)
+    setGroupTypers({})
 
-    const ids = [currentUser.id, activeChat.id].sort()
-    const channel = supabase.channel(`typing_${ids[0]}_${ids[1]}`, {
+    // Groups share one topic per group; DMs use a deterministic name from the
+    // sorted pair of user ids so both participants join the same channel.
+    const topicName = isGroup
+      ? `typing_group_${activeChat.id}`
+      : `typing_${[currentUser.id, activeChat.id].sort().join('_')}`
+    const channel = supabase.channel(topicName, {
       config: { broadcast: { self: false } }
     })
 
-    const topicName = `typing_${ids[0]}_${ids[1]}`
-    console.log('[typing] subscribing to', topicName, 'me:', currentUser.id, 'partner:', activeChat.id)
     channel
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
-        console.log('[typing] RECEIVED', payload)
-        // Only react to the partner's events (ignore anything not from the open chat).
-        if (!payload || payload.userId !== activeChat.id) return
-        setIsPartnerTyping(!!payload.typing)
-        clearTimeout(partnerTypingTimeoutRef.current)
-        if (payload.typing) {
-          // Hide automatically if the "stopped" event never arrives (tab closed, lost packet).
-          partnerTypingTimeoutRef.current = setTimeout(() => setIsPartnerTyping(false), 4000)
+        if (!payload || payload.userId === currentUser.id) return
+        if (isGroup) {
+          if (payload.userId === currentUser.id) return
+          setGroupTypers((prev) => {
+            const next = { ...prev }
+            if (payload.typing) next[payload.userId] = payload.nickname || ''
+            else delete next[payload.userId]
+            return next
+          })
+          clearTimeout(groupTyperTimeouts.current[payload.userId])
+          if (payload.typing) {
+            groupTyperTimeouts.current[payload.userId] = setTimeout(() => {
+              setGroupTypers((prev) => {
+                const next = { ...prev }
+                delete next[payload.userId]
+                return next
+              })
+            }, 4000)
+          }
+        } else {
+          // Only react to the partner's events (ignore anything not from the open chat).
+          if (payload.userId !== activeChat.id) return
+          setIsPartnerTyping(!!payload.typing)
+          clearTimeout(partnerTypingTimeoutRef.current)
+          if (payload.typing) {
+            // Hide automatically if the "stopped" event never arrives (tab closed, lost packet).
+            partnerTypingTimeoutRef.current = setTimeout(() => setIsPartnerTyping(false), 4000)
+          }
         }
       })
-      .subscribe((status) => console.log('[typing] subscribe status:', status))
+      .subscribe()
 
     typingChannelRef.current = channel
 
     return () => {
       clearTimeout(partnerTypingTimeoutRef.current)
       clearTimeout(typingStopTimeoutRef.current)
+      Object.values(groupTyperTimeouts.current).forEach(clearTimeout)
+      groupTyperTimeouts.current = {}
       supabase.removeChannel(channel)
       typingChannelRef.current = null
       setIsPartnerTyping(false)
+      setGroupTypers({})
     }
-  }, [activeChat?.id, currentUser?.id])
+  }, [activeChat?.id, currentUser?.id, isGroup])
 
   const broadcastTyping = (typing) => {
     const channel = typingChannelRef.current
-    if (!channel) {
-      console.log('[typing] send skipped — no channel')
-      return
-    }
-    channel
-      .send({
-        type: 'broadcast',
-        event: 'typing',
-        payload: { userId: currentUser.id, typing }
-      })
-      .then((res) => console.log('[typing] SENT', typing, '->', res))
+    if (!channel) return
+    channel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: currentUser.id, typing, nickname: currentUser.nickname }
+    })
   }
 
   // Called on every keystroke: announce "typing", then schedule a "stopped" after a short pause.
@@ -483,7 +602,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     if (scrollRef.current && shouldAutoScrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, viewportStyle, isPartnerTyping])
+  }, [messages, viewportStyle, isPartnerTyping, groupTypers])
 
   // Always jump to the bottom when a chat is first opened.
   useEffect(() => {
@@ -527,7 +646,9 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       } catch (err) {
         console.error("Error updating message:", err)
         // Reload messages to restore state
-        const data = await fetchMessages(currentUser.id, activeChat.id)
+        const data = isGroup
+          ? await fetchGroupMessages(activeChat.id)
+          : await fetchMessages(currentUser.id, activeChat.id)
         setMessages(data)
       }
       return
@@ -538,7 +659,8 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     const optimisticMsg = {
       id: tempId,
       sender_id: currentUser.id,
-      receiver_id: activeChat.id,
+      receiver_id: isGroup ? null : activeChat.id,
+      group_id: isGroup ? activeChat.id : null,
       content,
       created_at: new Date().toISOString(),
       is_read: false,
@@ -550,7 +672,9 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     setReplyingTo(null)
 
     try {
-      const sentMsg = await sendMessage(currentUser.id, activeChat.id, content, replyToId)
+      const sentMsg = isGroup
+        ? await sendGroupMessage(currentUser.id, activeChat.id, content, replyToId)
+        : await sendMessage(currentUser.id, activeChat.id, content, replyToId)
       // Replace optimistic message with actual one to get proper ID/Date
       setMessages(prev => prev.map(m => m.id === tempId ? sentMsg : m))
     } catch (err) {
@@ -590,6 +714,68 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     }
   }
 
+  // --- Group management ---
+  const isGroupAdmin = isGroup && groupMembers.some((m) => m.id === currentUser.id && m.role === 'admin')
+
+  // Called by CreateGroupModal after a group is created: open it immediately.
+  const handleGroupCreated = (group) => {
+    if (!group?.id) return
+    loadConversations()
+    setActiveChat(group)
+    setIsMobileView(true)
+    setIsSearching(false)
+  }
+
+  const handleMembersAdded = () => {
+    if (activeChat?.id) fetchGroupMembers(activeChat.id).then((m) => {
+      setGroupMembers(m)
+      groupMemberMap.current = new Map(m.map((x) => [x.id, x]))
+    })
+  }
+
+  const handleLeaveGroup = async () => {
+    if (!activeChat?.id) return
+    if (!window.confirm(t('confirm_leave_group') || 'Leave this group?')) return
+    try {
+      await leaveGroup(activeChat.id, currentUser.id)
+      setShowThemeMenu(false)
+      setShowMembersPanel(false)
+      setActiveChat(null)
+      setIsMobileView(false)
+      loadConversations()
+    } catch (e) {
+      console.error('Leave group error:', e)
+    }
+  }
+
+  const handleRemoveMember = async (userId) => {
+    if (!activeChat?.id || userId === currentUser.id) return
+    try {
+      await removeGroupMember(activeChat.id, userId)
+      const members = await fetchGroupMembers(activeChat.id)
+      setGroupMembers(members)
+      groupMemberMap.current = new Map(members.map((m) => [m.id, m]))
+    } catch (e) {
+      console.error('Remove member error:', e)
+    }
+  }
+
+  const handleRenameGroup = async () => {
+    if (!activeChat?.id) return
+    const next = window.prompt(t('rename_group') || 'Group name', activeChat.name || '')
+    if (next === null) return
+    const name = next.trim()
+    if (!name || name === activeChat.name) return
+    try {
+      await updateGroupChat(activeChat.id, { name })
+      setActiveChat((prev) => ({ ...prev, name }))
+      setShowThemeMenu(false)
+      loadConversations()
+    } catch (e) {
+      console.error('Rename group error:', e)
+    }
+  }
+
   const handleDelete = async (id) => {
     if (!window.confirm(t('confirm_delete_message'))) return
     try {
@@ -599,7 +785,9 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     } catch (err) {
       console.error("Error deleting message:", err)
       // Reload on error to restore state
-      const data = await fetchMessages(currentUser.id, activeChat.id)
+      const data = isGroup
+        ? await fetchGroupMessages(activeChat.id)
+        : await fetchMessages(currentUser.id, activeChat.id)
       setMessages(data)
     }
   }
@@ -676,12 +864,21 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       `}>
           <div className="flex items-center justify-between px-2">
             <h1 className="text-2xl font-black text-white">{t('messages') || 'Messages'}</h1>
-            <button
-              onClick={() => setIsSearching(!isSearching)}
-              className={`p-2 rounded-lg transition-all ${isSearching ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40' : 'bg-white/5 text-purple-500 hover:bg-white/10'}`}
-            >
-              <MessageSquare className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCreateGroup(true)}
+                title={t('create_group') || 'New group'}
+                className="p-2 rounded-lg transition-all bg-white/5 text-purple-500 hover:bg-white/10"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsSearching(!isSearching)}
+                className={`p-2 rounded-lg transition-all ${isSearching ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40' : 'bg-white/5 text-purple-500 hover:bg-white/10'}`}
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {isSearching && (
@@ -778,25 +975,38 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                   ${activeChat?.id === conv.id ? 'bg-purple-600/10 text-white' : 'text-gray-400 hover:bg-white/5'}
                 `}
                 >
-                  <ProfileAvatar avatarUrl={conv.avatar_url} workCount={conv.finished_work_count} size="sm" isOnline={isOnline(conv.last_seen)} isPro={conv.isPro} avatarFrame={conv.avatar_frame} />
+                  {conv.is_group ? (
+                    <GroupAvatar avatarUrl={conv.avatar_url} />
+                  ) : (
+                    <ProfileAvatar avatarUrl={conv.avatar_url} workCount={conv.finished_work_count} size="sm" isOnline={isOnline(conv.last_seen)} isPro={conv.isPro} avatarFrame={conv.avatar_frame} />
+                  )}
                   <div className="flex-1 text-left min-w-0">
                     <p className="font-bold text-sm truncate flex items-center gap-1.5">
-                      <span style={getNicknameStyle(conv.nickname_color, '#fff')}>
-                        {conv.nickname}
-                      </span>
-                      {conv.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
-                      {conv.isPro && (
-                        <span className="pro-badge">
-                          <Gem className="pro-badge-icon" />
-                          <span className="pro-badge-text">Pro</span>
+                      {conv.is_group ? (
+                        <span className="flex items-center gap-1.5 text-white truncate">
+                          <Users className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                          {conv.name}
                         </span>
+                      ) : (
+                        <>
+                          <span style={getNicknameStyle(conv.nickname_color, '#fff')}>
+                            {conv.nickname}
+                          </span>
+                          {conv.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
+                          {conv.isPro && (
+                            <span className="pro-badge">
+                              <Gem className="pro-badge-icon" />
+                              <span className="pro-badge-text">Pro</span>
+                            </span>
+                          )}
+                        </>
                       )}
                     </p>
                     <div className="flex items-center gap-2 min-w-0">
                       <p className={`text-[10px] truncate leading-none ${conv.unread_count > 0 ? 'text-purple-400 font-bold' : 'text-gray-500'}`}>
-                        {conv.unread_count > 0 ? t('new_messages') || 'New messages' : (t('click_to_chat') || 'Click to chat')}
+                        {conv.unread_count > 0 ? t('new_messages') || 'New messages' : conv.is_group ? (t('group_chat') || 'Group chat') : (t('click_to_chat') || 'Click to chat')}
                       </p>
-                      {conv.specialization && (
+                      {!conv.is_group && conv.specialization && (
                         <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2 whitespace-nowrap overflow-hidden flex-shrink-0">
                           {conv.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
                            conv.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
@@ -857,25 +1067,48 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => onViewProfile(activeChat.id)}
+                  onClick={() => { if (isGroup) setShowMembersPanel(true); else onViewProfile(activeChat.id) }}
                   className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
                 >
-                  <ProfileAvatar avatarUrl={activeChat.avatar_url} workCount={activeChat.finished_work_count} size="sm" isOnline={isOnline(activeChat.last_seen)} isPro={activeChat.isPro} avatarFrame={activeChat.avatar_frame} />
-                  <div className="flex-1 text-left">
-                    <h3 className="font-bold text-white flex items-center gap-1.5">
-                      <span style={getNicknameStyle(activeChat.nickname_color)}>
-                        {activeChat.nickname}
-                      </span>
-                      {activeChat.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
-                      {activeChat.isPro && (
-                        <span className="pro-badge">
-                          <Gem className="pro-badge-icon" />
-                          <span className="pro-badge-text">Pro</span>
+                  {isGroup ? (
+                    <GroupAvatar avatarUrl={activeChat.avatar_url} />
+                  ) : (
+                    <ProfileAvatar avatarUrl={activeChat.avatar_url} workCount={activeChat.finished_work_count} size="sm" isOnline={isOnline(activeChat.last_seen)} isPro={activeChat.isPro} avatarFrame={activeChat.avatar_frame} />
+                  )}
+                  <div className="flex-1 text-left min-w-0">
+                    <h3 className="font-bold text-white flex items-center gap-1.5 truncate">
+                      {isGroup ? (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Users className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                          {activeChat.name}
                         </span>
+                      ) : (
+                        <>
+                          <span style={getNicknameStyle(activeChat.nickname_color)}>
+                            {activeChat.nickname}
+                          </span>
+                          {activeChat.is_verified && <BadgeCheck className="w-4 h-4 text-purple-400 fill-purple-400/20" />}
+                          {activeChat.isPro && (
+                            <span className="pro-badge">
+                              <Gem className="pro-badge-icon" />
+                              <span className="pro-badge-text">Pro</span>
+                            </span>
+                          )}
+                        </>
                       )}
                     </h3>
                     <div className="flex items-center gap-2">
-                      {isPartnerTyping ? (
+                      {isGroup ? (
+                        Object.keys(groupTypers).length > 0 ? (
+                          <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest leading-none flex items-center gap-1.5 animate-in fade-in duration-200 truncate">
+                            {Object.entries(groupTypers).map(([id, nick]) => groupMemberMap.current.get(id)?.nickname || nick).filter(Boolean).join(', ')} {t('typing')}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest leading-none">
+                            {groupMembers.length} {t('members_count') || 'members'}
+                          </p>
+                        )
+                      ) : isPartnerTyping ? (
                         <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest leading-none flex items-center gap-1.5 animate-in fade-in duration-200">
                           {t('typing')}
                           <span className="flex gap-0.5">
@@ -887,7 +1120,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                       ) : (
                         <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest leading-none">Active Chat</p>
                       )}
-                      {activeChat.specialization && (
+                      {!isGroup && activeChat.specialization && (
                         <span className="flex items-center gap-1 text-purple-400 text-[9px] font-black uppercase tracking-widest leading-none border-l border-white/10 pl-2">
                           {activeChat.specialization === 'painter' ? <Palette className="w-2.5 h-2.5" /> :
                            activeChat.specialization === 'photographer' ? <Camera className="w-2.5 h-2.5" /> :
@@ -951,6 +1184,54 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                           </p>
                         </div>
                       )}
+
+                      <div className="mt-2 pt-2 border-t border-white/5">
+                        <button
+                          onClick={handleToggleMute}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                            isMuted
+                              ? 'text-amber-400 hover:bg-amber-500/10'
+                              : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          {isMuted
+                            ? <><Bell className="w-3.5 h-3.5" /> {t('unmute_chat') || 'Unmute'}</>
+                            : <><BellOff className="w-3.5 h-3.5" /> {t('mute_chat') || 'Mute'}</>}
+                        </button>
+                      </div>
+
+                      {isGroup && (
+                        <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                          <button
+                            onClick={() => { setShowMembersPanel(true); setShowThemeMenu(false) }}
+                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                          >
+                            <Users className="w-3.5 h-3.5" /> {t('group_members') || 'Members'}
+                          </button>
+                          {isGroupAdmin && (
+                            <>
+                              <button
+                                onClick={() => { setShowAddMembers(true); setShowThemeMenu(false) }}
+                                className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                              >
+                                <UserPlus className="w-3.5 h-3.5" /> {t('add_members') || 'Add members'}
+                              </button>
+                              <button
+                                onClick={handleRenameGroup}
+                                className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
+                              >
+                                <Pencil className="w-3.5 h-3.5" /> {t('rename_group') || 'Rename'}
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={handleLeaveGroup}
+                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2"
+                          >
+                            <LogOut className="w-3.5 h-3.5" /> {t('leave_group') || 'Leave group'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -973,12 +1254,29 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                         ? `${activeTheme.myBubble} rounded-tr-none ml-auto`
                         : `${activeTheme.theirBubble} rounded-tl-none mr-auto`}
                   `}>
-                      {msg.reply_to_id && (
+                      {isGroup && msg.sender_id !== currentUser.id && (
+                        <button
+                          type="button"
+                          onClick={() => onViewProfile?.(msg.sender_id)}
+                          className="block text-[11px] font-black mb-1 hover:underline"
+                          style={getNicknameStyle(groupMemberMap.current.get(msg.sender_id)?.nickname_color, '#c4b5fd')}
+                        >
+                          {groupMemberMap.current.get(msg.sender_id)?.nickname || t('user') || 'User'}
+                        </button>
+                      )}
+                      {msg.reply_to_id && (() => {
+                            const repliedMsg = messages.find(m => m.id === msg.reply_to_id)
+                            const repliedName = repliedMsg?.sender_id === currentUser.id
+                              ? (t('you') || 'You')
+                              : isGroup
+                                ? (groupMemberMap.current.get(repliedMsg?.sender_id)?.nickname || t('user') || 'User')
+                                : activeChat.nickname
+                            return (
                             <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-2 border-purple-400/50 text-xs opacity-80 max-w-full truncate flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-purple-300/70 mb-1">{messages.find(m => m.id === msg.reply_to_id)?.sender_id === currentUser.id ? t('you') || 'You' : activeChat.nickname}</span>
-                              <span className="truncate italic">"{cleanEmojiTags(messages.find(m => m.id === msg.reply_to_id)?.content) || t('message_deleted')}"</span>
+                              <span className="text-[10px] uppercase font-bold text-purple-300/70 mb-1">{repliedName}</span>
+                              <span className="truncate italic">"{cleanEmojiTags(repliedMsg?.content) || t('message_deleted')}"</span>
                             </div>
-                          )}
+                          )})()}
                           {msg.content?.startsWith('[PROFILE_SHARE:') ? (() => {
                             try {
                               const data = JSON.parse(msg.content.replace('[PROFILE_SHARE:', '').replace(']', ''))
@@ -1139,7 +1437,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                                 {msg.updated_at && msg.updated_at !== msg.created_at ? `(${t('edited')}) ` : ''}
                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
-                              {msg.sender_id === currentUser.id && (
+                              {msg.sender_id === currentUser.id && !isGroup && (
                                 <span className="text-[10px] font-bold tracking-tighter">
                                   {msg.is_read ? '✓✓' : '✓'}
                                 </span>
@@ -1219,7 +1517,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                   </div>
                 ))}
 
-                {isPartnerTyping && (
+                {(isGroup ? Object.keys(groupTypers).length > 0 : isPartnerTyping) && (
                   <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className={`${activeTheme.theirBubble} rounded-2xl md:rounded-[1.5rem] rounded-tl-none px-4 py-3 shadow-xl flex items-center gap-1.5`}>
                       <span className="w-2 h-2 bg-current opacity-60 rounded-full animate-bounce"></span>
@@ -1428,6 +1726,94 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
           onClose={() => setPostViewer(null)}
           onViewProfile={onViewProfile}
         />
+      )}
+
+      {/* Create group */}
+      {showCreateGroup && (
+        <CreateGroupModal
+          currentUser={currentUser}
+          onClose={() => setShowCreateGroup(false)}
+          onCreated={handleGroupCreated}
+        />
+      )}
+
+      {/* Add members to the active group */}
+      {showAddMembers && isGroup && (
+        <CreateGroupModal
+          currentUser={currentUser}
+          mode="add"
+          groupId={activeChat.id}
+          existingMemberIds={groupMembers.map((m) => m.id)}
+          onClose={() => setShowAddMembers(false)}
+          onCreated={handleMembersAdded}
+        />
+      )}
+
+      {/* Members panel */}
+      {showMembersPanel && isGroup && createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setShowMembersPanel(false)}
+        >
+          <div
+            className="w-full max-w-md bg-[#15131d] border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <h3 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-400" />
+                {t('group_members') || 'Members'} ({groupMembers.length})
+              </h3>
+              <button onClick={() => setShowMembersPanel(false)} className="p-2 -mr-2 text-gray-400 hover:text-white transition-colors">
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
+            {isGroupAdmin && (
+              <div className="px-5 pb-3">
+                <button
+                  onClick={() => { setShowMembersPanel(false); setShowAddMembers(true) }}
+                  className="w-full h-11 rounded-xl bg-purple-600/15 hover:bg-purple-600/25 text-purple-200 font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" /> {t('add_members') || 'Add members'}
+                </button>
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pb-5 space-y-1">
+              {groupMembers.map((m) => (
+                <div key={m.id} className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-white/5 transition-all">
+                  <button onClick={() => { setShowMembersPanel(false); onViewProfile?.(m.id) }}>
+                    <ProfileAvatar avatarUrl={m.avatar_url} workCount={m.finished_work_count} size="sm" isPro={m.isPro} avatarFrame={m.avatar_frame} />
+                  </button>
+                  <button
+                    onClick={() => { setShowMembersPanel(false); onViewProfile?.(m.id) }}
+                    className="flex-1 flex items-center gap-1.5 font-bold text-white notranslate text-left min-w-0"
+                    translate="no"
+                  >
+                    <span className="truncate" style={getNicknameStyle(m.nickname_color, '#fff')}>
+                      {m.id === currentUser.id ? (t('you') || 'You') : m.nickname}
+                    </span>
+                    {m.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
+                    {m.role === 'admin' && (
+                      <span className="text-[9px] font-black uppercase tracking-widest text-purple-400 border border-purple-500/30 rounded-md px-1.5 py-0.5 flex-shrink-0">
+                        {t('group_admin') || 'Admin'}
+                      </span>
+                    )}
+                  </button>
+                  {isGroupAdmin && m.id !== currentUser.id && (
+                    <button
+                      onClick={() => handleRemoveMember(m.id)}
+                      className="p-1.5 text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
+                      title={t('remove_member') || 'Remove'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </>
   )

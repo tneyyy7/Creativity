@@ -3,6 +3,7 @@ import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Sh
 import { supabase } from '../lib/supabase'
 import { sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { useTranslation } from 'react-i18next'
+import { LiquidGlassButton } from '../components/LiquidGlass'
 
 export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, onModeChange }) {
   const { t } = useTranslation()
@@ -309,10 +310,13 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
               </div>
             )}
 
-            <button
+            <LiquidGlassButton
               disabled={isLoading || ((isSignup || isReset) && password !== confirmPassword)}
               type="submit"
-              className="w-full py-5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl shadow-purple-900/20 group"
+              fullWidth
+              accent
+              config={{ radius: 18, padY: '1.25rem' }}
+              className="font-black group"
             >
               {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                 <>
@@ -320,7 +324,7 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
-            </button>
+            </LiquidGlassButton>
           </form>
 
           {isLogin && (

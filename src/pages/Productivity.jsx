@@ -97,16 +97,16 @@ export function Productivity() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-2 md:mb-3">{t('productivity')}</h1>
           <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">{t('productivity_subtitle')}</p>
         </div>
-        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 self-start lg:self-auto">
-          <button 
+        <div className="flex gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/5 self-start lg:self-auto">
+          <button
             onClick={() => setView('weekly')}
-            className={`px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest transition-all ${view === 'weekly' ? 'bg-purple-600 text-white shadow-xl' : 'text-gray-500 hover:text-white'}`}
+            className={`lg-pill px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest ${view === 'weekly' ? 'lg-pill--active' : ''}`}
           >
             {t('weekly')}
           </button>
-          <button 
+          <button
             onClick={() => setView('monthly')}
-            className={`px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest transition-all ${view === 'monthly' ? 'bg-purple-600 text-white shadow-xl' : 'text-gray-500 hover:text-white'}`}
+            className={`lg-pill px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest ${view === 'monthly' ? 'lg-pill--active' : ''}`}
           >
             {t('monthly')}
           </button>

@@ -175,9 +175,11 @@ export function Bookmarks({ onOpenPost }) {
                   className="glass-card group relative overflow-hidden flex flex-col hover:-translate-y-2 transition-all duration-500 border-white/5 hover:border-purple-500/30 shadow-2xl cursor-pointer"
                 >
                   <div className="aspect-[4/3] overflow-hidden relative">
-                    <img 
-                      src={painting.image_url} 
-                      alt={painting.title} 
+                    <img
+                      src={painting.image_url}
+                      alt={painting.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                     <div className="absolute top-4 left-4">
@@ -212,9 +214,11 @@ export function Bookmarks({ onOpenPost }) {
                 className="glass-card group relative overflow-hidden flex flex-col h-full hover:-translate-y-2 transition-all duration-500 border-white/5 hover:border-purple-500/30 shadow-2xl cursor-pointer"
               >
                 <div className="aspect-[4/3] overflow-hidden relative">
-                  <img 
-                    src={painting.image_url} 
-                    alt={painting.title} 
+                  <img
+                    src={painting.image_url}
+                    alt={painting.title}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                   <div className="absolute top-4 left-4">
@@ -298,9 +302,11 @@ export function Bookmarks({ onOpenPost }) {
                   {/* Folder graphical thumbnail panel */}
                   <div className="w-full aspect-[16/10] overflow-hidden bg-[#0d0c13] relative border-b border-white/5 flex items-center justify-center">
                     {coverImg ? (
-                      <img 
-                        src={coverImg} 
-                        alt={coll.name} 
+                      <img
+                        src={coverImg}
+                        alt={coll.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover/folder:scale-105 transition-transform duration-500"
                       />
                     ) : (

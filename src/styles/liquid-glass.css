@@ -1,0 +1,285 @@
+/*
+  LIQUID GLASS
+  ------------
+  Визуальные стили эффекта «жидкого стекла» в стиле iOS.
+
+  Архитектура слоёв (важно для производительности и совместимости):
+
+    .lg               — корневой интерактивный элемент (position: relative)
+     ├─ .lg-goo       — слой «ртути»: тинтованные блобы под SVG goo-фильтром.
+     │                  Здесь происходит метаболл-слияние форм. backdrop-filter
+     │                  ВНУТРИ SVG-фильтра не работает (контент растеризуется),
+     │                  поэтому стеклянное размытие вынесено в отдельный слой ниже.
+     ├─ .lg-glass     — само «стекло»: backdrop-filter blur + тонкая светлая
+     │                  граница + внутренний specular highlight. НЕ под SVG-фильтром,
+     │                  поэтому размытие фона корректно сэмплится.
+     └─ .lg-content   — иконка/текст поверх всего.
+
+  Все числовые параметры приходят как CSS-переменные из конфига в LiquidGlass.jsx,
+  что позволяет менять силу размытия/вязкость/прозрачность без правки CSS.
+*/
+
+.lg {
+  position: relative;
+  display: inline-flex;
+  isolation: isolate;            /* собственный stacking context, чтобы z-index слоёв был локальным */
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: var(--lg-radius, 9999px);
+}
+
+.lg:focus-visible {
+  outline: 2px solid hsl(var(--primary) / 0.9);
+  outline-offset: 3px;
+}
+
+/* Полноширинный блок (например, для CTA-кнопок в формах). */
+.lg--block {
+  display: flex;
+  width: 100%;
+}
+
+.lg:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Акцентный (фирменный) вариант: тинт и стекло берут цвет темы --primary,
+   поэтому кнопка остаётся «фиолетовой», но со стеклянно-жидкими свойствами. */
+.lg--accent {
+  --lg-tint: hsl(var(--primary) / 0.62);
+}
+.lg--accent .lg-glass {
+  background: linear-gradient(
+    160deg,
+    hsl(var(--primary) / 0.85) 0%,
+    hsl(var(--primary) / 0.55) 45%,
+    hsl(var(--primary) / 0.3) 100%
+  );
+  border-color: hsl(var(--primary) / 0.8);
+}
+.lg--accent .lg-content {
+  color: #fff;
+}
+
+/* ── Слой «ртути» (метаболлы) ─────────────────────────────────────────────── */
+.lg-goo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /* goo-фильтр объявлен один раз в <LiquidGlassDefs/>; он размывает альфу и
+     прогоняет её через alpha-threshold, из-за чего близкие блобы сливаются
+     гладкими «ртутными» перемычками без острых углов. */
+  filter: url(#lg-goo);
+  pointer-events: none;
+}
+
+.lg-blob {
+  position: absolute;
+  border-radius: 9999px;
+  /* Тинт-подложка стекла. Это НЕ финальный цвет — поверх ляжет .lg-glass.
+     Достаточно плотная альфа, чтобы goo-threshold уверенно «схватывал» форму. */
+  background: var(--lg-tint, rgba(255, 255, 255, 0.5));
+  will-change: transform;
+  transform: translateZ(0);      /* отдельный слой композитинга → анимация трансформом на GPU */
+}
+
+/* Тело-блоб повторяет форму кнопки и служит «материнской каплей». */
+.lg-blob--body {
+  inset: 0;
+  border-radius: var(--lg-radius, 9999px);
+}
+
+/* Блоб-спутник тянется к курсору и вязко соединяется с телом (эффект ртути). */
+.lg-blob--satellite {
+  top: 50%;
+  left: 50%;
+  width: var(--lg-satellite-size, 46px);
+  height: var(--lg-satellite-size, 46px);
+  margin-top: calc(var(--lg-satellite-size, 46px) / -2);
+  margin-left: calc(var(--lg-satellite-size, 46px) / -2);
+}
+
+/* Капли ripple при нажатии — отделяются от тела и растворяются. */
+.lg-ripple {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--lg-tint, rgba(255, 255, 255, 0.5));
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* ── Стеклянный слой ──────────────────────────────────────────────────────── */
+.lg-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--lg-radius, 9999px);
+  pointer-events: none;
+
+  /* Интенсивное размытие заднего плана + лёгкая насыщенность для «оптики» стекла */
+  -webkit-backdrop-filter: blur(var(--lg-blur, 14px)) saturate(180%);
+  backdrop-filter: blur(var(--lg-blur, 14px)) saturate(180%);
+
+  /* Полупрозрачная подложка с мягким верхним бликом */
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, calc(var(--lg-surface, 0.14) * 1.6)) 0%,
+    rgba(255, 255, 255, var(--lg-surface, 0.14)) 38%,
+    rgba(255, 255, 255, calc(var(--lg-surface, 0.14) * 0.4)) 100%
+  );
+
+  /* Тонкая светлая граница (толщина/преломление на гранях) + внутренние блики +
+     внешняя мягкая тень для «парения» над фоном. */
+  border: 1px solid rgba(255, 255, 255, var(--lg-border, 0.35));
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),          /* верхняя specular-кромка */
+    inset 0 -1px 2px rgba(255, 255, 255, 0.15),         /* нижний refractive-отблеск */
+    inset 0 0 12px rgba(255, 255, 255, 0.08),           /* мягкое внутреннее свечение */
+    0 8px 24px rgba(0, 0, 0, 0.18);                      /* внешняя тень */
+}
+
+/* Подвижный specular-блик, следящий за курсором (--lg-mx / --lg-my в %). */
+.lg-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    120px circle at var(--lg-mx, 50%) var(--lg-my, 0%),
+    rgba(255, 255, 255, 0.45),
+    rgba(255, 255, 255, 0) 60%
+  );
+  opacity: var(--lg-highlight, 0);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* ── Контент ──────────────────────────────────────────────────────────────── */
+.lg-content {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: var(--lg-pad-y, 0.75rem) var(--lg-pad-x, 1.5rem);
+  font-weight: 600;
+  color: var(--lg-fg, #fff);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* ── Контентный блок (карточка) ───────────────────────────────────────────── */
+.lg-card {
+  position: relative;
+  border-radius: var(--lg-radius, 1.5rem);
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(var(--lg-blur, 14px)) saturate(180%);
+  backdrop-filter: blur(var(--lg-blur, 14px)) saturate(180%);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, calc(var(--lg-surface, 0.14) * 1.4)) 0%,
+    rgba(255, 255, 255, var(--lg-surface, 0.14)) 45%,
+    rgba(255, 255, 255, calc(var(--lg-surface, 0.14) * 0.5)) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, var(--lg-border, 0.35));
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 0 20px rgba(255, 255, 255, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Сегментированный контрол: жидкий «pill» перетекает между сегментами,
+      вязко сливаясь с телом активного сегмента (метаболл двух элементов). ──── */
+.lg-segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 9999px;
+  isolation: isolate;
+  -webkit-backdrop-filter: blur(var(--lg-blur, 14px)) saturate(160%);
+  backdrop-filter: blur(var(--lg-blur, 14px)) saturate(160%);
+  background: rgba(255, 255, 255, calc(var(--lg-surface, 0.14) * 0.8));
+  border: 1px solid rgba(255, 255, 255, var(--lg-border, 0.35));
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.lg-segmented-track {
+  position: absolute;
+  inset: 4px;
+  z-index: 0;
+  filter: url(#lg-goo);
+  pointer-events: none;
+}
+
+.lg-segmented-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--lg-tint, rgba(255, 255, 255, 0.55));
+  will-change: transform, width;
+}
+
+.lg-segment {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.55rem 1.25rem;
+  font-weight: 600;
+  color: var(--lg-fg, #fff);
+  white-space: nowrap;
+  border-radius: 9999px;
+  transition: color 0.25s ease;
+}
+
+.lg-segment[data-active='false'] {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Светлая тема ─────────────────────────────────────────────────────────── */
+[data-theme='light'] .lg-blob,
+[data-theme='light'] .lg-ripple,
+[data-theme='light'] .lg-segmented-pill {
+  --lg-tint: rgba(255, 255, 255, 0.65);
+}
+
+[data-theme='light'] .lg-glass,
+[data-theme='light'] .lg-card {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.25) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='light'] .lg-content,
+[data-theme='light'] .lg-segment {
+  --lg-fg: #1a1730;
+  text-shadow: none;
+}
+
+[data-theme='light'] .lg-segment[data-active='false'] {
+  color: rgba(26, 23, 48, 0.5);
+}
+
+/* ── Доступность: отключаем «жидкость» при reduced motion ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .lg-goo,
+  .lg-segmented-track {
+    filter: none;
+  }
+  .lg-blob--satellite,
+  .lg-ripple {
+    display: none;
+  }
+}

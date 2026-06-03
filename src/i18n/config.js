@@ -4,9 +4,25 @@ import { initReactI18next } from 'react-i18next'
 const resources = {
   en: {
     translation: {
+      // --- Group chats ---
+      create_group: "New group",
+      group_name: "Group name",
+      group_chat: "Group chat",
+      group_members: "Members",
+      members_count: "members",
+      add_members: "Add members",
+      leave_group: "Leave group",
+      confirm_leave_group: "Leave this group?",
+      rename_group: "Rename group",
+      group_admin: "Admin",
+      remove_member: "Remove",
+      no_friends_to_add: "No friends to add yet",
+      user: "User",
       // --- Localization additions (frames / colors / themes / pro / emojis / stories) ---
       chat_theme_label: "Chat theme",
       chat_theme_pro_only: "Chat theme switching is available only to Creativity Pro subscribers",
+      mute_chat: "Mute",
+      unmute_chat: "Unmute",
       always: "forever",
       yearly: "year",
       per_month: "per month",
@@ -513,9 +529,25 @@ const resources = {
   },
   ru: {
     translation: {
+      // --- Group chats ---
+      create_group: "Новая группа",
+      group_name: "Название группы",
+      group_chat: "Групповой чат",
+      group_members: "Участники",
+      members_count: "участн.",
+      add_members: "Добавить участников",
+      leave_group: "Покинуть группу",
+      confirm_leave_group: "Покинуть эту группу?",
+      rename_group: "Переименовать группу",
+      group_admin: "Админ",
+      remove_member: "Удалить",
+      no_friends_to_add: "Пока некого добавить",
+      user: "Пользователь",
       // --- Localization additions ---
       chat_theme_label: "Тема чата",
       chat_theme_pro_only: "Смена тем чата доступна только подписчикам Creativity Pro",
+      mute_chat: "Заглушить",
+      unmute_chat: "Включить уведомления",
       always: "всегда",
       yearly: "год",
       per_month: "в месяц",
@@ -1027,9 +1059,25 @@ const resources = {
   },
   it: {
     translation: {
+      // --- Group chats ---
+      create_group: "Nuovo gruppo",
+      group_name: "Nome del gruppo",
+      group_chat: "Chat di gruppo",
+      group_members: "Membri",
+      members_count: "membri",
+      add_members: "Aggiungi membri",
+      leave_group: "Esci dal gruppo",
+      confirm_leave_group: "Uscire da questo gruppo?",
+      rename_group: "Rinomina gruppo",
+      group_admin: "Admin",
+      remove_member: "Rimuovi",
+      no_friends_to_add: "Nessun amico da aggiungere",
+      user: "Utente",
       // --- Localization additions ---
       chat_theme_label: "Tema chat",
       chat_theme_pro_only: "Il cambio del tema della chat è disponibile solo agli abbonati Creativity Pro",
+      mute_chat: "Silenzia",
+      unmute_chat: "Riattiva notifiche",
       always: "per sempre",
       yearly: "anno",
       per_month: "al mese",

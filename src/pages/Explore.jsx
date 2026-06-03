@@ -233,14 +233,12 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
       </div>
 
       {/* Tab Switcher & Unified Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#0d0c13]/40 p-4 rounded-3xl border border-white/5 w-full">
-        <div className="flex bg-[#12111a] p-1.5 rounded-2xl border border-white/5 shadow-inner">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+        <div className="flex gap-1.5 bg-[#12111a] p-1.5 rounded-2xl border border-white/5 shadow-inner">
           <button
             onClick={() => setActiveSubTab('feed')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeSubTab === 'feed' 
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' 
-                : 'text-gray-400 hover:text-white'
+            className={`lg-pill px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${
+              activeSubTab === 'feed' ? 'lg-pill--active' : ''
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -248,10 +246,8 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
           </button>
           <button
             onClick={() => setActiveSubTab('explore')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeSubTab === 'explore' 
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' 
-                : 'text-gray-400 hover:text-white'
+            className={`lg-pill px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${
+              activeSubTab === 'explore' ? 'lg-pill--active' : ''
             }`}
           >
             <Compass className="w-3.5 h-3.5" />
@@ -263,23 +259,23 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
         {activeSubTab === 'explore' && (
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             {/* Sorting controls */}
-            <div className="flex bg-[#12111a] p-1 rounded-xl border border-white/5 w-full sm:w-auto">
+            <div className="flex gap-1.5 bg-[#12111a] p-1.5 rounded-2xl border border-white/5 shadow-inner w-full sm:w-auto">
               <button
                 onClick={() => setSortBy('recent')}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                  sortBy === 'recent' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                className={`lg-pill flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold ${
+                  sortBy === 'recent' ? 'lg-pill--active' : ''
                 }`}
               >
-                <Calendar className="w-3 h-3" />
+                <Calendar className="w-3.5 h-3.5" />
                 <span>{t('recent')}</span>
               </button>
               <button
                 onClick={() => setSortBy('popular')}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                  sortBy === 'popular' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                className={`lg-pill flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold ${
+                  sortBy === 'popular' ? 'lg-pill--active' : ''
                 }`}
               >
-                <Flame className="w-3 h-3" />
+                <Flame className="w-3.5 h-3.5" />
                 <span>{t('popular')}</span>
               </button>
             </div>
@@ -372,9 +368,11 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                     onClick={() => onOpenPost?.(post.id, post, feedPosts, feedPosts.indexOf(post))}
                     className="w-full h-[280px] sm:h-[380px] md:h-[420px] rounded-2xl overflow-hidden cursor-pointer bg-[#0f0e16] border border-white/5 relative group/img mb-4"
                   >
-                    <img 
-                      src={post.image_url} 
-                      alt={post.title} 
+                    <img
+                      src={post.image_url}
+                      alt={post.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-700 ease-out"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end p-6">
@@ -561,8 +559,11 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
             )}
           </div>
 
-          {/* Category scrolling slider */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none w-full">
+          {/* Category scrolling slider.
+              py/px + отрицательные margin дают мягкому свечению активной пилюли
+              место для отрисовки: overflow-x-auto клипает и вертикаль, иначе glow
+              обрезается в прямоугольник. */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full px-1 py-4 -my-3 -mx-1">
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat
               const displayLabel = cat === 'All' ? t('filter_all') : t(`cat_${cat.toLowerCase()}`)
@@ -570,10 +571,8 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                 <button
                   key={cat}
                   onClick={() => { setSelectedCategory(cat); setSelectedTag(''); }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold tracking-tight whitespace-nowrap transition-all duration-300 ${
-                    isSelected 
-                      ? 'bg-purple-600/10 text-purple-400 border border-purple-500/30' 
-                      : 'bg-[#12111a] text-gray-400 hover:text-white border border-white/5'
+                  className={`lg-pill px-4 py-2 rounded-xl text-xs font-bold tracking-tight whitespace-nowrap ${
+                    isSelected ? 'lg-pill--active' : ''
                   }`}
                 >
                   {displayLabel}
@@ -616,10 +615,12 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                       
                       {/* Visual media */}
                       <div className="w-full aspect-[4/3] overflow-hidden relative bg-[#0f0e16]">
-                        <img 
-                          src={painting.image_url} 
+                        <img
+                          src={painting.image_url}
                           alt={painting.title}
-                          className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-700 ease-out" 
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-700 ease-out"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0c0b11] via-transparent to-transparent opacity-60 group-hover/card:opacity-30 transition-opacity" />
                         

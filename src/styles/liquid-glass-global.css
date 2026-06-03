@@ -1,0 +1,156 @@
+/*
+  LIQUID GLASS — ГЛОБАЛЬНЫЙ СЛОЙ
+  ------------------------------
+  Накидывает «жидко-стеклянный» вид на основные поверхности сайта (карточки,
+  панели, главные кнопки) БЕЗ переписывания компонентов. Эффект внедряется
+  скриптом liquidGlassAuto.js: в хост-элемент добавляется один absolute-оверлей
+  <span class="lg-fx-overlay">.
+
+  Почему это безопасно для вёрстки:
+    • Оверлей — position:absolute → не участвует во flex/grid-раскладке хоста.
+    • z-index:-1 внутри isolation:isolate на хосте → оверлей рисуется НАД фоном
+      хоста, но ПОД его контентом. Поэтому дочерние элементы не трогаются вовсе
+      (никаких принудительных position/z-index на детях).
+    • border-radius:inherit + overflow:hidden на самом оверлее → ртутный ripple
+      аккуратно обрезается по скруглению хоста, при этом overflow хоста не меняем.
+*/
+
+.lg-fx-host {
+  position: relative;
+  isolation: isolate; /* локализуем z-index:-1 оверлея внутри хоста */
+}
+
+.lg-fx-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  /* По умолчанию оверлей НЕВИДИМ. Стеклянная кромка появляется только при
+     наведении (ниже, по [data-lg-hot]) и плавно гаснет при уходе курсора —
+     иначе подсветка «залипала» бы навсегда после первого ховера. */
+  box-shadow: none;
+  transition: box-shadow 0.35s ease;
+}
+
+/* Тонкая светлая кромка + мягкое внутреннее свечение — только пока курсор внутри. */
+.lg-fx-host[data-lg-hot='1'] .lg-fx-overlay {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Specular-блик, следящий за курсором (--lg-mx/--lg-my задаёт скрипт). */
+.lg-fx-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    90px circle at var(--lg-mx, 50%) var(--lg-my, 50%),
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0) 70%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.lg-fx-host[data-lg-hot='1'] .lg-fx-overlay::before {
+  opacity: 1;
+}
+
+/* Ртутная капля при нажатии: расходится от точки клика и растворяется. */
+.lg-fx-ripple {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.38),
+    rgba(255, 255, 255, 0) 70%
+  );
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  will-change: width, height, opacity;
+}
+
+/* Лёгкий «отклик» главных кнопок на нажатие — упруго, как в iOS. */
+button.lg-fx-host {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+button.lg-fx-host:active {
+  transform: scale(0.97);
+}
+
+/* Светлая тема: блик и капля чуть мягче, чтобы не выбеливать поверхности. */
+[data-theme='light'] .lg-fx-overlay::before {
+  background: radial-gradient(
+    180px circle at var(--lg-mx, 50%) var(--lg-my, 50%),
+    rgba(255, 255, 255, 0.55),
+    rgba(255, 255, 255, 0) 60%
+  );
+}
+[data-theme='light'] .lg-fx-host[data-lg-hot='1'] .lg-fx-overlay {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+/*
+  СТЕКЛЯННАЯ ПИЛЮЛЯ (.lg-pill) — для сегментированных тогглов и чипов-категорий.
+  Переиспользуемый класс: вешается на маленькие кнопки-переключатели по сайту.
+  Сам блик/ripple даёт глобальный слой (.lg-pill добавлен в селектор скрипта).
+*/
+.lg-pill {
+  position: relative;
+  isolation: isolate;
+  /* overflow:hidden обрезает backdrop-filter по скруглению — иначе размытие
+     «вылезает» прямоугольником за округлые углы (странные края/обрезка).
+     На внешнее box-shadow (свечение) overflow не влияет. */
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  backdrop-filter: blur(10px) saturate(160%);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: rgb(156 163 175); /* gray-400 — неактивный текст */
+  transition: color 0.25s ease, background 0.25s ease, border-color 0.25s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lg-pill:hover {
+  color: #fff;
+}
+.lg-pill:active {
+  transform: scale(0.96);
+}
+
+/* Активное состояние — стеклянный акцент (фирменный цвет темы). */
+.lg-pill--active {
+  background: linear-gradient(
+    160deg,
+    hsl(var(--primary) / 0.9) 0%,
+    hsl(var(--primary) / 0.55) 100%
+  );
+  border-color: hsl(var(--primary) / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 3px 12px hsl(var(--primary) / 0.4);
+  color: #fff;
+}
+
+[data-theme='light'] .lg-pill {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 23, 48, 0.55);
+}
+[data-theme='light'] .lg-pill:hover {
+  color: #1a1730;
+}
+
+/* Доступность: при reduced-motion гасим ртутный ripple и press-отклик. */
+@media (prefers-reduced-motion: reduce) {
+  .lg-fx-ripple {
+    display: none;
+  }
+  button.lg-fx-host:active {
+    transform: none;
+  }
+}

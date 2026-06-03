@@ -283,10 +283,8 @@ export function Gallery({ onOpenPost }) {
           <button
             key={f.id}
             onClick={() => setFilter(f.id)}
-            className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-tighter ${
-              filter === f.id 
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40' 
-                : 'text-gray-500 hover:text-white hover:bg-white/5'
+            className={`lg-pill px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-tighter ${
+              filter === f.id ? 'lg-pill--active' : ''
             }`}
           >
             {f.label}
@@ -334,9 +332,11 @@ export function Gallery({ onOpenPost }) {
         {filteredPaintings.map((painting) => (
           <div key={painting.id} className="glass-card group relative overflow-hidden flex flex-col h-full hover:-translate-y-2 transition-all duration-500 border-white/5 hover:border-purple-500/30 shadow-2xl">
             <div className="aspect-[4/3] overflow-hidden relative">
-              <img 
-                src={painting.image_url} 
-                alt={painting.title} 
+              <img
+                src={painting.image_url}
+                alt={painting.title}
+                loading="lazy"
+                decoding="async"
                 className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 cursor-pointer ${painting.is_finished ? 'opacity-100' : 'opacity-70'}`}
                 onClick={() => onOpenPost?.(painting.id, painting, filteredPaintings, filteredPaintings.indexOf(painting))}
               />

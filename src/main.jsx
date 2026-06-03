@@ -1,11 +1,22 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { LiquidGlassDefs } from './components/LiquidGlass'
+import { initLiquidGlassAuto } from './lib/liquidGlassAuto'
 import './styles/index.css'
+import './styles/liquid-glass-global.css'
 import './i18n/config'
+
+// Глобальный Liquid Glass: блик за курсором + ртутный ripple на всех карточках,
+// панелях и главных кнопках сайта (через делегирование событий, в т.ч. для
+// динамически подгружаемого контента).
+initLiquidGlassAuto()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    {/* Общий SVG goo-фильтр для эффекта Liquid Glass — один раз на всё приложение,
+        до экранов авторизации, чтобы стеклянные кнопки работали везде. */}
+    <LiquidGlassDefs />
     <App />
   </React.StrictMode>,
 )

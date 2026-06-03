@@ -170,6 +170,30 @@ serve(async (req) => {
       })
     }
 
+    // Skip push if the recipient has muted this chat (the sender, for direct
+    // messages). Group pushes are not sent from here yet, but the same lookup
+    // works once they are.
+    if (notifType === 'message' && actorId) {
+      try {
+        const { data: mute } = await supabase
+          .from('chat_mutes')
+          .select('chat_id')
+          .eq('user_id', receiverId)
+          .eq('chat_id', actorId)
+          .maybeSingle()
+
+        if (mute) {
+          console.log(`Skip push: recipient ${receiverId} muted chat with ${actorId}`)
+          return new Response(JSON.stringify({ skipped: true, reason: "Chat muted" }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          })
+        }
+      } catch (err) {
+        console.error("Error checking chat mute:", err)
+      }
+    }
+
     // Skip push if recipient is actively inside this chat right now
     if (notifType === 'message') {
       try {
