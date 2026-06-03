@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { useNavigationGestures } from './hooks/useNavigationGestures'
-import { useSwipeNavigation } from './hooks/useSwipeNavigation'
 import { Navbar } from './components/Navbar'
 import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus } from './lib/supabase'
 import { Auth } from './pages/Auth'
@@ -23,16 +22,6 @@ const Friends = lazy(() => import('./pages/Friends').then(m => ({ default: m.Fri
 const Bookmarks = lazy(() => import('./pages/Bookmarks').then(m => ({ default: m.Bookmarks })))
 const Explore = lazy(() => import('./pages/Explore').then(m => ({ default: m.Explore })))
 const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })))
-
-// Canonical order of the top-level screens, matching the burger-menu order in
-// Sidebar.jsx. Full-width horizontal swipes page between adjacent entries:
-// swipe left → next, swipe right → previous. Nested views (public_profile,
-// profile, settings) and the self-contained Messages screen are excluded — the
-// left-edge "back" gesture handles those instead.
-const MAIN_TAB_ORDER = [
-  'dashboard', 'explore', 'gallery', 'bookmarks',
-  'friends', 'messages', 'ranks', 'subscription', 'productivity',
-]
 
 const parseInitialUrl = () => {
   const path = window.location.pathname.replace(/^\//, '')
@@ -344,34 +333,19 @@ function App() {
 
   const closeSidebarGesture = useCallback(() => setIsSidebarOpen(false), [])
 
+  // Swipe left on a normal page → step forward through in-app history (mirror
+  // of the edge-swipe "back"). When the menu is open, the left swipe closes it
+  // instead — that case is handled inside the gesture hook.
+  const handleGestureForward = useCallback(() => {
+    if (postViewer) return // let the viewer own horizontal swipes
+    window.history.forward()
+  }, [postViewer])
+
   useNavigationGestures({
     onBack: handleGestureBack,
+    onForward: handleGestureForward,
     onCloseSidebar: closeSidebarGesture,
     isSidebarOpen,
-  })
-
-  // --- Full-width horizontal swipe paging between top-level screens ---------
-  // Move to the adjacent tab in MAIN_TAB_ORDER. Paging is disabled while the
-  // menu or a post viewer is open, on nested views, and on Messages (which has
-  // its own internal levels) so the gesture never strands the user mid-flow.
-  const tabIndex = MAIN_TAB_ORDER.indexOf(activeTab)
-  const swipePagingDisabled =
-    tabIndex === -1 || activeTab === 'messages' || isSidebarOpen || !!postViewer
-
-  const goToNextTab = useCallback(() => {
-    const i = MAIN_TAB_ORDER.indexOf(activeTab)
-    if (i >= 0 && i < MAIN_TAB_ORDER.length - 1) setActiveTab(MAIN_TAB_ORDER[i + 1])
-  }, [activeTab])
-
-  const goToPrevTab = useCallback(() => {
-    const i = MAIN_TAB_ORDER.indexOf(activeTab)
-    if (i > 0) setActiveTab(MAIN_TAB_ORDER[i - 1])
-  }, [activeTab])
-
-  const { swipeHandlers } = useSwipeNavigation({
-    onSwipeLeft: goToNextTab,   // swipe left → next page
-    onSwipeRight: goToPrevTab,  // swipe right → previous page
-    disabled: swipePagingDisabled,
   })
 
   if (loading) {
@@ -436,10 +410,7 @@ function App() {
             externalProfile: profile
           })}
         />
-        <main
-          {...swipeHandlers}
-          className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden p-3 md:p-4' : 'overflow-y-auto p-4 md:p-10'} custom-scrollbar flex flex-col`}
-        >
+        <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden p-3 md:p-4' : 'overflow-y-auto p-4 md:p-10'} custom-scrollbar flex flex-col`}>
          <div key={activeTab} className="tab-transition flex-1 flex flex-col min-h-0">
          <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400">Loading…</div>}>
           {activeTab === 'dashboard' && (
