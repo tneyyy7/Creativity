@@ -109,6 +109,18 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
           throw new Error(t('password_min_error') || "Password must be at least 6 characters")
         }
 
+        // The recovery session is created from the link in the e-mail. When the
+        // link is expired, was already used, or got opened in a browser that
+        // never had the session, there is nothing to update and Supabase throws
+        // a cryptic "Auth session missing!". Detect it up front and explain.
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error(
+            t('auth_reset_link_invalid') ||
+            "Ссылка для сброса пароля недействительна или истекла. Запросите новую."
+          )
+        }
+
         const { data, error } = await supabase.auth.updateUser({
           password: password
         })
@@ -126,7 +138,13 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
       }
     } catch (err) {
       console.error("Auth Error:", err)
-      setError(err.message || "An error occurred during authentication")
+      const rawMessage = err?.message || "An error occurred during authentication"
+      // Supabase surfaces a confusing "Auth session missing!" when a recovery
+      // link is no longer valid — translate it into actionable guidance.
+      const friendlyMessage = /auth session missing/i.test(rawMessage)
+        ? (t('auth_reset_link_invalid') || "Ссылка для сброса пароля недействительна или истекла. Запросите новую.")
+        : rawMessage
+      setError(friendlyMessage)
     } finally {
       setIsLoading(false)
     }

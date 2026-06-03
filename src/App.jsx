@@ -230,6 +230,22 @@ function App() {
 
   // Synchronize activeTab, targetUserId, and exploreCategory state changes to URL path
   useEffect(() => {
+    // Supabase delivers password-recovery (and OAuth) credentials in the URL —
+    // in the hash for the implicit flow (#access_token=…&type=recovery) and as
+    // ?code=… for PKCE. The auth client reads them asynchronously on startup
+    // and only then strips them from the URL itself. If we rewrite the URL with
+    // pushState before that happens we wipe the credentials, the recovery
+    // session is never created, and the later updateUser() call fails with
+    // "Auth session missing". Leave the URL untouched until they're consumed.
+    if (typeof window !== 'undefined') {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      const hasAuthCredentials =
+        hashParams.has('access_token') ||
+        hashParams.get('type') === 'recovery' ||
+        new URLSearchParams(window.location.search).has('code')
+      if (hasAuthCredentials) return
+    }
+
     const pushPath = (path) => {
       if (window.location.pathname !== path) {
         navIndexRef.current += 1
@@ -237,13 +253,13 @@ function App() {
       }
     }
 
-    if (!user) {
-      pushPath(authMode === 'forgot' ? '/forgot-password' : `/${authMode}`)
+    if (isResettingPassword) {
+      pushPath('/reset-password')
       return
     }
 
-    if (isResettingPassword) {
-      pushPath('/reset-password')
+    if (!user) {
+      pushPath(authMode === 'forgot' ? '/forgot-password' : `/${authMode}`)
       return
     }
 
