@@ -225,17 +225,39 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
+
+    const isInputFocused = () => {
+      const activeEl = document.activeElement
+      if (!activeEl) return false
+      return activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable')
+    }
+
     const onResize = () => {
+      if (!isInputFocused()) {
+        setKeyboardInset(0)
+        return
+      }
       // Height of the layout viewport hidden behind the on-screen keyboard.
-      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      const rawInset = window.innerHeight - vv.height - vv.offsetTop
+      const inset = rawInset > 30 ? rawInset : 0
       setKeyboardInset((prev) => (Math.abs(prev - inset) < 1 ? prev : inset))
     }
+
     vv.addEventListener('resize', onResize)
     vv.addEventListener('scroll', onResize)
+
+    const handleFocusChange = () => {
+      setTimeout(onResize, 50)
+    }
+    window.addEventListener('focusin', handleFocusChange)
+    window.addEventListener('focusout', handleFocusChange)
+
     onResize()
     return () => {
       vv.removeEventListener('resize', onResize)
       vv.removeEventListener('scroll', onResize)
+      window.removeEventListener('focusin', handleFocusChange)
+      window.removeEventListener('focusout', handleFocusChange)
     }
   }, [])
 
