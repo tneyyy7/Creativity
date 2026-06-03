@@ -287,6 +287,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   const [replyingTo, setReplyingTo] = useState(null)
   const [postViewer, setPostViewer] = useState(null) // { paintings, index, authorProfile }
   const scrollRef = useRef(null)
+  const messageInputRef = useRef(null)
   // Whether the user is currently parked at (or near) the bottom of the message list.
   // Only then do we auto-stick to the bottom on new messages / viewport changes — otherwise
   // scrolling up to read older messages would yank the view back down ("the kick").
@@ -1032,10 +1033,20 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     }
   }
 
+  const replyToMessage = (msg) => {
+    setReplyingTo(msg)
+    setTimeout(() => {
+      messageInputRef.current?.focus()
+    }, 50)
+  }
+
   const handleStartEdit = (msg) => {
     setEditingId(msg.id)
     setInput(getEditableText(msg.content))
     setReplyingTo(null)
+    setTimeout(() => {
+      messageInputRef.current?.focus()
+    }, 50)
   }
 
   const handleCancelEdit = () => {
@@ -1987,7 +1998,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                                   </div>
                                 )}
                               </div>
-                              <button onClick={(e) => { e.stopPropagation(); setReplyingTo(msg); }} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
+                              <button onClick={(e) => { e.stopPropagation(); replyToMessage(msg); }} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
                                 <Reply className="w-3.5 h-3.5" />
                               </button>
                               {!msg.content?.startsWith('[PROFILE_SHARE:') && !msg.content?.startsWith('[POST_SHARE:') && (
@@ -2025,7 +2036,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                                   </div>
                                 )}
                               </div>
-                              <button onClick={(e) => { e.stopPropagation(); setReplyingTo(msg); }} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
+                              <button onClick={(e) => { e.stopPropagation(); replyToMessage(msg); }} className="p-1 hover:text-purple-300 transition-colors" title={t('reply') || 'Reply'}>
                                 <Reply className="w-3.5 h-3.5" />
                               </button>
                             </div>
@@ -2201,6 +2212,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                       </button>
                     </div>
                     <input
+                      ref={messageInputRef}
                       type="text"
                       value={input}
                       onChange={handleInputChange}
@@ -2505,7 +2517,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
               {/* Menu Buttons */}
               <div className="space-y-1">
                 <button 
-                  onClick={() => { setReplyingTo(selectedContextMsg); closeContextMenu(); }} 
+                  onClick={() => { replyToMessage(selectedContextMsg); closeContextMenu(); }} 
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-gray-200 hover:bg-white/5 active:bg-white/10 transition-all text-left"
                 >
                   <Reply className="w-4 h-4 text-purple-400" />
