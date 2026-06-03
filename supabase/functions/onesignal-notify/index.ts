@@ -94,8 +94,20 @@ function cleanMessagePreview(content: string, d: Dict): string {
 }
 
 // Build the title + message for a single language.
-function buildText(d: Dict, notifType: string, record: any, nickname: string | null): { title: string; message: string } {
+function buildText(
+  d: Dict, 
+  notifType: string, 
+  record: any, 
+  nickname: string | null,
+  groupName: string | null = null
+): { title: string; message: string } {
   if (notifType === 'message') {
+    if (groupName) {
+      return {
+        title: groupName,
+        message: nickname ? `${nickname}: ${cleanMessagePreview(record.content, d)}` : cleanMessagePreview(record.content, d),
+      }
+    }
     return {
       title: nickname ? `${d.message_from} ${nickname}` : d.new_message,
       message: cleanMessagePreview(record.content, d),
@@ -149,79 +161,119 @@ serve(async (req) => {
 
     console.log(`Notification trigger for ${table} (${type})`)
 
-    let receiverId = null
+    let recipientIds: string[] = []
     let actorId = null
     let notifType = null // 'message' for chat, otherwise the notifications.type value
+    let groupName: string | null = null
 
     if (table === 'messages' && type === 'INSERT') {
-      receiverId = record.receiver_id
       actorId = record.sender_id
       notifType = 'message'
+
+      if (record.group_id) {
+        // Group message: notify all members of the group except the sender
+        try {
+          const { data: members, error: membersErr } = await supabase
+            .from('group_members')
+            .select('user_id')
+            .eq('group_id', record.group_id)
+
+          if (membersErr) throw membersErr
+
+          const allMembers = members?.map((m: any) => m.user_id) || []
+          const otherMembers = allMembers.filter((uid: string) => uid !== actorId)
+
+          if (otherMembers.length > 0) {
+            // Filter out users who have muted this group chat
+            const { data: mutes, error: mutesErr } = await supabase
+              .from('chat_mutes')
+              .select('user_id')
+              .eq('chat_id', record.group_id)
+
+            if (mutesErr) throw mutesErr
+
+            const mutedUsers = new Set(mutes?.map((m: any) => m.user_id) || [])
+            recipientIds = otherMembers.filter((uid: string) => !mutedUsers.has(uid))
+          }
+
+          // Fetch group name
+          const { data: group, error: groupErr } = await supabase
+            .from('group_chats')
+            .select('name')
+            .eq('id', record.group_id)
+            .maybeSingle()
+
+          if (groupErr) throw groupErr
+          groupName = group?.name || null
+
+        } catch (err) {
+          console.error("Error processing group message notification:", err)
+        }
+      } else {
+        // Direct message
+        const receiverId = record.receiver_id
+        if (receiverId) {
+          try {
+            // Check if receiver muted sender
+            const { data: mute } = await supabase
+              .from('chat_mutes')
+              .select('chat_id')
+              .eq('user_id', receiverId)
+              .eq('chat_id', actorId)
+              .maybeSingle()
+
+            if (mute) {
+              console.log(`Skip push: recipient ${receiverId} muted chat with ${actorId}`)
+            } else {
+              // Check if receiver is actively in the chat
+              let isActivelyInChat = false
+              try {
+                const { data: recipientProfile } = await supabase
+                  .from('profiles')
+                  .select('active_chat_with_id, active_chat_updated_at')
+                  .eq('id', receiverId)
+                  .single()
+
+                if (recipientProfile) {
+                  const { active_chat_with_id, active_chat_updated_at } = recipientProfile
+                  if (active_chat_with_id === actorId && active_chat_updated_at) {
+                    const updatedAt = new Date(active_chat_updated_at).getTime()
+                    const now = Date.now()
+                    if (now - updatedAt < 45000) {
+                      isActivelyInChat = true
+                      console.log(`Skip push: recipient ${receiverId} is actively in chat with sender ${actorId}`)
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error("Error checking recipient chat presence:", err)
+              }
+
+              if (!isActivelyInChat) {
+                recipientIds.push(receiverId)
+              }
+            }
+          } catch (err) {
+            console.error("Error checking chat mute:", err)
+            // Fallback: send notification if query fails
+            recipientIds.push(receiverId)
+          }
+        }
+      }
     } else if (table === 'notifications' && type === 'INSERT') {
-      receiverId = record.user_id
+      const receiverId = record.user_id
+      if (receiverId) {
+        recipientIds.push(receiverId)
+      }
       actorId = record.actor_id
       notifType = record.type // 'like', 'comment', 'friend_request', etc.
     }
 
-    if (!receiverId) {
-      return new Response(JSON.stringify({ skipped: true, reason: "No receiverId" }), {
+    if (recipientIds.length === 0) {
+      return new Response(JSON.stringify({ skipped: true, reason: "No active or unmuted recipients" }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
-    }
-
-    // Skip push if the recipient has muted this chat (the sender, for direct
-    // messages). Group pushes are not sent from here yet, but the same lookup
-    // works once they are.
-    if (notifType === 'message' && actorId) {
-      try {
-        const { data: mute } = await supabase
-          .from('chat_mutes')
-          .select('chat_id')
-          .eq('user_id', receiverId)
-          .eq('chat_id', actorId)
-          .maybeSingle()
-
-        if (mute) {
-          console.log(`Skip push: recipient ${receiverId} muted chat with ${actorId}`)
-          return new Response(JSON.stringify({ skipped: true, reason: "Chat muted" }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          })
-        }
-      } catch (err) {
-        console.error("Error checking chat mute:", err)
-      }
-    }
-
-    // Skip push if recipient is actively inside this chat right now
-    if (notifType === 'message') {
-      try {
-        const { data: recipientProfile } = await supabase
-          .from('profiles')
-          .select('active_chat_with_id, active_chat_updated_at')
-          .eq('id', receiverId)
-          .single()
-
-        if (recipientProfile) {
-          const { active_chat_with_id, active_chat_updated_at } = recipientProfile
-          if (active_chat_with_id === actorId && active_chat_updated_at) {
-            const updatedAt = new Date(active_chat_updated_at).getTime()
-            const now = Date.now()
-
-            // If heartbeat was updated within the last 45 seconds, the recipient is in the chat
-            if (now - updatedAt < 45000) {
-              console.log(`Skip push: recipient ${receiverId} is actively in chat with sender ${actorId}`)
-              return new Response(JSON.stringify({ skipped: true, reason: "Recipient actively in chat" }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200,
-              })
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error checking recipient chat presence:", err)
-      }
     }
 
     // Fetch actor nickname if we have an actorId
@@ -241,7 +293,7 @@ serve(async (req) => {
     const headings: Record<string, string> = {}
     const contents: Record<string, string> = {}
     for (const lang of LANGS) {
-      const { title, message } = buildText(TRANSLATIONS[lang], notifType!, record, nickname)
+      const { title, message } = buildText(TRANSLATIONS[lang], notifType!, record, nickname, groupName)
       headings[lang] = title
       contents[lang] = message
     }
@@ -254,7 +306,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
-        include_external_user_ids: [receiverId],
+        include_external_user_ids: recipientIds,
         contents,
         headings
       })

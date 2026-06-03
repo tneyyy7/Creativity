@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff, Loader2 } from 'lucide-react'
+import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff, Loader2, Pin, PinOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat, uploadAvatar } from '../lib/supabase'
+import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, fetchChatMutes, fetchChatPins, toggleChatPin, fetchHiddenChats, hideConversation, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat, uploadAvatar } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { CreateGroupModal } from '../components/CreateGroupModal'
 import { PostViewerModal } from '../components/PostViewerModal'
@@ -45,6 +45,37 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   const longPressTimerRef = useRef(null)
   const pointerStartPos = useRef({ x: 0, y: 0 })
   const wasLongPressRef = useRef(false)
+
+  // --- Chat (conversation) long-press / right-click context menu ---
+  // Lets the user pin, mute or hide a whole chat. On phones/PWA it opens on a
+  // long press; on desktop via right-click or the hover pin button.
+  const [chatMenu, setChatMenu] = useState(null)        // the conversation the menu acts on
+  const [chatMenuRect, setChatMenuRect] = useState(null) // screen rect of the tapped row
+  const [chatMenuPos, setChatMenuPos] = useState(null)   // resolved on-screen position
+  const [chatMenuReady, setChatMenuReady] = useState(false)
+  const chatMenuRef = useRef(null)
+  const chatLongPressTimer = useRef(null)
+  const chatPointerStart = useRef({ x: 0, y: 0 })
+  const chatWasLongPress = useRef(false)
+
+  const openChatMenu = (conv, el) => {
+    let rect = null
+    if (el && typeof el.getBoundingClientRect === 'function') {
+      const b = el.getBoundingClientRect()
+      rect = { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: b.width, height: b.height }
+    }
+    setChatMenuRect(rect)
+    setChatMenuPos(null)
+    setChatMenuReady(false)
+    setChatMenu(conv)
+  }
+
+  const closeChatMenu = () => {
+    setChatMenu(null)
+    setChatMenuRect(null)
+    setChatMenuPos(null)
+    setChatMenuReady(false)
+  }
 
   // Open the message action menu, remembering exactly where the tapped bubble
   // sits on screen so the panel can appear right under/over it (iOS/Telegram style).
@@ -131,6 +162,50 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     }
   }, [selectedContextMsg, contextMenuRect, currentUser.id])
 
+  // Position the chat context menu: drop it under the tapped row, flipping above
+  // when there isn't room, and clamp it inside the viewport.
+  useLayoutEffect(() => {
+    if (!chatMenu) return
+    let rafId
+    const compute = () => {
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const MARGIN = 12
+      const GAP = 8
+      const menuW = Math.min(300, vw - MARGIN * 2)
+      const menuH = chatMenuRef.current ? chatMenuRef.current.offsetHeight : 0
+
+      const rect = chatMenuRect || {
+        top: vh * 0.4, bottom: vh * 0.4, left: (vw - menuW) / 2,
+        right: (vw + menuW) / 2, width: menuW, height: 0,
+      }
+
+      let menuLeft = rect.left
+      menuLeft = Math.max(MARGIN, Math.min(menuLeft, vw - MARGIN - menuW))
+
+      let menuTop
+      const fitsBelow = rect.bottom + GAP + menuH <= vh - MARGIN
+      const fitsAbove = rect.top - GAP - menuH >= MARGIN
+      if (fitsBelow) menuTop = rect.bottom + GAP
+      else if (fitsAbove) menuTop = rect.top - GAP - menuH
+      else menuTop = Math.max(MARGIN, vh - MARGIN - menuH)
+
+      setChatMenuPos({
+        menuTop, menuLeft, menuWidth: menuW,
+        maxMenuHeight: vh - MARGIN * 2,
+        placedAbove: !fitsBelow && fitsAbove,
+      })
+      rafId = requestAnimationFrame(() => setChatMenuReady(true))
+    }
+    compute()
+    const onResize = () => compute()
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      if (rafId) cancelAnimationFrame(rafId)
+    }
+  }, [chatMenu, chatMenuRect])
+
   // Expose the "back" step (open chat → chat list) to the global edge-swipe
   // gesture handled in App. Only registers while a chat is open on a phone.
   useEffect(() => {
@@ -143,26 +218,19 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     return () => registerBack(null)
   }, [registerBack, isMobile, activeChat])
 
-  // Track the visual viewport height and offsets so the full-screen chat fits perfectly
-  // when the on-screen keyboard opens, keeping the input field visible above it without zooming.
-  const [viewportStyle, setViewportStyle] = useState({ height: '', top: '', left: '' })
+  // Keyboard handling for the full-screen chat. The panel itself ALWAYS covers the
+  // entire screen (fixed inset-0) — it is never resized to the visual viewport, which
+  // on PWAs can get stuck reporting a stale, too-small height and leave a dark "phantom"
+  // strip below the input. Instead we only measure how much the on-screen keyboard
+  // overlaps the layout viewport and lift the content up by that amount with padding.
+  const [keyboardInset, setKeyboardInset] = useState(0)
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
     const onResize = () => {
-      setViewportStyle((prev) => {
-        const next = {
-          height: `${vv.height}px`,
-          top: `${vv.offsetTop}px`,
-          left: `${vv.offsetLeft}px`
-        }
-        // Avoid redundant state updates (and the re-renders / scroll jumps they cause):
-        // mobile browsers fire visualViewport "scroll" constantly with identical metrics.
-        if (prev.height === next.height && prev.top === next.top && prev.left === next.left) {
-          return prev
-        }
-        return next
-      })
+      // Height of the layout viewport hidden behind the on-screen keyboard.
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardInset((prev) => (Math.abs(prev - inset) < 1 ? prev : inset))
     }
     vv.addEventListener('resize', onResize)
     vv.addEventListener('scroll', onResize)
@@ -452,15 +520,29 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     return content
   }
 
-  // Load conversations
+  // Load conversations. Pinned chats float to the top; "deleted" (hidden) chats
+  // are filtered out until a message newer than the hide arrives. Each row is
+  // annotated with `is_pinned` / `is_muted` so the context menu reflects state.
   const loadConversations = async () => {
-    const [dms, groups] = await Promise.all([
+    const [dms, groups, pins, mutes, hides] = await Promise.all([
       fetchConversations(currentUser.id),
-      fetchGroupChats(currentUser.id)
+      fetchGroupChats(currentUser.id),
+      fetchChatPins(currentUser.id),
+      fetchChatMutes(currentUser.id),
+      fetchHiddenChats(currentUser.id),
     ])
-    const merged = [...dms, ...groups].sort((a, b) =>
-      (b.last_message_at || '').localeCompare(a.last_message_at || '')
-    )
+    const pinSet = new Set(pins)
+    const muteSet = new Set(mutes)
+    const merged = [...dms, ...groups]
+      .filter((c) => {
+        const hiddenAt = hides.get(c.id)
+        return !hiddenAt || (c.last_message_at && c.last_message_at > hiddenAt)
+      })
+      .map((c) => ({ ...c, is_pinned: pinSet.has(c.id), is_muted: muteSet.has(c.id) }))
+      .sort((a, b) => {
+        if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+        return (b.last_message_at || '').localeCompare(a.last_message_at || '')
+      })
     setConversations(merged)
     setLoading(false)
   }
@@ -694,7 +776,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     if (scrollRef.current && shouldAutoScrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, viewportStyle, isPartnerTyping, groupTypers])
+  }, [messages, keyboardInset, isPartnerTyping, groupTypers])
 
   // Always jump to the bottom when a chat is first opened.
   useEffect(() => {
@@ -979,6 +1061,93 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       longPressTimerRef.current = null
     }
     wasLongPressRef.current = false
+  }
+
+  // --- Long-press handlers for conversation rows (phones / PWA) ---
+  const handleChatPointerDown = (e, conv) => {
+    if (!isMobileOrTablet) return
+    if (e.button !== 0) return
+    chatPointerStart.current = { x: e.clientX, y: e.clientY }
+    chatWasLongPress.current = false
+    const rowEl = e.currentTarget
+    if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current)
+    chatLongPressTimer.current = setTimeout(() => {
+      chatWasLongPress.current = true
+      openChatMenu(conv, rowEl)
+      try { window.navigator?.vibrate?.(50) } catch (err) {}
+    }, 500)
+  }
+
+  const handleChatPointerMove = (e) => {
+    if (!chatLongPressTimer.current) return
+    const dx = Math.abs(e.clientX - chatPointerStart.current.x)
+    const dy = Math.abs(e.clientY - chatPointerStart.current.y)
+    if (dx > 10 || dy > 10) {
+      clearTimeout(chatLongPressTimer.current)
+      chatLongPressTimer.current = null
+    }
+  }
+
+  const handleChatPointerUp = () => {
+    if (chatLongPressTimer.current) {
+      clearTimeout(chatLongPressTimer.current)
+      chatLongPressTimer.current = null
+    }
+  }
+
+  // --- Chat menu actions ---
+  const applyConvUpdate = (chatId, patch) => {
+    setConversations((prev) => {
+      const next = prev
+        .map((c) => (c.id === chatId ? { ...c, ...patch } : c))
+        .sort((a, b) => {
+          if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+          return (b.last_message_at || '').localeCompare(a.last_message_at || '')
+        })
+      return next
+    })
+  }
+
+  const handleTogglePin = async (conv) => {
+    const next = !conv.is_pinned
+    applyConvUpdate(conv.id, { is_pinned: next })
+    closeChatMenu()
+    try {
+      await toggleChatPin(currentUser.id, conv.id, next, !!conv.is_group)
+    } catch (err) {
+      console.error('Error toggling chat pin:', err)
+      applyConvUpdate(conv.id, { is_pinned: !next }) // revert
+    }
+  }
+
+  const handleToggleMuteFromList = async (conv) => {
+    const next = !conv.is_muted
+    applyConvUpdate(conv.id, { is_muted: next })
+    if (conv.id === activeChat?.id) setIsMuted(next)
+    closeChatMenu()
+    try {
+      await toggleChatMute(currentUser.id, conv.id, next, !!conv.is_group)
+    } catch (err) {
+      console.error('Error toggling chat mute:', err)
+      applyConvUpdate(conv.id, { is_muted: !next }) // revert
+      if (conv.id === activeChat?.id) setIsMuted(!next)
+    }
+  }
+
+  const handleHideChat = async (conv) => {
+    if (!window.confirm(t('confirm_delete_chat') || 'Удалить этот чат из списка?')) return
+    const removed = conv
+    setConversations((prev) => prev.filter((c) => c.id !== conv.id))
+    if (activeChat?.id === conv.id) { setActiveChat(null); setIsMobileView(false) }
+    closeChatMenu()
+    try {
+      await hideConversation(currentUser.id, conv.id, !!conv.is_group)
+    } catch (err) {
+      console.error('Error hiding chat:', err)
+      // Restore on failure by reloading the list.
+      loadConversations()
+      void removed
+    }
   }
 
   const isGroupMessageRead = (msg) => {
@@ -1348,9 +1517,18 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
               conversations.map((conv) => (
                 <button
                   key={conv.id}
-                  onClick={() => { setActiveChat(conv); setIsMobileView(true); }}
+                  onClick={() => {
+                    if (chatWasLongPress.current) { chatWasLongPress.current = false; return }
+                    setActiveChat(conv); setIsMobileView(true);
+                  }}
+                  onContextMenu={(e) => { e.preventDefault(); openChatMenu(conv, e.currentTarget) }}
+                  onPointerDown={(e) => handleChatPointerDown(e, conv)}
+                  onPointerMove={handleChatPointerMove}
+                  onPointerUp={handleChatPointerUp}
+                  onPointerLeave={handleChatPointerUp}
+                  onPointerCancel={handleChatPointerUp}
                   className={`
-                  w-full flex items-center gap-3 p-3 rounded-xl transition-all relative
+                  group w-full flex items-center gap-3 p-3 rounded-xl transition-all relative select-none
                   ${activeChat?.id === conv.id ? 'bg-purple-600/10 text-white' : 'text-gray-400 hover:bg-white/5'}
                 `}
                 >
@@ -1397,11 +1575,29 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                       )}
                     </div>
                   </div>
-                  {conv.unread_count > 0 && activeChat?.id !== conv.id && (
-                    <div className="w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg shadow-red-500/40">
-                      {conv.unread_count > 9 ? '9+' : conv.unread_count}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {conv.is_muted && (
+                      <BellOff className="w-3.5 h-3.5 text-gray-500" />
+                    )}
+                    {conv.is_pinned && (
+                      <Pin className="w-3.5 h-3.5 text-purple-400 fill-purple-400/30 -rotate-45" />
+                    )}
+                    {conv.unread_count > 0 && activeChat?.id !== conv.id && (
+                      <div className="w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg shadow-red-500/40">
+                        {conv.unread_count > 9 ? '9+' : conv.unread_count}
+                      </div>
+                    )}
+                    {/* Desktop hover affordance: quick pin/unpin without opening the menu. */}
+                    <span
+                      role="button"
+                      tabIndex={-1}
+                      onClick={(e) => { e.stopPropagation(); handleTogglePin(conv) }}
+                      title={conv.is_pinned ? (t('unpin_chat') || 'Открепить') : (t('pin_chat') || 'Закрепить')}
+                      className="hidden md:flex w-7 h-7 items-center justify-center rounded-lg text-gray-400 hover:text-purple-300 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      {conv.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4 -rotate-45" />}
+                    </span>
+                  </div>
                 </button>
               ))
             )}
@@ -1413,15 +1609,15 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
           const isFullscreen = isMobile && activeChat
           const panel = (
             <div
-              style={isFullscreen ? { 
-                height: viewportStyle.height || '100dvh',
-                top: viewportStyle.top || '0px',
-                left: viewportStyle.left || '0px',
-                right: isFullscreen ? '0px' : undefined
+              style={isFullscreen ? {
+                // The panel always spans the full screen (inset-0). Only the inner
+                // content is pushed up above the keyboard via padding — so a stale
+                // visual-viewport height can never leave a dark gap at the bottom.
+                paddingBottom: keyboardInset ? `${keyboardInset}px` : undefined
               } : undefined}
               className={
                 isFullscreen
-                  ? 'fixed z-[90] flex flex-col bg-[#0c0b11] overscroll-contain'
+                  ? 'fixed inset-0 z-[90] flex flex-col bg-[#0c0b11] overscroll-contain'
                   : `flex-1 glass-card flex-col relative overflow-hidden ${activeChat && isMobileView ? 'flex' : 'hidden md:flex'} ${!activeChat ? 'items-center justify-center' : ''}`
               }
             >
@@ -2332,6 +2528,91 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                 </div>
               )
             })()}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Chat context menu — pin / mute / delete a whole conversation.
+          Opens on long-press (phones/PWA) or right-click (desktop), anchored to
+          the tapped row in the same liquid-glass style as the message menu. */}
+      {chatMenu && createPortal(
+        <div
+          className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeChatMenu}
+          onContextMenu={(e) => { e.preventDefault(); closeChatMenu() }}
+        >
+          <div
+            ref={chatMenuRef}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: chatMenuPos ? chatMenuPos.menuTop : 0,
+              left: chatMenuPos ? chatMenuPos.menuLeft : 0,
+              width: chatMenuPos ? chatMenuPos.menuWidth : Math.min(300, (typeof window !== 'undefined' ? window.innerWidth : 320) - 24),
+              maxHeight: chatMenuPos ? chatMenuPos.maxMenuHeight : undefined,
+              visibility: chatMenuPos ? 'visible' : 'hidden',
+              opacity: chatMenuReady ? 1 : 0,
+              transform: chatMenuReady ? 'scale(1)' : 'scale(0.96)',
+              transformOrigin: chatMenuPos?.placedAbove ? 'bottom center' : 'top center',
+              transition: 'opacity 0.15s ease-out, transform 0.15s ease-out',
+            }}
+          >
+            <div className="bg-neutral-900/90 border border-white/10 rounded-3xl p-2.5 shadow-2xl backdrop-blur-xl space-y-2">
+              {/* Chat preview header */}
+              <div className="flex items-center gap-3 px-2 py-1.5 border-b border-white/5">
+                {chatMenu.is_group ? (
+                  <GroupAvatar avatarUrl={chatMenu.avatar_url} />
+                ) : (
+                  <ProfileAvatar avatarUrl={chatMenu.avatar_url} workCount={chatMenu.finished_work_count} size="sm" isOnline={isOnline(chatMenu.last_seen)} isPro={chatMenu.isPro} avatarFrame={chatMenu.avatar_frame} />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm truncate flex items-center gap-1.5 text-white">
+                    {chatMenu.is_group ? (
+                      <span className="flex items-center gap-1.5 truncate">
+                        <Users className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                        {chatMenu.name}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="truncate" style={getNicknameStyle(chatMenu.nickname_color, '#fff')}>{chatMenu.nickname}</span>
+                        {chatMenu.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
+                      </>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-gray-500 truncate">
+                    {chatMenu.is_group ? (t('group_chat') || 'Group chat') : (t('direct_message') || 'Личные сообщения')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-1">
+                <button
+                  onClick={() => handleTogglePin(chatMenu)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-gray-200 hover:bg-white/5 active:bg-white/10 transition-all text-left"
+                >
+                  {chatMenu.is_pinned ? <PinOff className="w-4 h-4 text-purple-400" /> : <Pin className="w-4 h-4 text-purple-400 -rotate-45" />}
+                  <span>{chatMenu.is_pinned ? (t('unpin_chat') || 'Открепить чат') : (t('pin_chat') || 'Закрепить чат')}</span>
+                </button>
+
+                <button
+                  onClick={() => handleToggleMuteFromList(chatMenu)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-gray-200 hover:bg-white/5 active:bg-white/10 transition-all text-left"
+                >
+                  {chatMenu.is_muted ? <Bell className="w-4 h-4 text-purple-400" /> : <BellOff className="w-4 h-4 text-purple-400" />}
+                  <span>{chatMenu.is_muted ? (t('unmute_chat') || 'Включить уведомления') : (t('mute_chat') || 'Заглушить чат')}</span>
+                </button>
+
+                <button
+                  onClick={() => handleHideChat(chatMenu)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-all text-left"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{t('delete_chat') || 'Удалить чат'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>,
         document.body

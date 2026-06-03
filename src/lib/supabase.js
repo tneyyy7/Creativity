@@ -2227,6 +2227,102 @@ export async function toggleChatMute(userId, chatId, muted, isGroup = false) {
   }
 }
 
+// All chat ids the user has muted. Used to annotate the conversation list.
+export async function fetchChatMutes(userId) {
+  try {
+    if (!userId) return []
+    const { data, error } = await supabase
+      .from('chat_mutes')
+      .select('chat_id')
+      .eq('user_id', userId)
+    if (error) throw error
+    return (data || []).map((r) => r.chat_id)
+  } catch (e) {
+    console.error('fetchChatMutes error:', e)
+    return []
+  }
+}
+
+// All chat ids the user has pinned, newest pin first.
+export async function fetchChatPins(userId) {
+  try {
+    if (!userId) return []
+    const { data, error } = await supabase
+      .from('chat_pins')
+      .select('chat_id')
+      .eq('user_id', userId)
+    if (error) throw error
+    return (data || []).map((r) => r.chat_id)
+  } catch (e) {
+    console.error('fetchChatPins error:', e)
+    return []
+  }
+}
+
+// Pin or unpin a chat for the current user. Returns the new pinned state.
+export async function toggleChatPin(userId, chatId, pinned, isGroup = false) {
+  try {
+    if (!userId || !chatId) return false
+    if (pinned) {
+      const { error } = await supabase
+        .from('chat_pins')
+        .upsert(
+          { user_id: userId, chat_id: chatId, is_group: isGroup },
+          { onConflict: 'user_id,chat_id' }
+        )
+      if (error) throw error
+      return true
+    } else {
+      const { error } = await supabase
+        .from('chat_pins')
+        .delete()
+        .eq('user_id', userId)
+        .eq('chat_id', chatId)
+      if (error) throw error
+      return false
+    }
+  } catch (e) {
+    console.error('toggleChatPin error:', e)
+    throw e
+  }
+}
+
+// Map of chat_id -> hidden_at for chats the user has "deleted" from their list.
+export async function fetchHiddenChats(userId) {
+  try {
+    if (!userId) return new Map()
+    const { data, error } = await supabase
+      .from('chat_hides')
+      .select('chat_id, hidden_at')
+      .eq('user_id', userId)
+    if (error) throw error
+    return new Map((data || []).map((r) => [r.chat_id, r.hidden_at]))
+  } catch (e) {
+    console.error('fetchHiddenChats error:', e)
+    return new Map()
+  }
+}
+
+// Hide a chat from the user's list. Non-destructive: the chat reappears once a
+// message newer than this moment arrives. A pin is cleared at the same time.
+export async function hideConversation(userId, chatId, isGroup = false) {
+  try {
+    if (!userId || !chatId) return
+    const { error } = await supabase
+      .from('chat_hides')
+      .upsert(
+        { user_id: userId, chat_id: chatId, is_group: isGroup, hidden_at: new Date().toISOString() },
+        { onConflict: 'user_id,chat_id' }
+      )
+    if (error) throw error
+    // A hidden chat should not stay pinned.
+    await supabase.from('chat_pins').delete().eq('user_id', userId).eq('chat_id', chatId)
+  } catch (e) {
+    console.error('hideConversation error:', e)
+    throw e
+  }
+}
+
 export async function updateMessageReactions(messageId, reactions) {
   const { data, error } = await supabase
     .from('messages')
