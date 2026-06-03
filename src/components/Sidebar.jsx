@@ -59,6 +59,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
           keeps a full-screen blur layer composited every frame and janks the
           whole app on phones. */}
       <div
+        id="sidebar-backdrop"
         onClick={onClose}
         aria-hidden="true"
         className={`
@@ -69,6 +70,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
       />
 
       <aside
+        id="app-sidebar"
         style={{
           paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',

@@ -87,8 +87,10 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       // getBoundingClientRect() reports the *scaled* (≈1% narrower) box. Pinning
       // that onto the cloned preview shrinks it just enough to wrap the last word
       // onto a second line. Use offsetWidth, which is the untransformed layout
-      // width, so the clone keeps the original's line breaks.
-      const layoutWidth = el.offsetWidth || b.width
+      // width, so the clone keeps the original's line breaks. offsetWidth is
+      // rounded to a whole pixel, which can land ~0.5px short of the real
+      // content width and force a wrap, so add 1px of slack to stay safe.
+      const layoutWidth = (el.offsetWidth || b.width) + 1
       rect = { top: b.top, bottom: b.bottom, left: b.left, right: b.right, width: layoutWidth, height: b.height }
     }
     setContextMenuRect(rect)
@@ -277,6 +279,8 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
   // Only then do we auto-stick to the bottom on new messages / viewport changes — otherwise
   // scrolling up to read older messages would yank the view back down ("the kick").
   const shouldAutoScrollRef = useRef(true)
+  // Which chat the current `messages` array belongs to (guards stale fetch + scroll timing).
+  const messagesChatIdRef = useRef(null)
   const [showReactionPickerId, setShowReactionPickerId] = useState(null)
 
   // Group chat state. `isGroup` switches every chat code path between the
@@ -581,90 +585,109 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     return () => clearTimeout(timer)
   }, [searchQuery, currentUser.id])
 
-  // Load messages when active chat changes
+  // Load messages when active chat changes — always fetch fresh from the server.
   useEffect(() => {
-    if (activeChat) {
-      const chatIsGroup = !!activeChat.is_group
+    if (!activeChat?.id) {
+      setMessages([])
+      messagesChatIdRef.current = null
+      return
+    }
 
-      const loadMessages = async () => {
+    const chatId = activeChat.id
+    const chatIsGroup = !!activeChat.is_group
+
+    // Drop the previous chat immediately so stale bubbles never flash on screen.
+    setMessages([])
+    messagesChatIdRef.current = null
+    shouldAutoScrollRef.current = true
+
+    let cancelled = false
+
+    const loadMessages = async () => {
+      try {
         const data = chatIsGroup
-          ? await fetchGroupMessages(activeChat.id)
-          : await fetchMessages(currentUser.id, activeChat.id)
-        setMessages(data)
-        if (chatIsGroup) markGroupRead(activeChat.id, currentUser.id)
-        else markAsRead(currentUser.id, activeChat.id)
-      }
-      loadMessages()
-
-      // Presence + heartbeat only applies to 1-on-1 chats.
-      let heartbeatInterval = null
-      if (!chatIsGroup) {
-        updateChatPresence(currentUser.id, activeChat.id)
-        heartbeatInterval = setInterval(() => {
-          updateChatPresence(currentUser.id, activeChat.id)
-        }, 20000)
-      }
-
-      // Simplified Realtime subscription - filter in callback for reliability
-      const channel = supabase
-        .channel(`chat_${currentUser.id}_${activeChat.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*', // Listen to all events: INSERT, UPDATE, DELETE
-            schema: 'public',
-            table: 'messages'
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              const newMsg = payload.new
-
-              // 1. Update messages list if this is the active chat
-              const isRelevant = chatIsGroup
-                ? newMsg.group_id === activeChat.id
-                : (newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChat.id) ||
-                  (newMsg.sender_id === activeChat.id && newMsg.receiver_id === currentUser.id)
-
-              if (isRelevant) {
-                setMessages((prev) => {
-                  if (prev.find(m => m.id === newMsg.id)) return prev
-                  return [...prev, newMsg]
-                })
-                if (chatIsGroup) {
-                  if (newMsg.sender_id !== currentUser.id) markGroupRead(activeChat.id, currentUser.id)
-                } else if (newMsg.receiver_id === currentUser.id) {
-                  markAsRead(currentUser.id, activeChat.id)
-                }
-              }
-
-              // 2. Refresh conversation list to update unread counts and sorting
-              loadConversations()
-            } else if (payload.eventType === 'UPDATE') {
-              const updatedMsg = payload.new
-              console.log("Realtime Update Received:", updatedMsg)
-              setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
-
-              // Refresh counts if read status changed
-              if (payload.old && payload.old.is_read !== payload.new.is_read) {
-                loadConversations()
-              }
-            } else if (payload.eventType === 'DELETE') {
-              const deletedId = payload.old.id
-              console.log("Realtime Delete Received for ID:", deletedId)
-              setMessages(prev => prev.filter(m => m.id !== deletedId))
-              loadConversations()
-            }
-          }
-        )
-        .subscribe()
-
-      return () => {
-        if (heartbeatInterval) clearInterval(heartbeatInterval)
-        if (!chatIsGroup) updateChatPresence(currentUser.id, null)
-        supabase.removeChannel(channel)
+          ? await fetchGroupMessages(chatId)
+          : await fetchMessages(currentUser.id, chatId)
+        if (cancelled) return
+        messagesChatIdRef.current = chatId
+        setMessages(data || [])
+        if (chatIsGroup) markGroupRead(chatId, currentUser.id)
+        else markAsRead(currentUser.id, chatId)
+      } catch (err) {
+        if (!cancelled) console.error('Error loading messages:', err)
       }
     }
-  }, [activeChat, currentUser.id])
+    loadMessages()
+
+    // Presence + heartbeat only applies to 1-on-1 chats.
+    let heartbeatInterval = null
+    if (!chatIsGroup) {
+      updateChatPresence(currentUser.id, chatId)
+      heartbeatInterval = setInterval(() => {
+        updateChatPresence(currentUser.id, chatId)
+      }, 20000)
+    }
+
+    // Simplified Realtime subscription - filter in callback for reliability
+    const channel = supabase
+      .channel(`chat_${currentUser.id}_${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events: INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newMsg = payload.new
+
+            // 1. Update messages list if this is the active chat
+            const isRelevant = chatIsGroup
+              ? newMsg.group_id === chatId
+              : (newMsg.sender_id === currentUser.id && newMsg.receiver_id === chatId) ||
+                (newMsg.sender_id === chatId && newMsg.receiver_id === currentUser.id)
+
+            if (isRelevant) {
+              setMessages((prev) => {
+                if (prev.find(m => m.id === newMsg.id)) return prev
+                return [...prev, newMsg]
+              })
+              if (chatIsGroup) {
+                if (newMsg.sender_id !== currentUser.id) markGroupRead(chatId, currentUser.id)
+              } else if (newMsg.receiver_id === currentUser.id) {
+                markAsRead(currentUser.id, chatId)
+              }
+            }
+
+            // 2. Refresh conversation list to update unread counts and sorting
+            loadConversations()
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedMsg = payload.new
+            console.log("Realtime Update Received:", updatedMsg)
+            setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
+
+            // Refresh counts if read status changed
+            if (payload.old && payload.old.is_read !== payload.new.is_read) {
+              loadConversations()
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id
+            console.log("Realtime Delete Received for ID:", deletedId)
+            setMessages(prev => prev.filter(m => m.id !== deletedId))
+            loadConversations()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      if (heartbeatInterval) clearInterval(heartbeatInterval)
+      if (!chatIsGroup) updateChatPresence(currentUser.id, null)
+      supabase.removeChannel(channel)
+    }
+  }, [activeChat?.id, activeChat?.is_group, currentUser.id])
 
   // Load group members (for sender labels, reply previews and the members panel)
   // and keep them fresh when membership changes in realtime.
@@ -776,21 +799,28 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     typingStopTimeoutRef.current = setTimeout(() => broadcastTyping(false), 2000)
   }
 
+  const scrollMessagesToBottom = () => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }
+
   // Stick to the bottom on new messages / typing / keyboard resize — but only if the user
   // is already near the bottom, so reading older messages isn't interrupted.
   useEffect(() => {
-    if (scrollRef.current && shouldAutoScrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
+    if (shouldAutoScrollRef.current) scrollMessagesToBottom()
   }, [messages, keyboardInset, isPartnerTyping, groupTypers])
 
-  // Always jump to the bottom when a chat is first opened.
-  useEffect(() => {
+  // After a chat opens and its messages finish loading, jump to the newest ones
+  // before paint so the user never lands in the middle of history.
+  useLayoutEffect(() => {
+    if (!activeChat?.id || messagesChatIdRef.current !== activeChat.id) return
     shouldAutoScrollRef.current = true
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [activeChat?.id])
+    scrollMessagesToBottom()
+    // Images / embeds can change scrollHeight after first layout — one more pass next frame.
+    const rafId = requestAnimationFrame(scrollMessagesToBottom)
+    return () => cancelAnimationFrame(rafId)
+  }, [messages, activeChat?.id])
 
   const handleSend = async () => {
     if (!input.trim() || !activeChat) return
@@ -1413,7 +1443,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
         {/* Conversations List */}
         <div className={`
         flex-col w-full md:w-80 glass-card p-4 space-y-4
-        ${activeChat && isMobileView ? 'hidden' : 'flex'}
+        ${activeChat && isMobileView && !isMobile ? 'hidden' : 'flex'}
         md:flex
       `}>
           <div className="flex items-center justify-between px-2">
@@ -1615,6 +1645,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
           const isFullscreen = isMobile && activeChat
           const panel = (
             <div
+              id={isFullscreen ? 'mobile-chat-panel' : undefined}
               style={isFullscreen ? {
                 // The panel always spans the full screen (inset-0). Only the inner
                 // content is pushed up above the keyboard via padding — so a stale
@@ -2356,7 +2387,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
             }}
           >
             <div className={`
-              w-full relative pt-2.5 pb-1.5 px-3.5 rounded-2xl text-sm font-medium shadow-xl
+              w-full relative pt-2.5 pb-1.5 px-3.5 sm:pt-3 sm:pb-2 sm:px-4 rounded-2xl md:rounded-[1.5rem] text-sm md:text-[15px] font-medium shadow-xl
               ${selectedContextMsg.sender_id === currentUser.id
                 ? `${activeTheme.myBubble} rounded-tr-none`
                 : `${activeTheme.theirBubble} rounded-tl-none`}

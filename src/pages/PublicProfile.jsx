@@ -191,7 +191,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   const isReceiver = friendship?.receiver_id === currentUserId
 
   return (
-    <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+    <div id="public-profile-page" className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       
       <button 
         onClick={onBack}
