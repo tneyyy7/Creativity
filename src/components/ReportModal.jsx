@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Flag, Loader2, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { reportContent } from '../lib/supabase'
@@ -43,7 +44,7 @@ export function ReportModal({ targetType, targetId, reporterId, onClose }) {
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
@@ -116,6 +117,7 @@ export function ReportModal({ targetType, targetId, reporterId, onClose }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
