@@ -166,7 +166,7 @@ export async function fetchProfile(userId) {
     // Stage 1: Try full fetch
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization, last_seen, theme, is_onboarding_completed')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization, last_seen, theme, is_onboarding_completed, interests')
       .eq('id', userId)
       .single()
 
@@ -1647,18 +1647,46 @@ export async function fetchForYouPaintings(userId, { page = 0, pageSize = 10, bl
   try {
     if (!userId) return empty
 
+    // 1. Fetch user's interests from profile
+    let interests = []
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('interests')
+      .eq('id', userId)
+      .maybeSingle()
+    if (profile && profile.interests) {
+      interests = profile.interests
+    }
+
     const from = page * pageSize
-    const { data: paintings, error } = await supabase
-      .rpc('get_for_you_feed', {
+    
+    // Try calling personalized RPC first
+    let { data: paintings, error } = await supabase
+      .rpc('get_for_you_feed_personalized', {
         p_user_id: userId,
-        p_limit: pageSize + 1, // request one extra row to detect hasMore
+        p_interests: interests,
+        p_limit: pageSize + 1,
         p_offset: from,
         p_blocked_ids: blockedIds
       })
 
-    // Fallback if RPC doesn't exist yet
-    if (error && error.message?.includes('Could not find the function')) {
-      console.warn('RPC get_for_you_feed not found, falling back to explore API')
+    // Fallback if personalized RPC doesn't exist
+    if (error && (error.message?.includes('get_for_you_feed_personalized') || error.message?.includes('Could not find the function'))) {
+      console.warn('RPC get_for_you_feed_personalized not found, trying get_for_you_feed')
+      const fallbackRpc = await supabase
+        .rpc('get_for_you_feed', {
+          p_user_id: userId,
+          p_limit: pageSize + 1,
+          p_offset: from,
+          p_blocked_ids: blockedIds
+        })
+      paintings = fallbackRpc.data
+      error = fallbackRpc.error
+    }
+
+    // Fallback to explore API if both RPCs fail
+    if (error && (error.message?.includes('Could not find the function') || error.message?.includes('get_for_you_feed'))) {
+      console.warn('No RPC feeds found, falling back to explore API')
       return await fetchExplorePaintings({ sort: 'popular' }, { page, pageSize, blockedIds })
     }
     if (error) throw error
@@ -1677,6 +1705,29 @@ export async function fetchForYouPaintings(userId, { page = 0, pageSize = 10, bl
   } catch (e) {
     console.error('fetchForYouPaintings error:', e)
     return empty
+  }
+}
+
+export async function fetchRecommendedCreators(userId, blockedIds = []) {
+  try {
+    const { data: popularProfiles, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('id', userId)
+      .order('finished_work_count', { ascending: false })
+      .limit(10)
+
+    if (error) throw error
+    if (!popularProfiles) return []
+
+    const cleaned = popularProfiles
+      .filter(p => !blockedIds.includes(p.id))
+      .map(p => cleanProfile(p))
+
+    return await enrichProfilesWithProData(cleaned)
+  } catch (err) {
+    console.error('Error fetching recommended creators:', err)
+    return []
   }
 }
 

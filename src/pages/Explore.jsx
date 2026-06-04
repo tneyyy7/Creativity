@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, SlidersHorizontal, Grid, Star, Tag, X, Flame, Calendar, BadgeCheck, Loader2, Sparkles, Heart, MessageSquare, Bookmark, Compass, UserPlus, Check, Gem, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchExplorePaintings, fetchFeedPaintings, fetchForYouPaintings, fetchBlockedIds, fetchBannedIds, togglePostLike, toggleBookmark, toggleFollow, isBookmarked } from '../lib/supabase'
+import { supabase, fetchExplorePaintings, fetchRecommendedCreators, fetchForYouPaintings, fetchBlockedIds, fetchBannedIds, togglePostLike, toggleBookmark, toggleFollow, isBookmarked } from '../lib/supabase'
 import { StoriesBanner } from '../components/StoriesBanner'
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
@@ -22,7 +22,6 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
   
   // Feed state variables
   const [forYouPosts, setForYouPosts] = useState([])
-  const [feedPosts, setFeedPosts] = useState([])
   const [recommended, setRecommended] = useState([])
   const [likedMap, setLikedMap] = useState({})
   const [bookmarkedMap, setBookmarkedMap] = useState({})
@@ -32,11 +31,9 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
   const FEED_PAGE_SIZE = 10
   const EXPLORE_PAGE_SIZE = 12
   const [forYouHasMore, setForYouHasMore] = useState(false)
-  const [feedHasMore, setFeedHasMore] = useState(false)
   const [exploreHasMore, setExploreHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const forYouPageRef = useRef(0)
-  const feedPageRef = useRef(0)
   const explorePageRef = useRef(0)
   const loadMoreRef = useRef(null) // IntersectionObserver sentinel
 
@@ -103,9 +100,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
     setBookmarkedMap(prev => ({ ...prev, ...bookmarks }))
   }, [currentUser])
 
-  // ----------------------------------------------------
   // Loader: For You (Algorithmic) — server-paginated
-  // ----------------------------------------------------
   const loadForYou = useCallback(async ({ reset = false } = {}) => {
     if (!currentUser) return
     const page = reset ? 0 : forYouPageRef.current
@@ -116,38 +111,16 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
         pageSize: FEED_PAGE_SIZE,
         blockedIds
       })
+      if (reset) {
+        const creators = await fetchRecommendedCreators(currentUser.id, blockedIds)
+        setRecommended(creators || [])
+      }
       setForYouPosts(prev => reset ? items : [...prev, ...items])
       setForYouHasMore(hasMore)
       forYouPageRef.current = page + 1
       await hydrateInteractionState(items.map(p => p.id))
     } catch (err) {
       console.error('Error loading For You feed:', err)
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
-  }, [currentUser, blockedIds, hydrateInteractionState])
-
-  // ----------------------------------------------------
-  // Loader: Feed (Subscriptions) — server-paginated
-  // ----------------------------------------------------
-  const loadFeed = useCallback(async ({ reset = false } = {}) => {
-    if (!currentUser) return
-    const page = reset ? 0 : feedPageRef.current
-    reset ? setLoading(true) : setLoadingMore(true)
-    try {
-      const { items, hasMore, recommendedCreators } = await fetchFeedPaintings(currentUser.id, {
-        page,
-        pageSize: FEED_PAGE_SIZE,
-        blockedIds
-      })
-      setRecommended(recommendedCreators || [])
-      setFeedPosts(prev => reset ? items : [...prev, ...items])
-      setFeedHasMore(hasMore)
-      feedPageRef.current = page + 1
-      await hydrateInteractionState(items.map(p => p.id))
-    } catch (err) {
-      console.error('Error loading feed:', err)
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -187,9 +160,6 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
     if (activeSubTab === 'foryou') {
       forYouPageRef.current = 0
       loadForYou({ reset: true })
-    } else if (activeSubTab === 'feed') {
-      feedPageRef.current = 0
-      loadFeed({ reset: true })
     } else {
       explorePageRef.current = 0
       const delayDebounce = setTimeout(() => loadExplore({ reset: true }), 400) // debounce search typing
@@ -204,22 +174,20 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
     
     let hasMore = false
     if (activeSubTab === 'foryou') hasMore = forYouHasMore
-    else if (activeSubTab === 'feed') hasMore = feedHasMore
     else hasMore = exploreHasMore
     
     if (!hasMore) return
-
+ 
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && !loadingMore && !loading) {
         if (activeSubTab === 'foryou') loadForYou()
-        else if (activeSubTab === 'feed') loadFeed()
         else loadExplore()
       }
     }, { rootMargin: '400px' })
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [activeSubTab, forYouHasMore, feedHasMore, exploreHasMore, loadingMore, loading, loadForYou, loadFeed, loadExplore])
+  }, [activeSubTab, forYouHasMore, exploreHasMore, loadingMore, loading, loadForYou, loadExplore])
 
   const toggleNsfwReveal = (id) => setRevealedNsfw(prev => ({ ...prev, [id]: !prev[id] }))
 
@@ -230,8 +198,8 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
     setFollowingMap(prev => ({ ...prev, [targetId]: followed }))
 
     setTimeout(() => {
-      feedPageRef.current = 0
-      loadFeed({ reset: true })
+      forYouPageRef.current = 0
+      loadForYou({ reset: true })
     }, 800)
   }
 
@@ -278,7 +246,6 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
           onChange={setActiveSubTab}
           options={[
             { value: 'foryou',  icon: <Sparkles className="w-3.5 h-3.5" />, label: t('for_you', 'For You') },
-            { value: 'feed',    icon: <UserPlus className="w-3.5 h-3.5" />, label: t('feed') },
             { value: 'explore', icon: <Compass  className="w-3.5 h-3.5" />, label: t('explore') },
           ]}
           containerClassName={TAB_CONTAINER}
@@ -304,8 +271,8 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
       {/* 2. SUB-TAB CONTENT PANEL */}
 
-      {/* Tab A: For You / Chronological subscription Feed */}
-      {(activeSubTab === 'foryou' || activeSubTab === 'feed') && (
+      {/* Tab A: For You Feed */}
+      {activeSubTab === 'foryou' && (
         loading ? (
           <div className="space-y-6 w-full">
             {[1, 2].map((n) => (
@@ -321,12 +288,68 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
               </div>
             ))}
           </div>
-        ) : (activeSubTab === 'foryou' ? forYouPosts : feedPosts).length > 0 ? (
+        ) : (forYouPosts.length > 0 || recommended.length > 0) ? (
           
           <div className="max-w-2xl mx-auto w-full space-y-6 animate-in fade-in duration-500">
-            {(activeSubTab === 'foryou' ? forYouPosts : feedPosts).map((post) => {
+            {/* Recommended Creators horizontal scroll */}
+            {recommended.length > 0 && (
+              <div className="space-y-3 w-full bg-white/[0.01] border border-white/5 rounded-3xl p-6 mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <h4 className="text-xs font-black text-purple-400 uppercase tracking-widest">
+                      {t('popular_creators', 'Creators you might like')}
+                    </h4>
+                  </div>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/10">
+                  {recommended.map((creator) => {
+                    const isFollowing = followingMap[creator.id]
+                    return (
+                      <div key={creator.id} className="glass-card p-4 border-white/5 rounded-2xl flex flex-col items-center justify-between hover:border-purple-500/10 transition-all duration-300 w-40 shrink-0 text-center space-y-3">
+                        <div className="cursor-pointer" onClick={() => onViewProfile?.(creator.id)}>
+                          <ProfileAvatar 
+                            avatarUrl={creator.avatar_url} 
+                            workCount={creator.finished_work_count ?? 0} 
+                            size="md" 
+                            isPro={creator.isPro}
+                            avatarFrame={creator.avatar_frame}
+                          />
+                        </div>
+                        <div className="space-y-0.5 min-w-0 w-full">
+                          <span className="text-xs font-bold text-white flex items-center justify-center gap-1 min-w-0 cursor-pointer" onClick={() => onViewProfile?.(creator.id)}>
+                            <span className="truncate max-w-[100px]" style={getNicknameStyle(creator.nickname_color)}>
+                              {creator.nickname}
+                            </span>
+                            {creator.is_verified && (
+                              <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 shrink-0" />
+                            )}
+                          </span>
+                          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider truncate">
+                            {(creator.specialization ? t(creator.specialization) : t('painter'))}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleFollowRecommended(creator.id)}
+                          className={`w-full py-1.5 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 active:scale-95 ${
+                            isFollowing 
+                              ? 'bg-purple-600/10 border border-purple-500/30 text-purple-400' 
+                              : 'bg-purple-600 hover:bg-purple-500 text-white'
+                          }`}
+                        >
+                          {isFollowing ? <Check className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
+                          <span>{isFollowing ? t('following', 'Following') : t('follow', 'Follow')}</span>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {forYouPosts.map((post) => {
               const author = post.profiles || {}
-              const currentPosts = activeSubTab === 'foryou' ? forYouPosts : feedPosts
+              const currentPosts = forYouPosts
               return (
                 <div key={post.id} className="glass-card p-6 border-white/5 rounded-3xl hover:border-purple-500/10 transition-all duration-300 relative group overflow-hidden w-full">
                   

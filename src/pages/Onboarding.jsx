@@ -69,12 +69,13 @@ export function Onboarding({ user, onComplete }) {
 
     setIsLoading(true)
     try {
-      // 1. Update Profile (nickname, specialization, is_onboarding_completed)
+      // 1. Update Profile (nickname, specialization, interests, is_onboarding_completed)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           nickname: nickname.trim(),
           specialization: specialization,
+          interests: selected,
           is_onboarding_completed: true
         })
         .eq('id', user.id)
