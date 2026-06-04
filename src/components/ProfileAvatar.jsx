@@ -86,7 +86,7 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
 
   return (
     <div
-      style={{ borderRadius: outerR }}
+      style={{ borderRadius: `${outerR}px` }}
       className={`
       relative shrink-0 transition-all duration-500 bg-[#0c0b11]
       ${sz}
@@ -96,7 +96,6 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
           ? `shadow-lg ${rank.glow || ''}`
           : `border-2 ${rank.color} ${rank.glow ? `shadow-lg ${rank.glow}` : ''}`
       }
-      ${!isPro && rank.animate ? 'animate-pulse-subtle' : ''}
       ${className}
     `}>
 
@@ -104,10 +103,10 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
           Absolutely positioned behind the image. When animate-pulse is needed
           it is applied here only, so the avatar photo opacity is never affected. */}
       {isPro && (
-        <div style={{ borderRadius: outerR }} className={`absolute inset-0 ${proFrame.bg} ${proFrame.animate ? 'animate-pulse' : ''}`} />
+        <div style={{ borderRadius: `${outerR}px` }} className={`absolute inset-0 ${proFrame.bg} ${proFrame.animate ? 'animate-pulse' : ''}`} />
       )}
       {!isPro && isHighRank && (
-        <div style={{ borderRadius: outerR }} className={`absolute inset-0 bg-gradient-to-tr ${rank.color}`} />
+        <div style={{ borderRadius: `${outerR}px` }} className={`absolute inset-0 bg-gradient-to-tr ${rank.color} ${rank.animate ? 'animate-pulse' : ''}`} />
       )}
 
       {/* ── Image container ──────────────────────────────────────────────────
@@ -115,7 +114,7 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
           rank borders sit on the outer element, so the photo fills the full box
           without leaving a gap between the avatar and the border. */}
       <div
-        style={{ borderRadius: innerR, inset: frameWidth }}
+        style={{ borderRadius: `${innerR}px`, inset: `${frameWidth}px` }}
         className="absolute bg-[#0c0b11] overflow-hidden flex items-center justify-center">
         {avatarUrl ? (
           <img

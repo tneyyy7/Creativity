@@ -1710,19 +1710,32 @@ export async function fetchForYouPaintings(userId, { page = 0, pageSize = 10, bl
 
 export async function fetchRecommendedCreators(userId, blockedIds = []) {
   try {
+    let followingIds = []
+    if (userId) {
+      const { data: followsData } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+      if (followsData) {
+        followingIds = followsData.map(f => f.following_id)
+      }
+    }
+
+    const excludeIds = new Set([userId, ...blockedIds, ...followingIds])
+
     const { data: popularProfiles, error } = await supabase
       .from('profiles')
       .select('*')
-      .neq('id', userId)
       .order('finished_work_count', { ascending: false })
-      .limit(10)
+      .limit(50)
 
     if (error) throw error
     if (!popularProfiles) return []
 
     const cleaned = popularProfiles
-      .filter(p => !blockedIds.includes(p.id))
+      .filter(p => !excludeIds.has(p.id))
       .map(p => cleanProfile(p))
+      .slice(0, 10)
 
     return await enrichProfilesWithProData(cleaned)
   } catch (err) {
@@ -2245,13 +2258,30 @@ export async function fetchPaintingCollectionStatus(paintingId, userId) {
 // Wave 2: Stories (Истории / WIP)
 // =============================================
 
-export async function fetchActiveStories() {
+export async function fetchActiveStories(currentUserId = null) {
   try {
-    const { data: stories, error } = await supabase
+    let query = supabase
       .from('stories')
       .select('*')
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: true })
+
+    if (currentUserId) {
+      // Получаем список тех, на кого подписан пользователь
+      const { data: follows, error: followsError } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', currentUserId)
+      
+      if (followsError) throw followsError
+      
+      const allowedUserIds = (follows || []).map(f => f.following_id)
+      allowedUserIds.push(currentUserId)
+      
+      query = query.in('user_id', allowedUserIds)
+    }
+
+    const { data: stories, error } = await query
 
     if (error) throw error
     if (!stories || stories.length === 0) return []

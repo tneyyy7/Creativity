@@ -223,44 +223,46 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
         {/* Decorative background blur */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-        <button
-          onClick={handleShare}
-          className="absolute top-6 right-6 p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-purple-400 rounded-2xl transition-all border border-white/5 z-10"
-          title={t('share') || 'Share'}
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
+        <div className="absolute top-4 right-4 flex items-center gap-1.5 sm:gap-2 z-20">
+          {!isSelf && currentUserId && (
+            <div className="relative">
+              <button
+                onClick={() => setShowModMenu(v => !v)}
+                className="p-2 sm:p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl sm:rounded-2xl transition-all border border-white/5"
+                title={t('report')}
+              >
+                <MoreVertical className="w-4 h-4 sm:w-5 h-5" />
+              </button>
+              {showModMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowModMenu(false)} />
+                  <div className="absolute right-0 mt-2 w-48 z-20 glass-card rounded-2xl border-white/10 bg-[#12111a]/95 p-1.5 shadow-2xl">
+                    <button
+                      onClick={() => { setShowModMenu(false); setShowReport(true) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all"
+                    >
+                      <Flag className="w-4 h-4" /> {t('report_user')}
+                    </button>
+                    <button
+                      onClick={handleToggleBlock}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 transition-all"
+                    >
+                      <Ban className="w-4 h-4" /> {isBlocked ? t('unblock') : t('block')}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
-        {!isSelf && currentUserId && (
-          <div className="absolute top-6 right-[5.25rem] z-20">
-            <button
-              onClick={() => setShowModMenu(v => !v)}
-              className="p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-2xl transition-all border border-white/5"
-              title={t('report')}
-            >
-              <MoreVertical className="w-5 h-5" />
-            </button>
-            {showModMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowModMenu(false)} />
-                <div className="absolute right-0 mt-2 w-48 z-20 glass-card rounded-2xl border-white/10 bg-[#12111a]/95 p-1.5 shadow-2xl">
-                  <button
-                    onClick={() => { setShowModMenu(false); setShowReport(true) }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all"
-                  >
-                    <Flag className="w-4 h-4" /> {t('report_user')}
-                  </button>
-                  <button
-                    onClick={handleToggleBlock}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 transition-all"
-                  >
-                    <Ban className="w-4 h-4" /> {isBlocked ? t('unblock') : t('block')}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+          <button
+            onClick={handleShare}
+            className="p-2 sm:p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-purple-400 rounded-xl sm:rounded-2xl transition-all border border-white/5"
+            title={t('share') || 'Share'}
+          >
+            <Share2 className="w-4 h-4 sm:w-5 h-5" />
+          </button>
+        </div>
 
         <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
           <ProfileAvatar 

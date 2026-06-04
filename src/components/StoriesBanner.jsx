@@ -129,7 +129,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
 
   const loadStories = async () => {
     setLoadingStories(true)
-    const groups = await fetchActiveStories()
+    const groups = await fetchActiveStories(currentUser?.id)
 
     // Merge local (instant) and DB (cross-device) viewed state.
     // DB is the source of truth for synced views; localStorage covers offline/just-viewed.
