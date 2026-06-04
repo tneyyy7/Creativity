@@ -83,6 +83,15 @@ export function Gallery({ onOpenPost }) {
 
   const handlePublishUpload = async () => {
     if (!newTitle.trim() || pendingUploads.length === 0) return
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      const tagNamesArray = newTags
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0)
+
       if (isCarouselMode && pendingUploads.length > 1) {
         // Publish all as a single carousel
         const mediaUrls = pendingUploads.map(u => ({ url: u.image_url, type: u.media_type }))
@@ -106,6 +115,7 @@ export function Gallery({ onOpenPost }) {
         setPendingIndex(0)
       } else {
         // Publish individually
+        const current = pendingUploads[pendingIndex]
         const newPainting = await savePaintingMetadata({
           user_id: user.id,
           title: newTitle.trim(),
