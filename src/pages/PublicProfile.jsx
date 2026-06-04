@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool, MoreVertical, Flag, Ban } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts } from '../lib/supabase'
+import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts, blockUser, unblockUser, isUserBlocked } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { FollowListModal } from '../components/FollowListModal'
+import { ReportModal } from '../components/ReportModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost }) {
@@ -19,6 +20,9 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   const [followModalTab, setFollowModalTab] = useState(null) // 'followers' | 'following' | null
   const [friends, setFriends] = useState([])
   const [sharingSearch, setSharingSearch] = useState('')
+  const [showModMenu, setShowModMenu] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
 
   useEffect(() => {
     if (!targetUserId) {
@@ -26,7 +30,21 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
       return
     }
     loadData()
+    if (currentUserId && currentUserId !== targetUserId) {
+      isUserBlocked(currentUserId, targetUserId).then(setIsBlocked)
+    }
   }, [targetUserId, currentUserId])
+
+  const handleToggleBlock = async () => {
+    setShowModMenu(false)
+    if (isBlocked) {
+      await unblockUser(currentUserId, targetUserId)
+      setIsBlocked(false)
+    } else {
+      await blockUser(currentUserId, targetUserId)
+      setIsBlocked(true)
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -205,13 +223,44 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
         {/* Decorative background blur */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-        <button 
+        <button
           onClick={handleShare}
           className="absolute top-6 right-6 p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-purple-400 rounded-2xl transition-all border border-white/5 z-10"
           title={t('share') || 'Share'}
         >
           <Share2 className="w-5 h-5" />
         </button>
+
+        {!isSelf && currentUserId && (
+          <div className="absolute top-6 right-[5.25rem] z-20">
+            <button
+              onClick={() => setShowModMenu(v => !v)}
+              className="p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-2xl transition-all border border-white/5"
+              title={t('report')}
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+            {showModMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowModMenu(false)} />
+                <div className="absolute right-0 mt-2 w-48 z-20 glass-card rounded-2xl border-white/10 bg-[#12111a]/95 p-1.5 shadow-2xl">
+                  <button
+                    onClick={() => { setShowModMenu(false); setShowReport(true) }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all"
+                  >
+                    <Flag className="w-4 h-4" /> {t('report_user')}
+                  </button>
+                  <button
+                    onClick={handleToggleBlock}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 transition-all"
+                  >
+                    <Ban className="w-4 h-4" /> {isBlocked ? t('unblock') : t('block')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
           <ProfileAvatar 
@@ -473,6 +522,15 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
           initialTab={followModalTab}
           onClose={() => setFollowModalTab(null)}
           onViewProfile={onViewProfile}
+        />
+      )}
+
+      {showReport && (
+        <ReportModal
+          targetType="user"
+          targetId={targetUserId}
+          reporterId={currentUserId}
+          onClose={() => setShowReport(false)}
         />
       )}
 

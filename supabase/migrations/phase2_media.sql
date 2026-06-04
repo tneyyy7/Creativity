@@ -1,0 +1,3 @@
+ALTER TABLE paintings 
+ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image',
+ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT '[]'::jsonb;

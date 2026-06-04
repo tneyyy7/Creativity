@@ -3,11 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
-console.log('Supabase URL:', supabaseUrl ? 'Found' : 'Missing')
-console.log('Supabase Key:', supabaseAnonKey ? 'Found' : 'Missing')
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Supabase env vars missing: check VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-console.log('Supabase client initialized')
 
 export const convertHeicToJpeg = async (file) => {
   try {
@@ -166,7 +166,7 @@ export async function fetchProfile(userId) {
     // Stage 1: Try full fetch
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization, last_seen, theme')
+      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization, last_seen, theme, is_onboarding_completed')
       .eq('id', userId)
       .single()
 
@@ -228,16 +228,24 @@ export const fetchPaintings = async (userId) => {
 }
 
 export const savePaintingMetadata = async (painting) => {
+  const payload = {
+    ...painting,
+    is_finished: painting.is_finished || false,
+    is_ai_generated: painting.is_ai_generated || false
+  }
   const { data, error } = await supabase
     .from('paintings')
-    .insert({
-      ...painting,
-      is_finished: painting.is_finished || false,
-      is_ai_generated: painting.is_ai_generated || false
-    })
+    .insert(payload)
     .select()
     .single()
 
+  // Degrade gracefully if the moderation migration hasn't been applied yet.
+  if (error && error.message?.includes('is_nsfw')) {
+    const { is_nsfw, ...rest } = payload
+    const retry = await supabase.from('paintings').insert(rest).select().single()
+    if (retry.error) throw retry.error
+    return retry.data
+  }
   if (error) throw error
   return data
 }
@@ -1136,6 +1144,54 @@ export async function fetchPaintingTags(paintingId) {
   }
 }
 
+export async function fetchPaintingsByTag(tagName, currentUserId) {
+  try {
+    const { data: tags, error: tagError } = await supabase
+      .from('painting_tags')
+      .select('painting_id')
+      .eq('name', tagName)
+      
+    if (tagError) throw tagError
+    if (!tags || tags.length === 0) return []
+
+    const paintingIds = tags.map(t => t.painting_id)
+
+    // Load full paintings with authors, same as explore
+    let query = supabase
+      .from('paintings')
+      .select(`
+        *,
+        profiles!paintings_user_id_fkey (id, nickname, avatar_url, is_verified, specialization, finished_work_count, is_admin, avatar_frame, nickname_color)
+      `)
+      .in('id', paintingIds)
+      .eq('is_finished', true)
+      .order('created_at', { ascending: false })
+
+    if (currentUserId) {
+      const { data: blocked } = await supabase.from('blocks').select('blocked_id').eq('blocker_id', currentUserId)
+      const blockedIds = blocked?.map(b => b.blocked_id) || []
+      const { data: blockedBy } = await supabase.from('blocks').select('blocker_id').eq('blocked_id', currentUserId)
+      const blockedByIds = blockedBy?.map(b => b.blocker_id) || []
+      const allBlocked = [...new Set([...blockedIds, ...blockedByIds])]
+      if (allBlocked.length > 0) {
+        // Exclude blocked authors
+        // Note: we can't do .not('user_id', 'in', `(${allBlocked.join(',')})`) directly with .not on 'in' easily in JS client,
+        // so we filter after or use filter string.
+        // Actually .not('user_id', 'in', ...) doesn't exist, we must use filter
+        query = query.not('user_id', 'in', `(${allBlocked.join(',')})`)
+      }
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+
+    return await enrichProfilesWithProData(data.map(p => ({ ...p, profiles: cleanProfile(p.profiles) })))
+  } catch (err) {
+    console.error('fetchPaintingsByTag error:', err)
+    return []
+  }
+}
+
 export async function savePaintingTags(paintingId, tagNames) {
   try {
     // 1. Delete all existing tags for this painting first
@@ -1359,14 +1415,63 @@ export async function checkFollowStatus(followerId, followingId) {
     if (!followerId || !followingId) return false
     const { data, error } = await supabase
       .from('follows')
-      .select('id')
+      .select('follower_id')
       .eq('follower_id', followerId)
       .eq('following_id', followingId)
       .maybeSingle()
     if (error) throw error
     return !!data
-  } catch (e) {
-    console.error('checkFollowStatus error:', e)
+  } catch (err) {
+    console.error("Check follow error:", err)
+    return false
+  }
+}
+
+export async function toggleTagFollow(userId, tagName) {
+  try {
+    const { data, error: checkError } = await supabase
+      .from('tag_follows')
+      .select('user_id')
+      .eq('user_id', userId)
+      .eq('tag_name', tagName)
+      .maybeSingle()
+      
+    if (checkError) throw checkError
+    
+    if (data) {
+      const { error } = await supabase
+        .from('tag_follows')
+        .delete()
+        .eq('user_id', userId)
+        .eq('tag_name', tagName)
+      if (error) throw error
+      return false
+    } else {
+      const { error } = await supabase
+        .from('tag_follows')
+        .insert({ user_id: userId, tag_name: tagName })
+      if (error) throw error
+      return true
+    }
+  } catch (err) {
+    console.error("Toggle tag follow error:", err)
+    throw err
+  }
+}
+
+export async function checkTagFollowStatus(userId, tagName) {
+  try {
+    if (!userId || !tagName) return false
+    const { data, error } = await supabase
+      .from('tag_follows')
+      .select('user_id')
+      .eq('user_id', userId)
+      .eq('tag_name', tagName)
+      .maybeSingle()
+    if (error) throw error
+    return !!data
+  } catch (err) {
+    console.error("Check tag follow error:", err)
     return false
   }
 }
@@ -1448,11 +1553,18 @@ async function fetchProfilesByIds(ids) {
 // Wave 2: Feed (Лента подписок)
 // =============================================
 
-export async function fetchFeedPaintings(userId) {
+// Server-side paginated subscription feed.
+// Returns { items, hasMore, recommendedCreators } so the UI can append pages
+// via infinite scroll instead of slicing a fully-loaded array.
+//   page      — zero-based page index
+//   pageSize  — rows per page
+//   blockedIds — author ids to exclude (caller resolves once, see fetchBlockedIds)
+export async function fetchFeedPaintings(userId, { page = 0, pageSize = 10, blockedIds = [] } = {}) {
+  const empty = { items: [], hasMore: false, recommendedCreators: [] }
   try {
-    if (!userId) return []
+    if (!userId) return empty
 
-    // 1. Находим ID авторов, на которых подписан пользователь
+    // 1. Authors the user follows
     const { data: follows, error: followsError } = await supabase
       .from('follows')
       .select('following_id')
@@ -1460,41 +1572,38 @@ export async function fetchFeedPaintings(userId) {
 
     if (followsError) throw followsError
 
-    const followingIds = follows?.map(f => f.following_id) || []
+    const followingIds = (follows?.map(f => f.following_id) || [])
+      .filter(id => !blockedIds.includes(id))
+
+    const from = page * pageSize
+    const to = from + pageSize // request one extra row to detect hasMore
 
     if (followingIds.length > 0) {
-      // 2. Загружаем свежие работы этих авторов (только финишированные)
+      // 2. Fresh finished works from followed authors — paginated & ordered on the server
       const { data: paintings, error: pError } = await supabase
         .from('paintings')
-        .select('*, post_likes(count), post_comments(count)')
+        .select('*')
         .in('user_id', followingIds)
         .eq('is_finished', true)
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (pError) throw pError
 
       if (paintings && paintings.length > 0) {
-        // Загружаем профили авторов
-        const authorIds = [...new Set(paintings.map(p => p.user_id))]
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', authorIds)
-
-        const cleanedProfiles = (profiles || []).map(p => cleanProfile(p))
-        const enrichedProfiles = await enrichProfilesWithProData(cleanedProfiles)
-        const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
-        return paintings.map(p => ({
-          ...p,
-          profiles: profileMap[p.user_id] || null,
-          likes_count: p.post_likes?.[0]?.count || 0,
-          comments_count: p.post_comments?.[0]?.count || 0
-        }))
+        const hasMore = paintings.length > pageSize
+        const pageItems = hasMore ? paintings.slice(0, pageSize) : paintings
+        const items = await attachAuthors(pageItems)
+        return { items, hasMore, recommendedCreators: [] }
       }
+      // Followed authors exist but have no posts on this page — if it's the very
+      // first page, drop through to the popular-creators fallback below.
+      if (page > 0) return empty
     }
 
-    // 3. ФОЛЛБЭК: Если подписок нет или у них нет постов, возвращаем популярных авторов
-    console.log('Feed is empty, fetching popular creators fallback...')
+    // 3. FALLBACK (first page only): recommend popular creators + their works
+    if (page > 0) return empty
+
     const { data: popularProfiles, error: popError } = await supabase
       .from('profiles')
       .select('*')
@@ -1503,51 +1612,102 @@ export async function fetchFeedPaintings(userId) {
       .limit(6)
 
     if (popError) throw popError
+    if (!popularProfiles || popularProfiles.length === 0) return empty
 
-    if (!popularProfiles || popularProfiles.length === 0) return []
+    const popularIds = popularProfiles
+      .map(p => p.id)
+      .filter(id => !blockedIds.includes(id))
 
-    const popularIds = popularProfiles.map(p => p.id)
-    const { data: fallbackPaintings, error: fbError } = await supabase
-      .from('paintings')
-      .select('*, post_likes(count), post_comments(count)')
-      .in('user_id', popularIds)
-      .eq('is_finished', true)
-      .order('created_at', { ascending: false })
-
-    if (fbError) throw fbError
-
-    const cleanedPopular = popularProfiles.map(p => cleanProfile(p))
+    const cleanedPopular = popularProfiles
+      .filter(p => !blockedIds.includes(p.id))
+      .map(p => cleanProfile(p))
     const enrichedPopular = await enrichProfilesWithProData(cleanedPopular)
-    const profileMap = Object.fromEntries(enrichedPopular.map(p => [p.id, p]))
 
-    // Возвращаем как картины с профилями, так и список рекомендуемых авторов в специальном поле первого элемента
-    const result = (fallbackPaintings || []).map(p => ({
-      ...p,
-      profiles: profileMap[p.user_id] || null,
-      likes_count: p.post_likes?.[0]?.count || 0,
-      comments_count: p.post_comments?.[0]?.count || 0
-    }))
-
-    // Прикрепляем список рекомендованных авторов для отображения во фронтенде
-    if (result.length > 0) {
-      result[0].recommendedCreators = enrichedPopular
-    } else {
-      // Если даже картин нет, вернем пустой список с рекомендованными профилями
-      return [{ id: 'empty-fallback', recommendedCreators: enrichedPopular }]
+    let fallbackItems = []
+    if (popularIds.length > 0) {
+      const { data: fallbackPaintings } = await supabase
+        .from('paintings')
+        .select('*')
+        .in('user_id', popularIds)
+        .eq('is_finished', true)
+        .order('created_at', { ascending: false })
+        .limit(pageSize)
+      fallbackItems = await attachAuthors(fallbackPaintings || [])
     }
 
-    return result
+    return { items: fallbackItems, hasMore: false, recommendedCreators: enrichedPopular }
   } catch (e) {
     console.error('fetchFeedPaintings error:', e)
-    return []
+    return empty
   }
+}
+
+export async function fetchForYouPaintings(userId, { page = 0, pageSize = 10, blockedIds = [] } = {}) {
+  const empty = { items: [], hasMore: false }
+  try {
+    if (!userId) return empty
+
+    const from = page * pageSize
+    const { data: paintings, error } = await supabase
+      .rpc('get_for_you_feed', {
+        p_user_id: userId,
+        p_limit: pageSize + 1, // request one extra row to detect hasMore
+        p_offset: from,
+        p_blocked_ids: blockedIds
+      })
+
+    // Fallback if RPC doesn't exist yet
+    if (error && error.message?.includes('Could not find the function')) {
+      console.warn('RPC get_for_you_feed not found, falling back to explore API')
+      return await fetchExplorePaintings({ sort: 'popular' }, { page, pageSize, blockedIds })
+    }
+    if (error) throw error
+    if (!paintings || paintings.length === 0) return empty
+
+    const hasMore = paintings.length > pageSize
+    const pageRows = hasMore ? paintings.slice(0, pageSize) : paintings
+
+    const enriched = await attachAuthors(pageRows)
+    const items = enriched.map(p => ({
+      ...p,
+      likesCount: p.likes_count ?? 0
+    }))
+
+    return { items, hasMore }
+  } catch (e) {
+    console.error('fetchForYouPaintings error:', e)
+    return empty
+  }
+}
+
+// Attaches enriched author profiles to a list of paintings and normalizes the
+// denormalized like/comment counters. Shared by feed + explore.
+async function attachAuthors(paintings) {
+  if (!paintings || paintings.length === 0) return []
+  const authorIds = [...new Set(paintings.map(p => p.user_id))]
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('id', authorIds)
+
+  const cleanedProfiles = (profiles || []).map(p => cleanProfile(p))
+  const enrichedProfiles = await enrichProfilesWithProData(cleanedProfiles)
+  const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
+
+  return paintings.map(p => ({
+    ...p,
+    profiles: profileMap[p.user_id] || null,
+    likes_count: p.likes_count ?? 0,
+    comments_count: p.comments_count ?? 0
+  }))
 }
 
 // =============================================
 // Wave 2: Explore (Поиск и Интересное)
 // =============================================
 
-export async function fetchExplorePaintings(filters = {}) {
+export async function fetchExplorePaintings(filters = {}, { page = 0, pageSize = 12, blockedIds = [] } = {}) {
+  const empty = { items: [], hasMore: false }
   try {
     const { searchQuery, category, onlyFinished, tag, sort } = filters
 
@@ -1569,16 +1729,16 @@ export async function fetchExplorePaintings(filters = {}) {
 
         paintingIdsFromTag = pTags?.map(pt => pt.painting_id) || []
         // Если картин с таким тегом нет, сразу возвращаем пустоту
-        if (paintingIdsFromTag.length === 0) return []
+        if (paintingIdsFromTag.length === 0) return empty
       } else {
-        return [] // Тег не найден
+        return empty // Тег не найден
       }
     }
 
     // 2. Строим запрос к картинам
     let query = supabase
       .from('paintings')
-      .select('*, post_likes(count)')
+      .select('*')
 
     if (category && category !== 'All' && category !== 'Все') {
       query = query.eq('category', category)
@@ -1590,6 +1750,11 @@ export async function fetchExplorePaintings(filters = {}) {
 
     if (paintingIdsFromTag) {
       query = query.in('id', paintingIdsFromTag)
+    }
+
+    // Hide works from blocked authors
+    if (blockedIds.length > 0) {
+      query = query.not('user_id', 'in', `(${blockedIds.join(',')})`)
     }
 
     // 3. Текстовый поиск (по названию, описанию или хештегам)
@@ -1644,39 +1809,272 @@ export async function fetchExplorePaintings(filters = {}) {
       query = query.or(orClause)
     }
 
+    // 4. Server-side ordering + pagination (replaces the old fetch-all + JS sort)
+    if (sort === 'popular') {
+      query = query.order('likes_count', { ascending: false }).order('created_at', { ascending: false })
+    } else {
+      query = query.order('created_at', { ascending: false })
+    }
+
+    const from = page * pageSize
+    const to = from + pageSize // request one extra row to detect hasMore
+    query = query.range(from, to)
+
     const { data: paintings, error } = await query
 
     if (error) throw error
-    if (!paintings || paintings.length === 0) return []
+    if (!paintings || paintings.length === 0) return empty
 
-    // 4. Догружаем профили авторов для результатов
-    const authorIds = [...new Set(paintings.map(p => p.user_id))]
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('*')
-      .in('id', authorIds)
+    const hasMore = paintings.length > pageSize
+    const pageRows = hasMore ? paintings.slice(0, pageSize) : paintings
 
-    const cleanedProfiles = (profiles || []).map(p => cleanProfile(p))
-    const enrichedProfiles = await enrichProfilesWithProData(cleanedProfiles)
-    const profileMap = Object.fromEntries(enrichedProfiles.map(p => [p.id, p]))
-
-    let processed = paintings.map(p => ({
+    // 5. Догружаем профили авторов для результатов
+    const enriched = await attachAuthors(pageRows)
+    const items = enriched.map(p => ({
       ...p,
-      profiles: profileMap[p.user_id] || null,
-      likesCount: p.post_likes?.[0]?.count || 0
+      // Explore cards read `likesCount` (camelCase); keep that alias.
+      likesCount: p.likes_count ?? 0
     }))
 
-    // 5. Сортировка на стороне клиента (быстро и надежно)
-    if (sort === 'popular') {
-      processed.sort((a, b) => b.likesCount - a.likesCount)
-    } else {
-      processed.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    }
-
-    return processed
+    return { items, hasMore }
   } catch (e) {
     console.error('fetchExplorePaintings error:', e)
+    return empty
+  }
+}
+
+// =============================================
+// Phase 1.2: Moderation (reports & blocking)
+// =============================================
+
+// Returns the set of user ids the given user has blocked. Callers pass this to
+// the feed/explore fetchers so blocked authors' content is filtered server-side.
+export async function fetchBlockedIds(userId) {
+  if (!userId) return []
+  try {
+    const { data, error } = await supabase
+      .from('blocked_users')
+      .select('blocked_id')
+      .eq('blocker_id', userId)
+    if (error) throw error
+    return (data || []).map(r => r.blocked_id)
+  } catch (e) {
+    // Table may not exist yet (migration not applied) — degrade gracefully.
+    console.error('fetchBlockedIds error:', e)
     return []
+  }
+}
+
+export async function blockUser(blockerId, blockedId) {
+  if (!blockerId || !blockedId || blockerId === blockedId) return false
+  try {
+    const { error } = await supabase
+      .from('blocked_users')
+      .insert({ blocker_id: blockerId, blocked_id: blockedId })
+    if (error && error.code !== '23505') throw error // ignore duplicate
+    return true
+  } catch (e) {
+    console.error('blockUser error:', e)
+    return false
+  }
+}
+
+export async function unblockUser(blockerId, blockedId) {
+  if (!blockerId || !blockedId) return false
+  try {
+    const { error } = await supabase
+      .from('blocked_users')
+      .delete()
+      .eq('blocker_id', blockerId)
+      .eq('blocked_id', blockedId)
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('unblockUser error:', e)
+    return false
+  }
+}
+
+export async function isUserBlocked(blockerId, blockedId) {
+  if (!blockerId || !blockedId) return false
+  try {
+    const { data } = await supabase
+      .from('blocked_users')
+      .select('blocked_id')
+      .eq('blocker_id', blockerId)
+      .eq('blocked_id', blockedId)
+      .maybeSingle()
+    return !!data
+  } catch (e) {
+    return false
+  }
+}
+
+// Files a report against a post, user, or comment.
+// Returns { ok: true } or { ok: false, alreadyReported?, error? }.
+export async function reportContent({ reporterId, targetType, targetId, reason, details = null }) {
+  if (!reporterId || !targetType || !targetId || !reason) {
+    return { ok: false, error: 'missing_fields' }
+  }
+  try {
+    const { error } = await supabase
+      .from('reports')
+      .insert({
+        reporter_id: reporterId,
+        target_type: targetType,
+        target_id: targetId,
+        reason,
+        details
+      })
+    if (error) {
+      // Unique partial index — user already has an open report on this target.
+      if (error.code === '23505') return { ok: false, alreadyReported: true }
+      throw error
+    }
+    return { ok: true }
+  } catch (e) {
+    console.error('reportContent error:', e)
+    return { ok: false, error: e.message }
+  }
+}
+
+// =============================================
+// Phase 1.2b: Admin moderation panel
+// =============================================
+
+// Lightweight admin check — kept separate from fetchProfile so a missing
+// is_admin column (migration not applied) never breaks the main profile load.
+export async function fetchIsAdmin(userId) {
+  if (!userId) return false
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .single()
+    if (error) return false
+    return !!data?.is_admin
+  } catch {
+    return false
+  }
+}
+
+// Ids of globally banned users — hidden from every feed/explore list.
+export async function fetchBannedIds() {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('is_banned', true)
+    if (error) throw error
+    return (data || []).map(r => r.id)
+  } catch (e) {
+    return []
+  }
+}
+
+// Admin: report queue, enriched with reporter + target previews in bulk.
+export async function fetchReports(status = 'pending') {
+  try {
+    let query = supabase
+      .from('reports')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (status && status !== 'all') query = query.eq('status', status)
+
+    const { data: reports, error } = await query
+    if (error) throw error
+    if (!reports || reports.length === 0) return []
+
+    // Collect ids per target type for batched lookups.
+    const reporterIds = [...new Set(reports.map(r => r.reporter_id))]
+    const postIds = [...new Set(reports.filter(r => r.target_type === 'post').map(r => r.target_id))]
+    const userIds = [...new Set(reports.filter(r => r.target_type === 'user').map(r => r.target_id))]
+    const commentIds = [...new Set(reports.filter(r => r.target_type === 'comment').map(r => r.target_id))]
+
+    const [reportersRes, postsRes, usersRes, commentsRes] = await Promise.all([
+      reporterIds.length
+        ? supabase.from('profiles').select('id, nickname, avatar_url').in('id', reporterIds)
+        : Promise.resolve({ data: [] }),
+      postIds.length
+        ? supabase.from('paintings').select('id, title, image_url, user_id, is_nsfw').in('id', postIds)
+        : Promise.resolve({ data: [] }),
+      userIds.length
+        ? supabase.from('profiles').select('id, nickname, avatar_url, is_banned').in('id', userIds)
+        : Promise.resolve({ data: [] }),
+      commentIds.length
+        ? supabase.from('post_comments').select('id, content, user_id, painting_id').in('id', commentIds)
+        : Promise.resolve({ data: [] }),
+    ])
+
+    const byId = (arr) => Object.fromEntries((arr || []).map(x => [x.id, x]))
+    const reporters = byId(reportersRes.data)
+    const posts = byId(postsRes.data)
+    const users = byId(usersRes.data)
+    const comments = byId(commentsRes.data)
+
+    return reports.map(r => {
+      let target = null
+      if (r.target_type === 'post') target = posts[r.target_id] || null
+      else if (r.target_type === 'user') target = users[r.target_id] || null
+      else if (r.target_type === 'comment') target = comments[r.target_id] || null
+      return { ...r, reporter: reporters[r.reporter_id] || null, target }
+    })
+  } catch (e) {
+    console.error('fetchReports error:', e)
+    return []
+  }
+}
+
+export async function updateReportStatus(reportId, status) {
+  try {
+    const { error } = await supabase
+      .from('reports')
+      .update({ status })
+      .eq('id', reportId)
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('updateReportStatus error:', e)
+    return false
+  }
+}
+
+// Admin content takedown (relies on the admin RLS delete policies).
+export async function adminDeletePainting(id) {
+  try {
+    const { error } = await supabase.from('paintings').delete().eq('id', id)
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('adminDeletePainting error:', e)
+    return false
+  }
+}
+
+export async function adminDeleteComment(id) {
+  try {
+    const { error } = await supabase.from('post_comments').delete().eq('id', id)
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('adminDeleteComment error:', e)
+    return false
+  }
+}
+
+export async function setUserBanned(userId, banned) {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_banned: banned })
+      .eq('id', userId)
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error('setUserBanned error:', e)
+    return false
   }
 }
 

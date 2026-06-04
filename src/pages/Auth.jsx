@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes, Box, PenTool, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { useTranslation } from 'react-i18next'
 import { LiquidGlassButton } from '../components/LiquidGlass'
 
@@ -14,8 +13,6 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [nickname, setNickname] = useState('')
-  const [specialization, setSpecialization] = useState('painter')
 
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -36,6 +33,25 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
     }
   }
 
+  const handleGoogleLogin = async () => {
+    setIsLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      })
+      if (error) throw error
+    } catch (err) {
+      console.error("Google Auth Error:", err)
+      setError(err?.message || "An error occurred during Google authentication")
+      setIsLoading(false)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
@@ -51,29 +67,8 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
         if (error) throw error
         onAuth(data.user)
       } else if (mode === 'signup') {
-        const trimmedNickname = nickname.trim()
-
         if (password !== confirmPassword) {
           throw new Error(t('password_mismatch') || "Passwords do not match")
-        }
-
-        if (!isValidNickname(trimmedNickname)) {
-          throw new Error(t('nickname_invalid') || "Nickname can only contain English letters, digits and underscore (max 10 characters)")
-        }
-
-        // Check if nickname is already taken before signing up
-        const { data: existingUser, error: checkError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('nickname', trimmedNickname)
-          .maybeSingle()
-
-        if (checkError) {
-          console.error("Nickname check error:", checkError)
-        }
-
-        if (existingUser) {
-          throw new Error(t('nickname_taken') || "This nickname is already taken")
         }
 
         const { data, error } = await supabase.auth.signUp({
@@ -81,9 +76,9 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
           password,
           options: {
             data: {
-              nickname: trimmedNickname,
-              full_name: trimmedNickname,
-              specialization: specialization
+              nickname: email.split('@')[0],
+              full_name: email.split('@')[0],
+              specialization: 'painter'
             }
           }
         })
@@ -200,51 +195,6 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
           )}
 
           <form onSubmit={handleSubmit} className="glass-card p-5 sm:p-8 md:p-10 space-y-5 sm:space-y-6">
-            {isSignup && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('nickname')}</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                    <input
-                      required
-                      type="text"
-                      value={nickname}
-                      onChange={(e) => setNickname(sanitizeNickname(e.target.value))}
-                      placeholder="MasterArtist"
-                      maxLength={NICKNAME_MAX_LENGTH}
-                      translate="no"
-                      className="notranslate w-full h-14 pl-12 pr-4 bg-white/5 border border-white/5 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/30 transition-all text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-2">
-                  <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('choose_specialization')}</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: 'painter', icon: Palette, label: t('painter') },
-                      { id: 'photographer', icon: Camera, label: t('photographer') },
-                      { id: 'sculptor', icon: Shapes, label: t('sculptor') },
-                      { id: '3D', icon: Box, label: t('3D') },
-                      { id: 'designer', icon: PenTool, label: t('designer') }
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSpecialization(item.id)}
-                        className={`lg-pill flex flex-col items-center gap-2 p-3 rounded-2xl ${
-                          specialization === item.id ? 'lg-pill--active' : ''
-                        }`}
-                      >
-                        <item.icon className={`w-6 h-6 ${specialization === item.id ? 'animate-pulse' : ''}`} />
-                        <span className="text-[10px] font-black uppercase tracking-tighter">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
 
             {!isReset && (
               <div className="space-y-2">
@@ -341,6 +291,47 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
                 </>
               )}
             </LiquidGlassButton>
+
+            {(isLogin || isSignup) && (
+              <>
+                <div className="flex items-center gap-4 my-2 select-none">
+                  <div className="flex-1 h-[1px] bg-white/10" />
+                  <span className="text-[11px] font-black text-gray-500 uppercase tracking-widest">{t('auth_or') || 'Или'}</span>
+                  <div className="flex-1 h-[1px] bg-white/10" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                  className="w-full h-14 flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-2xl transition-all duration-300 font-bold text-white tracking-wide active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed group"
+                >
+                  <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110 duration-300" viewBox="0 0 24 24">
+                    <path
+                      fill="#EA4335"
+                      d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3A11.945 11.945 0 0 0 12 0C7.27 0 3.14 2.76 1.15 6.81l4.116 2.955Z"
+                    />
+                    <path
+                      fill="#4285F4"
+                      d="M23.49 12.275c0-.825-.075-1.62-.21-2.385H12v4.515h6.444a5.518 5.518 0 0 1-2.394 3.615l3.708 2.88c2.168-2 3.732-4.94 3.732-8.625Z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.266 14.235 1.15 17.19A11.956 11.956 0 0 0 12 24c3.24 0 5.97-1.075 7.96-2.925l-3.708-2.88a7.126 7.126 0 0 1-4.252 1.19c-3.692 0-6.81-2.495-7.925-5.85L1.15 17.19A11.956 11.956 0 0 0 12 24l.01-.02Z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 4.909c-3.692 0-6.81 2.495-7.925 5.856l-4.116-2.955A11.956 11.956 0 0 1 12 0c3.24 0 5.97 1.075 7.96 2.925l-3.49 3.49A7.042 7.042 0 0 1 12 4.91Z"
+                    />
+                  </svg>
+                  <span className="group-hover:text-purple-300 transition-colors">
+                    {isSignup
+                      ? (t('auth_google_signup') || 'Зарегистрироваться через Google')
+                      : (t('auth_google_signin') || 'Войти через Google')}
+                  </span>
+                </button>
+              </>
+            )}
           </form>
 
           {isLogin && (

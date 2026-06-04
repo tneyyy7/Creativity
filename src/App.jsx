@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
-import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus } from './lib/supabase'
+import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus, upsertProfile, fetchIsAdmin } from './lib/supabase'
 import { Auth } from './pages/Auth'
+import { Onboarding } from './pages/Onboarding'
+import { TagPage } from './pages/TagPage'
 import { PostViewerModal } from './components/PostViewerModal'
 import { initOneSignal } from './lib/pwa'
 import { applyTheme, getStoredTheme } from './lib/theme'
+import { identifyUser, resetUser } from './lib/observability'
 
 // Lazy-load page components so each route ships in its own chunk
 // instead of bloating the initial bundle.
@@ -21,6 +24,7 @@ const Friends = lazy(() => import('./pages/Friends').then(m => ({ default: m.Fri
 const Bookmarks = lazy(() => import('./pages/Bookmarks').then(m => ({ default: m.Bookmarks })))
 const Explore = lazy(() => import('./pages/Explore').then(m => ({ default: m.Explore })))
 const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })))
+const Admin = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin })))
 
 const parseInitialUrl = () => {
   const path = window.location.pathname.replace(/^\//, '')
@@ -75,6 +79,7 @@ function App() {
   const [nickname, setNickname] = useState('Artist User')
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [isVerified, setIsVerified] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [specialization, setSpecialization] = useState('painter')
   const [workCount, setWorkCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -109,6 +114,9 @@ function App() {
     const initial = parseInitialUrl()
     return initial.authMode || 'login'
   })
+  
+  const [isOnboarding, setIsOnboarding] = useState(false)
+  const [activeTag, setActiveTag] = useState(null)
 
   // Monotonic index attached to each in-app history entry so "smart back"
   // can tell whether there is a previous page to return to.
@@ -128,11 +136,13 @@ function App() {
     const syncUser = (currUser) => {
       if (currUser) {
         setUser(currUser)
+        identifyUser(currUser.id)
+        fetchIsAdmin(currUser.id).then(setIsAdmin)
         const meta = currUser.user_metadata
         
         // Fetch full profile info to get avatar and other DB-specific fields
         fetchProfile(currUser.id)
-          .then((data) => {
+          .then(async (data) => {
             if (data) {
               setNickname(data.nickname || meta?.full_name || currUser.email?.split('@')[0])
               setAvatarUrl(data.avatar_url)
@@ -143,6 +153,32 @@ function App() {
               setNicknameColor(data.nickname_color || '')
               // Sync the saved theme from the profile across devices.
               if (data.theme) setTheme(applyTheme(data.theme))
+              
+              if (data.is_onboarding_completed === false) {
+                setIsOnboarding(true)
+              }
+            } else {
+              // Profile row does not exist yet (e.g. OAuth signup without DB trigger).
+              // Let's create it automatically!
+              try {
+                const defaultNickname = meta?.full_name || currUser.email?.split('@')[0] || 'Artist'
+                const defaultSpecialization = 'painter'
+                const newProfile = await upsertProfile({
+                  id: currUser.id,
+                  nickname: defaultNickname,
+                  avatar_url: meta?.avatar_url || null,
+                  specialization: defaultSpecialization,
+                  is_verified: false
+                })
+                if (newProfile) {
+                  setNickname(newProfile.nickname)
+                  setAvatarUrl(newProfile.avatar_url)
+                  setSpecialization(newProfile.specialization || 'painter')
+                  setIsOnboarding(true)
+                }
+              } catch (e) {
+                console.error("Failed to auto-create profile for OAuth user:", e)
+              }
             }
           })
 
@@ -154,6 +190,8 @@ function App() {
           .catch(err => console.error('Subscription status fetch error:', err))
       } else {
         setUser(null)
+        resetUser()
+        setIsAdmin(false)
         setNickname('Artist User')
         setAvatarUrl(null)
         setIsVerified(false)
@@ -344,6 +382,56 @@ function App() {
     )
   }
 
+  if (isOnboarding) {
+    return <Onboarding user={user} onComplete={() => setIsOnboarding(false)} />
+  }
+
+  if (activeTag) {
+    return (
+      <div className="app-container">
+        <Navbar 
+          user={user} 
+          nickname={nickname} 
+          avatarUrl={avatarUrl} 
+          specialization={specialization} 
+          isVerified={isVerified} 
+          onOpenSidebar={() => setIsSidebarOpen(true)} 
+          hasUnreadNotifications={unreadNotifications > 0}
+        />
+        <main className="main-content custom-scrollbar">
+          <TagPage 
+            tagName={activeTag} 
+            currentUser={user}
+            onOpenPost={(id, painting, filteredPaintings, index, profile) => {
+              setViewerData({
+                paintings: filteredPaintings,
+                initialIndex: index,
+                currentUserId: user?.id,
+                authorProfile: profile,
+                onClose: () => setViewerData(null),
+                onViewProfile: (userId) => {
+                  setViewerData(null)
+                  setActiveTag(null)
+                  setViewedProfileId(userId)
+                }
+              })
+            }}
+            onBack={() => setActiveTag(null)} 
+          />
+        </main>
+        {viewerData && (
+          <PostViewerModal 
+            {...viewerData}
+            onTagClick={(tagName) => {
+              setViewerData(null)
+              setActiveTag(tagName)
+            }}
+          />
+        )}
+      </div>
+    )
+  }
+
   const closeSidebar = () => setIsSidebarOpen(false)
 
   const openMessageWithUser = (profile) => {
@@ -361,6 +449,7 @@ function App() {
         onClose={closeSidebar}
         currentUser={user}
         isPro={isPro}
+        isAdmin={isAdmin}
       />
       <div className="main-content">
         <Navbar 
@@ -481,6 +570,14 @@ function App() {
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
           />}
           {activeTab === 'subscription' && <Subscription />}
+          {activeTab === 'admin' && isAdmin && <Admin
+            onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
+            onOpenPost={(id, painting, collection, index) => setPostViewer({
+              painting,
+              paintings: collection || [painting],
+              index: index ?? 0,
+            })}
+          />}
           {activeTab === 'settings' && <Settings userEmail={user?.email} currentTheme={theme} onThemeChange={setTheme} />}
          </Suspense>
          </div>

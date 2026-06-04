@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Search, Trash2, MoreHorizontal, User, Palette, X, Upload, Loader2, Star, Medal, Zap, Crown, Sparkles, Rocket } from 'lucide-react'
+import { Plus, Search, Trash2, MoreHorizontal, User, Palette, X, Upload, Loader2, Star, Medal, Zap, Crown, Sparkles, Rocket, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, uploadPainting, fetchPaintings, savePaintingMetadata, deletePainting, fetchPaintingTags, savePaintingTags } from '../lib/supabase'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
@@ -14,6 +14,8 @@ export function Gallery({ onOpenPost }) {
   const [filter, setFilter] = useState('all') // 'all', 'finished', 'in_progress'
   const [newCategory, setNewCategory] = useState('Digital')
   const [newTags, setNewTags] = useState('')
+  const [newNsfw, setNewNsfw] = useState(false)
+  const [isCarouselMode, setIsCarouselMode] = useState(true)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -51,10 +53,12 @@ export function Gallery({ onOpenPost }) {
 
         setIsUploading(status)
 
+        const isVideo = file.type.startsWith('video/')
         const publicUrl = await uploadPainting(file, user.id)
         uploaded.push({
           image_url: publicUrl,
-          fileName: file.name.split('.')[0] || t('untitled')
+          fileName: file.name.split('.')[0] || t('untitled'),
+          media_type: isVideo ? 'video' : 'image'
         })
       }
 
@@ -67,6 +71,7 @@ export function Gallery({ onOpenPost }) {
       setNewDescription('')
       setNewCategory('Digital')
       setNewTags('')
+      setNewNsfw(false)
     } catch (err) {
       console.error("Upload error:", err)
       alert("Failed to upload: " + (err.message || "Unknown error"))
@@ -78,40 +83,58 @@ export function Gallery({ onOpenPost }) {
 
   const handlePublishUpload = async () => {
     if (!newTitle.trim() || pendingUploads.length === 0) return
-    const current = pendingUploads[pendingIndex]
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (isCarouselMode && pendingUploads.length > 1) {
+        // Publish all as a single carousel
+        const mediaUrls = pendingUploads.map(u => ({ url: u.image_url, type: u.media_type }))
+        const newPainting = await savePaintingMetadata({
+          user_id: user.id,
+          title: newTitle.trim(),
+          image_url: pendingUploads[0].image_url,
+          description: newDescription.trim(),
+          category: newCategory,
+          is_nsfw: newNsfw,
+          is_finished: false,
+          media_type: 'carousel',
+          media_urls: mediaUrls
+        })
+        
+        if (tagNamesArray.length > 0) {
+          await savePaintingTags(newPainting.id, tagNamesArray)
+        }
 
-      const tagNamesArray = newTags
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0)
-
-      const newPainting = await savePaintingMetadata({
-        user_id: user.id,
-        title: newTitle.trim(),
-        image_url: current.image_url,
-        description: newDescription.trim(),
-        category: newCategory,
-        is_finished: false
-      })
-
-      if (tagNamesArray.length > 0) {
-        await savePaintingTags(newPainting.id, tagNamesArray)
-      }
-
-      // Move on to the next uploaded image, or close once all are published.
-      const nextIndex = pendingIndex + 1
-      if (nextIndex < pendingUploads.length) {
-        setPendingIndex(nextIndex)
-        setNewTitle(pendingUploads[nextIndex].fileName)
-        setNewDescription('')
-        setNewCategory('Digital')
-        setNewTags('')
-      } else {
         setPendingUploads([])
         setPendingIndex(0)
+      } else {
+        // Publish individually
+        const newPainting = await savePaintingMetadata({
+          user_id: user.id,
+          title: newTitle.trim(),
+          image_url: current.image_url,
+          description: newDescription.trim(),
+          category: newCategory,
+          is_nsfw: newNsfw,
+          is_finished: false,
+          media_type: current.media_type,
+          media_urls: []
+        })
+
+        if (tagNamesArray.length > 0) {
+          await savePaintingTags(newPainting.id, tagNamesArray)
+        }
+
+        // Move on to the next uploaded image, or close once all are published.
+        const nextIndex = pendingIndex + 1
+        if (nextIndex < pendingUploads.length) {
+          setPendingIndex(nextIndex)
+          setNewTitle(pendingUploads[nextIndex].fileName)
+          setNewDescription('')
+          setNewCategory('Digital')
+          setNewTags('')
+          setNewNsfw(false)
+        } else {
+          setPendingUploads([])
+          setPendingIndex(0)
+        }
       }
 
       await loadPaintings()
@@ -174,6 +197,7 @@ export function Gallery({ onOpenPost }) {
     setNewTitle(painting.title)
     setNewDescription(painting.description || '')
     setNewCategory(painting.category || 'Digital')
+    setNewNsfw(!!painting.is_nsfw)
     setNewTags('')
     try {
       const tags = await fetchPaintingTags(painting.id)
@@ -191,23 +215,32 @@ export function Gallery({ onOpenPost }) {
         .map(t => t.trim())
         .filter(t => t.length > 0)
 
-      const { error } = await supabase
+      const updates = {
+        title: newTitle.trim(),
+        description: newDescription.trim(),
+        category: newCategory,
+        is_nsfw: newNsfw
+      }
+      let { error } = await supabase
         .from('paintings')
-        .update({ 
-          title: newTitle.trim(),
-          description: newDescription.trim(),
-          category: newCategory
-        })
+        .update(updates)
         .eq('id', editingPainting.id)
+      // Degrade gracefully if the moderation migration isn't applied yet.
+      if (error && error.message?.includes('is_nsfw')) {
+        const { is_nsfw, ...rest } = updates
+        const retry = await supabase.from('paintings').update(rest).eq('id', editingPainting.id)
+        error = retry.error
+      }
       if (error) throw error
 
       await savePaintingTags(editingPainting.id, tagNamesArray)
 
-      setPaintings(paintings.map(p => p.id === editingPainting.id ? { 
-        ...p, 
-        title: newTitle.trim(), 
+      setPaintings(paintings.map(p => p.id === editingPainting.id ? {
+        ...p,
+        title: newTitle.trim(),
         description: newDescription.trim(),
-        category: newCategory
+        category: newCategory,
+        is_nsfw: newNsfw
       } : p))
       setEditingPainting(null)
     } catch (err) {
@@ -252,7 +285,7 @@ export function Gallery({ onOpenPost }) {
             className="hidden" 
             ref={fileInputRef} 
             onChange={handleFileUpload}
-            accept="image/*"
+            accept="image/*,video/mp4,video/quicktime,video/webm"
             multiple
           />
           <input 
@@ -328,14 +361,35 @@ export function Gallery({ onOpenPost }) {
         {filteredPaintings.map((painting) => (
           <div key={painting.id} className="glass-card group relative overflow-hidden flex flex-col h-full hover:-translate-y-2 transition-all duration-500 border-white/5 hover:border-purple-500/30 shadow-2xl">
             <div className="aspect-[4/3] overflow-hidden relative">
-              <img
-                src={painting.image_url}
-                alt={painting.title}
-                loading="lazy"
-                decoding="async"
-                className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 cursor-pointer ${painting.is_finished ? 'opacity-100' : 'opacity-70'}`}
-                onClick={() => onOpenPost?.(painting.id, painting, filteredPaintings, filteredPaintings.indexOf(painting))}
-              />
+              {painting.media_type === 'video' ? (
+                <video
+                  src={painting.image_url}
+                  className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 cursor-pointer ${painting.is_finished ? 'opacity-100' : 'opacity-70'}`}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                  onClick={() => onOpenPost?.(painting.id, painting, filteredPaintings, filteredPaintings.indexOf(painting))}
+                />
+              ) : (
+                <img
+                  src={painting.image_url}
+                  alt={painting.title}
+                  loading="lazy"
+                  decoding="async"
+                  className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 cursor-pointer ${painting.is_finished ? 'opacity-100' : 'opacity-70'}`}
+                  onClick={() => onOpenPost?.(painting.id, painting, filteredPaintings, filteredPaintings.indexOf(painting))}
+                />
+              )}
+              {painting.media_type === 'carousel' && (
+                <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1.5 text-white pointer-events-none z-10">
+                  <div className="flex gap-0.5">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                    <div className="w-1.5 h-1.5 bg-white/50 rounded-full" />
+                    <div className="w-1.5 h-1.5 bg-white/50 rounded-full" />
+                  </div>
+                </div>
+              )}
               {/* Top status bar */}
               <div className="absolute top-0 left-0 right-0 p-4 sm:p-5 flex items-start justify-between z-10 pointer-events-none">
                   <div className="flex flex-col gap-2">
@@ -415,19 +469,50 @@ export function Gallery({ onOpenPost }) {
                 </h3>
                 {pendingUploads.length > 1 && (
                   <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest whitespace-nowrap">
-                    {pendingIndex + 1} / {pendingUploads.length}
+                    {isCarouselMode ? t('carousel_mode', 'Carousel') : `${pendingIndex + 1} / ${pendingUploads.length}`}
                   </span>
                 )}
               </div>
 
               {pendingUploads.length > 0 && (
-                <div className="h-28 sm:h-32 w-full overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-center p-2">
-                  <img
-                    src={pendingUploads[pendingIndex].image_url}
-                    alt={newTitle}
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                  />
+                <div className="h-28 sm:h-32 w-full overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-center p-2 relative">
+                  {isCarouselMode && pendingUploads.length > 1 ? (
+                    <div className="flex gap-2 h-full overflow-x-auto w-full custom-scrollbar items-center">
+                      {pendingUploads.map((u, idx) => (
+                        <div key={idx} className="h-full aspect-square flex-shrink-0 rounded-lg overflow-hidden relative">
+                           {u.media_type === 'video' ? (
+                             <video src={u.image_url} className="w-full h-full object-cover" muted />
+                           ) : (
+                             <img src={u.image_url} className="w-full h-full object-cover" />
+                           )}
+                           {idx === 0 && <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] px-1.5 py-0.5 rounded text-white font-bold">COVER</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      {pendingUploads[pendingIndex].media_type === 'video' ? (
+                        <video src={pendingUploads[pendingIndex].image_url} className="max-w-full max-h-full object-contain rounded-lg" controls muted />
+                      ) : (
+                        <img
+                          src={pendingUploads[pendingIndex].image_url}
+                          alt={newTitle}
+                          className="max-w-full max-h-full object-contain rounded-lg"
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
+              )}
+              
+              {pendingUploads.length > 1 && (
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 hover:bg-white/10 cursor-pointer border border-white/10 transition-colors">
+                  <input type="checkbox" checked={isCarouselMode} onChange={(e) => setIsCarouselMode(e.target.checked)} className="w-4 h-4 rounded accent-purple-500" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-white">{t('upload_as_carousel', 'Group as Carousel')}</span>
+                    <span className="text-[10px] text-gray-500">{t('upload_as_carousel_desc', 'Combine these media into a single post')}</span>
+                  </div>
+                </label>
               )}
 
               <div className="space-y-1.5">
@@ -480,6 +565,26 @@ export function Gallery({ onOpenPost }) {
                   />
                 </div>
               </div>
+
+              {/* Sensitive-content (NSFW) toggle */}
+              <button
+                type="button"
+                onClick={() => setNewNsfw(v => !v)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-left ${
+                  newNsfw
+                    ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                    : 'bg-white/[0.03] border-white/5 text-gray-400 hover:border-white/10'
+                }`}
+              >
+                <EyeOff className="w-4 h-4 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black">{t('mark_nsfw')}</p>
+                  <p className="text-[10px] text-gray-500 leading-snug">{t('mark_nsfw_hint')}</p>
+                </div>
+                <div className={`w-9 h-5 rounded-full flex-shrink-0 relative transition-all ${newNsfw ? 'bg-red-500' : 'bg-white/10'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${newNsfw ? 'left-[1.125rem]' : 'left-0.5'}`} />
+                </div>
+              </button>
 
               <div className="flex gap-4 pt-2">
                 <button

@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck, Box, PenTool } from 'lucide-react'
+import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck, Box, PenTool, MoreVertical, Flag, Ban, Link2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection } from '../lib/supabase'
+import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection, blockUser } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 import { CollectionsModal } from './CollectionsModal'
+import { ReportModal } from './ReportModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 
-export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile }) {
+export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile, onTagClick }) {
+  const { t } = useTranslation()
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0)
+  const [carouselIndex, setCarouselIndex] = useState(0)
   const [likes, setLikes] = useState([])
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
@@ -24,6 +27,9 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const [paintingTags, setPaintingTags] = useState([])
   const [showCollectionsModal, setShowCollectionsModal] = useState(false)
   const [resolvedAuthor, setResolvedAuthor] = useState(authorProfile)
+  const [showModMenu, setShowModMenu] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null) // { type, id }
+  const [blockConfirm, setBlockConfirm] = useState(false)
 
   const commentInputRef = useRef(null)
   const commentsEndRef = useRef(null)
@@ -102,6 +108,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
     setReplyingTo(null)
     setCommentText('')
     setShowLikesPopup(false)
+    setCarouselIndex(0)
   }, [load])
 
   useEffect(() => {
@@ -276,6 +283,47 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
         <X className="w-5 h-5" />
       </button>
 
+      {/* Moderation menu — only for content that isn't the viewer's own */}
+      {!isAuthor && currentUserId && (
+        <div
+          style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+          className="absolute right-14 sm:right-16 z-40"
+        >
+          <button
+            data-lg-fx
+            onClick={() => setShowModMenu(v => !v)}
+            className="w-9 h-9 sm:w-10 sm:h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all"
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
+          {showModMenu && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowModMenu(false)} />
+              <div className="absolute right-0 mt-2 w-52 z-40 glass-card rounded-2xl border-white/10 bg-[#12111a]/95 p-1.5 shadow-2xl">
+                <button
+                  onClick={() => { setShowModMenu(false); setReportTarget({ type: 'post', id: painting.id }) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  <Flag className="w-4 h-4" /> {t('report_post')}
+                </button>
+                <button
+                  onClick={() => { setShowModMenu(false); setReportTarget({ type: 'user', id: resolvedAuthor?.id }) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  <Flag className="w-4 h-4" /> {t('report_user')}
+                </button>
+                <button
+                  onClick={() => { setShowModMenu(false); setBlockConfirm(true) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 transition-all"
+                >
+                  <Ban className="w-4 h-4" /> {t('block_user')}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Navigation arrows — left/right edges of image area (before right panel) */}
       {currentIndex > 0 && (
         <button data-lg-fx onClick={() => setCurrentIndex(i => i - 1)} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full items-center justify-center transition-all">
@@ -290,10 +338,41 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
       {/* MOBILE LAYOUT: vertical scroll */}
       <div className="md:hidden absolute inset-0 z-10 overflow-y-auto">
-        {/* Image */}
-        <div className="w-full min-h-[50vh] flex items-center justify-center bg-black pt-12 pb-2 px-2 relative">
-          <div className="relative">
-            <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
+        {/* Image / Video */}
+        <div className="w-full min-h-[50vh] flex items-center justify-center bg-black pt-12 pb-2 px-2 relative group">
+          <div className="relative w-full flex items-center justify-center">
+            {painting.media_type === 'video' ? (
+              <video src={painting.image_url} className="max-w-full max-h-[60vh] object-contain rounded-lg" controls autoPlay loop playsInline />
+            ) : painting.media_type === 'carousel' && painting.media_urls?.length > 0 ? (
+              <div className="relative w-full flex items-center justify-center">
+                {painting.media_urls[carouselIndex].type === 'video' ? (
+                  <video src={painting.media_urls[carouselIndex].url} className="max-w-full max-h-[60vh] object-contain rounded-lg" controls autoPlay loop playsInline />
+                ) : (
+                  <img src={painting.media_urls[carouselIndex].url} alt={painting.title ?? ''} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
+                )}
+                {painting.media_urls.length > 1 && (
+                  <>
+                    {carouselIndex > 0 && (
+                      <button onClick={(e) => { e.stopPropagation(); setCarouselIndex(i => i - 1) }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    )}
+                    {carouselIndex < painting.media_urls.length - 1 && (
+                      <button onClick={(e) => { e.stopPropagation(); setCarouselIndex(i => i + 1) }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )}
+                    <div className="absolute -bottom-4 flex items-center justify-center gap-1.5 w-full z-20">
+                      {painting.media_urls.map((_, idx) => (
+                        <div key={idx} className={`h-1.5 rounded-full transition-all ${idx === carouselIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
+            )}
             {authorIsPro && (
               <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md border border-white/10 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-white select-none pointer-events-none z-30 shadow-lg">
                 <Gem className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400/10 animate-pulse flex-shrink-0" />
@@ -351,6 +430,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             onViewProfile={onViewProfile}
             onClose={onClose}
             paintingTags={paintingTags}
+            onTagClick={onTagClick}
           />
         </div>
       </div>
@@ -364,12 +444,40 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             </span>
           </div>
         )}
-        <img
-          src={painting.image_url}
-          alt={painting.title ?? ''}
-          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-          onClick={e => e.stopPropagation()}
-        />
+        <div className="relative max-w-full max-h-full flex items-center justify-center group">
+          {painting.media_type === 'video' ? (
+            <video src={painting.image_url} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" controls autoPlay loop playsInline onClick={e => e.stopPropagation()} />
+          ) : painting.media_type === 'carousel' && painting.media_urls?.length > 0 ? (
+            <>
+              {painting.media_urls[carouselIndex].type === 'video' ? (
+                <video src={painting.media_urls[carouselIndex].url} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" controls autoPlay loop playsInline onClick={e => e.stopPropagation()} />
+              ) : (
+                <img src={painting.media_urls[carouselIndex].url} alt={painting.title ?? ''} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+              )}
+              {painting.media_urls.length > 1 && (
+                <>
+                  {carouselIndex > 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); setCarouselIndex(i => i - 1) }} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20">
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                  )}
+                  {carouselIndex < painting.media_urls.length - 1 && (
+                    <button onClick={(e) => { e.stopPropagation(); setCarouselIndex(i => i + 1) }} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20">
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  )}
+                  <div className="absolute -bottom-6 flex items-center justify-center gap-2 w-full z-20">
+                    {painting.media_urls.map((_, idx) => (
+                      <div key={idx} className={`h-2 rounded-full transition-all ${idx === carouselIndex ? 'w-6 bg-white' : 'w-2 bg-white/50'}`} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+          )}
+        </div>
       </div>
 
       {/* Right panel (desktop) */}
@@ -406,6 +514,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           onViewProfile={onViewProfile}
           onClose={onClose}
           paintingTags={paintingTags}
+          onTagClick={onTagClick}
         />
       </div>
 
@@ -415,9 +524,43 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowShareModal(false)} />
           <div className="glass-card w-full max-w-sm p-5 relative z-10 animate-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-black text-white">Share with friends</h3>
+              <h3 className="text-base font-black text-white">{t('share_with_friends', 'Share')}</h3>
               <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
+            
+            <button
+              onClick={async () => {
+                const url = `${window.location.origin}/post/${painting.id}`
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: painting.title || 'Creativity Post',
+                      text: `Check out this post by ${resolvedAuthor?.nickname || 'a creator'} on Creativity!`,
+                      url: url
+                    })
+                  } catch (e) { console.error('Share error:', e) }
+                } else {
+                  try {
+                    await navigator.clipboard.writeText(url)
+                    alert(t('link_copied', 'Link copied to clipboard!'))
+                  } catch (e) { console.error('Copy error:', e) }
+                }
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl mb-4 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">
+                <Link2 className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-sm font-bold text-white">{navigator.share ? t('share_via', 'Share via...') : t('copy_link', 'Copy link')}</span>
+                <span className="text-[10px] text-gray-500">{t('share_external_desc', 'Share this post outside')}</span>
+              </div>
+            </button>
+
+            <div className="w-full h-px bg-white/10 my-4 relative">
+              <span className="absolute left-1/2 -top-2.5 -translate-x-1/2 bg-black px-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{t('send_in_chat', 'Or send in chat')}</span>
+            </div>
+
             <input type="text" placeholder="Search…" value={sharingSearch} onChange={e => setSharingSearch(e.target.value)} className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white outline-none mb-3" />
             <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
               {friends.filter(f => f?.profile && (f.profile.nickname ?? '').toLowerCase().includes(sharingSearch.toLowerCase())).map(f => (
@@ -445,12 +588,40 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           onSave={!isSaved ? handleSaveWithCollections : undefined}
         />
       )}
+
+      {reportTarget && (
+        <ReportModal
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          reporterId={currentUserId}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
+
+      {blockConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setBlockConfirm(false)}>
+          <div className="glass-card w-full max-w-sm rounded-3xl border-white/10 p-6 space-y-4 bg-[#12111a]/95 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mx-auto">
+              <Ban className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-black text-white">{t('block_confirm_title')}</h3>
+            <p className="text-[11px] text-gray-400">{t('block_confirm_text')}</p>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setBlockConfirm(false)} className="flex-1 py-2.5 rounded-2xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-300 transition-all">{t('cancel')}</button>
+              <button
+                onClick={async () => { await blockUser(currentUserId, resolvedAuthor?.id); setBlockConfirm(false); onClose?.() }}
+                className="flex-1 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white transition-all active:scale-95"
+              >{t('block')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // Shared info panel used for both mobile and desktop
-function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags }) {
+function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags, onTagClick }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col h-full">
@@ -504,9 +675,13 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
             )}
             {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description === 'New upload' ? t('new_upload_desc', 'New upload') : painting.description}</p>}
             {paintingTags && paintingTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1.5">
+              <div className="flex flex-wrap gap-1.5 mt-3">
                 {paintingTags.map(tag => (
-                  <span key={tag.id} className="px-2 py-0.5 bg-white/5 text-gray-400 border border-white/10 text-[10px] font-bold rounded-lg lowercase tracking-tight">
+                  <span 
+                    key={tag.id} 
+                    onClick={() => onTagClick?.(tag.name)}
+                    className="px-2 py-0.5 bg-white/5 text-gray-400 border border-white/10 text-[10px] font-bold rounded-lg lowercase tracking-tight hover:text-purple-400 hover:border-purple-500/50 cursor-pointer transition-colors"
+                  >
                     #{tag.name}
                   </span>
                 ))}

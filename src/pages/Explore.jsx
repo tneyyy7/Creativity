@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Search, SlidersHorizontal, Grid, Star, Tag, X, Flame, Calendar, BadgeCheck, Loader2, Sparkles, Heart, MessageSquare, Bookmark, Compass, UserPlus, Check, Gem } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Search, SlidersHorizontal, Grid, Star, Tag, X, Flame, Calendar, BadgeCheck, Loader2, Sparkles, Heart, MessageSquare, Bookmark, Compass, UserPlus, Check, Gem, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchExplorePaintings, fetchFeedPaintings, togglePostLike, toggleBookmark, toggleFollow, isBookmarked } from '../lib/supabase'
+import { supabase, fetchExplorePaintings, fetchFeedPaintings, fetchForYouPaintings, fetchBlockedIds, fetchBannedIds, togglePostLike, toggleBookmark, toggleFollow, isBookmarked } from '../lib/supabase'
 import { StoriesBanner } from '../components/StoriesBanner'
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
@@ -15,22 +15,34 @@ const TAB_BUTTON = 'lg-pill flex items-center justify-center gap-1.5 font-black 
 
 export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile, initialCategory = 'All', onCategoryChange }) {
   const { t, i18n } = useTranslation()
-  const [activeSubTab, setActiveSubTab] = useState('feed') // 'feed' (subscriptions) or 'explore' (global search)
+  const [activeSubTab, setActiveSubTab] = useState('foryou') // 'foryou', 'feed' (subscriptions) or 'explore' (global search)
 
   // Loading states
   const [loading, setLoading] = useState(true)
   
   // Feed state variables
+  const [forYouPosts, setForYouPosts] = useState([])
   const [feedPosts, setFeedPosts] = useState([])
   const [recommended, setRecommended] = useState([])
   const [likedMap, setLikedMap] = useState({})
   const [bookmarkedMap, setBookmarkedMap] = useState({})
   const [followingMap, setFollowingMap] = useState({})
 
-  // Pagination & progressive loading states
-  const [visibleFeedCount, setVisibleFeedCount] = useState(10)
-  const [visibleExploreCount, setVisibleExploreCount] = useState(12)
+  // Server-side pagination state (replaces client-side slicing)
+  const FEED_PAGE_SIZE = 10
+  const EXPLORE_PAGE_SIZE = 12
+  const [forYouHasMore, setForYouHasMore] = useState(false)
+  const [feedHasMore, setFeedHasMore] = useState(false)
+  const [exploreHasMore, setExploreHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const forYouPageRef = useRef(0)
+  const feedPageRef = useRef(0)
+  const explorePageRef = useRef(0)
+  const loadMoreRef = useRef(null) // IntersectionObserver sentinel
+
+  // Blocked authors (resolved once per user) + NSFW reveal toggles
+  const [blockedIds, setBlockedIds] = useState([])
+  const [revealedNsfw, setRevealedNsfw] = useState({})
 
   // Explore search & filter state variables
   const [searchQuery, setSearchQuery] = useState('')
@@ -64,140 +76,162 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
     'Sketching'
   ]
 
-  // ----------------------------------------------------
-  // Loader: Feed (Subscriptions)
-  // ----------------------------------------------------
-  const loadFeed = async () => {
-    if (!currentUser || activeSubTab !== 'feed') return
-    setLoading(true)
-    try {
-      const feedData = await fetchFeedPaintings(currentUser.id)
-      
-      // Check if we received recommended creators fallback
-      if (feedData.length > 0 && feedData[0].recommendedCreators) {
-        setRecommended(feedData[0].recommendedCreators)
-        if (feedData[0].id === 'empty-fallback') {
-          setFeedPosts([])
-        } else {
-          setFeedPosts(feedData)
-        }
-      } else {
-        setFeedPosts(feedData)
-        setRecommended([])
-      }
-      
-      // Pre-fetch likes and bookmark statuses for loaded posts in batch (Optimized: O(1) queries instead of O(N)!)
-      if (feedData.length > 0 && feedData[0].id !== 'empty-fallback') {
-        const postIds = feedData.map(p => p.id)
-        
-        // Execute batch queries in parallel
-        const [likesRes, bookmarksRes] = await Promise.all([
-          supabase
-            .from('post_likes')
-            .select('painting_id')
-            .eq('user_id', currentUser.id)
-            .in('painting_id', postIds),
-          supabase
-            .from('bookmarks')
-            .select('painting_id')
-            .eq('user_id', currentUser.id)
-            .in('painting_id', postIds)
-        ])
-
-        const likes = {}
-        const bookmarks = {}
-        
-        // Initialize maps
-        postIds.forEach(id => {
-          likes[id] = false
-          bookmarks[id] = false
-        })
-
-        // Map likes status
-        if (!likesRes.error && likesRes.data) {
-          likesRes.data.forEach(like => {
-            likes[like.painting_id] = true
-          })
-        }
-
-        // Map bookmarks status
-        if (!bookmarksRes.error && bookmarksRes.data) {
-          bookmarksRes.data.forEach(bm => {
-            bookmarks[bm.painting_id] = true
-          })
-        }
-
-        setLikedMap(likes)
-        setBookmarkedMap(bookmarks)
-      }
-    } catch (err) {
-      console.error("Error loading feed:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ----------------------------------------------------
-  // Loader: Explore (Global Search & Filters)
-  // ----------------------------------------------------
-  const loadExplore = async () => {
-    if (activeSubTab !== 'explore') return
-    setLoading(true)
-    try {
-      const data = await fetchExplorePaintings({
-        searchQuery,
-        category: selectedCategory,
-        onlyFinished: true, // Always filter by finished works
-        tag: selectedTag,
-        sort: sortBy
-      })
-      setExplorePaintings(data)
-    } catch (err) {
-      console.error("Error loading explore paintings:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Load More pagination handlers
-  const handleLoadMoreFeed = () => {
-    setLoadingMore(true)
-    setTimeout(() => {
-      setVisibleFeedCount(prev => prev + 10)
-      setLoadingMore(false)
-    }, 450)
-  }
-
-  const handleLoadMoreExplore = () => {
-    setLoadingMore(true)
-    setTimeout(() => {
-      setVisibleExploreCount(prev => prev + 12)
-      setLoadingMore(false)
-    }, 450)
-  }
-
-  // Reload active tab data when active tab or filters change
+  // Authors to hide from feeds: per-user blocks + globally banned users.
   useEffect(() => {
-    if (activeSubTab === 'feed') {
-      setVisibleFeedCount(10) // Reset pagination count on active subtab switch
-      loadFeed()
+    if (!currentUser) { setBlockedIds([]); return }
+    let cancelled = false
+    Promise.all([fetchBlockedIds(currentUser.id), fetchBannedIds()]).then(([blocked, banned]) => {
+      if (!cancelled) setBlockedIds([...new Set([...blocked, ...banned])])
+    })
+    return () => { cancelled = true }
+  }, [currentUser])
+
+  // Batch-load the current user's like/bookmark state for a set of post ids and
+  // merge it into the existing maps (so appended pages keep prior pages' state).
+  const hydrateInteractionState = useCallback(async (postIds) => {
+    if (!currentUser || postIds.length === 0) return
+    const [likesRes, bookmarksRes] = await Promise.all([
+      supabase.from('post_likes').select('painting_id').eq('user_id', currentUser.id).in('painting_id', postIds),
+      supabase.from('bookmarks').select('painting_id').eq('user_id', currentUser.id).in('painting_id', postIds)
+    ])
+    const likes = {}
+    const bookmarks = {}
+    postIds.forEach(id => { likes[id] = false; bookmarks[id] = false })
+    if (!likesRes.error) likesRes.data?.forEach(l => { likes[l.painting_id] = true })
+    if (!bookmarksRes.error) bookmarksRes.data?.forEach(b => { bookmarks[b.painting_id] = true })
+    setLikedMap(prev => ({ ...prev, ...likes }))
+    setBookmarkedMap(prev => ({ ...prev, ...bookmarks }))
+  }, [currentUser])
+
+  // ----------------------------------------------------
+  // Loader: For You (Algorithmic) — server-paginated
+  // ----------------------------------------------------
+  const loadForYou = useCallback(async ({ reset = false } = {}) => {
+    if (!currentUser) return
+    const page = reset ? 0 : forYouPageRef.current
+    reset ? setLoading(true) : setLoadingMore(true)
+    try {
+      const { items, hasMore } = await fetchForYouPaintings(currentUser.id, {
+        page,
+        pageSize: FEED_PAGE_SIZE,
+        blockedIds
+      })
+      setForYouPosts(prev => reset ? items : [...prev, ...items])
+      setForYouHasMore(hasMore)
+      forYouPageRef.current = page + 1
+      await hydrateInteractionState(items.map(p => p.id))
+    } catch (err) {
+      console.error('Error loading For You feed:', err)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [currentUser, blockedIds, hydrateInteractionState])
+
+  // ----------------------------------------------------
+  // Loader: Feed (Subscriptions) — server-paginated
+  // ----------------------------------------------------
+  const loadFeed = useCallback(async ({ reset = false } = {}) => {
+    if (!currentUser) return
+    const page = reset ? 0 : feedPageRef.current
+    reset ? setLoading(true) : setLoadingMore(true)
+    try {
+      const { items, hasMore, recommendedCreators } = await fetchFeedPaintings(currentUser.id, {
+        page,
+        pageSize: FEED_PAGE_SIZE,
+        blockedIds
+      })
+      setRecommended(recommendedCreators || [])
+      setFeedPosts(prev => reset ? items : [...prev, ...items])
+      setFeedHasMore(hasMore)
+      feedPageRef.current = page + 1
+      await hydrateInteractionState(items.map(p => p.id))
+    } catch (err) {
+      console.error('Error loading feed:', err)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [currentUser, blockedIds, hydrateInteractionState])
+
+  // ----------------------------------------------------
+  // Loader: Explore (Global Search & Filters) — server-paginated
+  // ----------------------------------------------------
+  const loadExplore = useCallback(async ({ reset = false } = {}) => {
+    const page = reset ? 0 : explorePageRef.current
+    reset ? setLoading(true) : setLoadingMore(true)
+    try {
+      const { items, hasMore } = await fetchExplorePaintings(
+        {
+          searchQuery,
+          category: selectedCategory,
+          onlyFinished: true, // Always filter by finished works
+          tag: selectedTag,
+          sort: sortBy
+        },
+        { page, pageSize: EXPLORE_PAGE_SIZE, blockedIds }
+      )
+      setExplorePaintings(prev => reset ? items : [...prev, ...items])
+      setExploreHasMore(hasMore)
+      explorePageRef.current = page + 1
+    } catch (err) {
+      console.error('Error loading explore paintings:', err)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [searchQuery, selectedCategory, selectedTag, sortBy, blockedIds])
+
+  // Reset + reload the active tab whenever its inputs change.
+  useEffect(() => {
+    if (activeSubTab === 'foryou') {
+      forYouPageRef.current = 0
+      loadForYou({ reset: true })
+    } else if (activeSubTab === 'feed') {
+      feedPageRef.current = 0
+      loadFeed({ reset: true })
     } else {
-      setVisibleExploreCount(12) // Reset pagination count on active subtab switch
-      const delayDebounce = setTimeout(() => {
-        loadExplore()
-      }, 400) // 400ms debounce
+      explorePageRef.current = 0
+      const delayDebounce = setTimeout(() => loadExplore({ reset: true }), 400) // debounce search typing
       return () => clearTimeout(delayDebounce)
     }
-  }, [activeSubTab, searchQuery, selectedCategory, selectedTag, sortBy, currentUser])
+  }, [activeSubTab, searchQuery, selectedCategory, selectedTag, sortBy, currentUser, blockedIds])
+
+  // Infinite scroll: load the next page when the sentinel scrolls into view.
+  useEffect(() => {
+    const sentinel = loadMoreRef.current
+    if (!sentinel) return
+    
+    let hasMore = false
+    if (activeSubTab === 'foryou') hasMore = forYouHasMore
+    else if (activeSubTab === 'feed') hasMore = feedHasMore
+    else hasMore = exploreHasMore
+    
+    if (!hasMore) return
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !loadingMore && !loading) {
+        if (activeSubTab === 'foryou') loadForYou()
+        else if (activeSubTab === 'feed') loadFeed()
+        else loadExplore()
+      }
+    }, { rootMargin: '400px' })
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [activeSubTab, forYouHasMore, feedHasMore, exploreHasMore, loadingMore, loading, loadForYou, loadFeed, loadExplore])
+
+  const toggleNsfwReveal = (id) => setRevealedNsfw(prev => ({ ...prev, [id]: !prev[id] }))
 
   // Recommended creator follow action
   const handleFollowRecommended = async (targetId) => {
     if (!currentUser) return
     const followed = await toggleFollow(currentUser.id, targetId)
     setFollowingMap(prev => ({ ...prev, [targetId]: followed }))
-    
+
     setTimeout(() => {
-      loadFeed()
+      feedPageRef.current = 0
+      loadFeed({ reset: true })
     }, 800)
   }
 
@@ -243,7 +277,8 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
           value={activeSubTab}
           onChange={setActiveSubTab}
           options={[
-            { value: 'feed',    icon: <Sparkles className="w-3.5 h-3.5" />, label: t('feed') },
+            { value: 'foryou',  icon: <Sparkles className="w-3.5 h-3.5" />, label: t('for_you', 'For You') },
+            { value: 'feed',    icon: <UserPlus className="w-3.5 h-3.5" />, label: t('feed') },
             { value: 'explore', icon: <Compass  className="w-3.5 h-3.5" />, label: t('explore') },
           ]}
           containerClassName={TAB_CONTAINER}
@@ -269,8 +304,8 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
       {/* 2. SUB-TAB CONTENT PANEL */}
 
-      {/* Tab A: Chronological subscription Feed */}
-      {activeSubTab === 'feed' && (
+      {/* Tab A: For You / Chronological subscription Feed */}
+      {(activeSubTab === 'foryou' || activeSubTab === 'feed') && (
         loading ? (
           <div className="space-y-6 w-full">
             {[1, 2].map((n) => (
@@ -286,11 +321,12 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
               </div>
             ))}
           </div>
-        ) : feedPosts.length > 0 ? (
+        ) : (activeSubTab === 'foryou' ? forYouPosts : feedPosts).length > 0 ? (
           
           <div className="max-w-2xl mx-auto w-full space-y-6 animate-in fade-in duration-500">
-            {feedPosts.slice(0, visibleFeedCount).map((post) => {
+            {(activeSubTab === 'foryou' ? forYouPosts : feedPosts).map((post) => {
               const author = post.profiles || {}
+              const currentPosts = activeSubTab === 'foryou' ? forYouPosts : feedPosts
               return (
                 <div key={post.id} className="glass-card p-6 border-white/5 rounded-3xl hover:border-purple-500/10 transition-all duration-300 relative group overflow-hidden w-full">
                   
@@ -348,8 +384,11 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                   </div>
 
                   {/* Main Work image Cover */}
-                  <div 
-                    onClick={() => onOpenPost?.(post.id, post, feedPosts, feedPosts.indexOf(post))}
+                  {(() => {
+                    const hidden = post.is_nsfw && !revealedNsfw[post.id]
+                    return (
+                  <div
+                    onClick={() => { if (hidden) { toggleNsfwReveal(post.id); return } onOpenPost?.(post.id, post, currentPosts, currentPosts.indexOf(post)) }}
                     className="w-full h-[280px] sm:h-[380px] md:h-[420px] rounded-2xl overflow-hidden cursor-pointer bg-[#0f0e16] border border-white/5 relative group/img mb-4"
                   >
                     <img
@@ -357,14 +396,24 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                       alt={post.title}
                       loading="lazy"
                       decoding="async"
-                      className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-700 ease-out"
+                      className={`w-full h-full object-cover transition-transform duration-700 ease-out ${hidden ? 'blur-2xl scale-110' : 'group-hover/img:scale-105'}`}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end p-6">
-                      <span className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-950/40">
-                        {t('view_full')}
-                      </span>
-                    </div>
+                    {hidden ? (
+                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2 text-center px-6">
+                        <EyeOff className="w-7 h-7 text-white/80" />
+                        <span className="text-xs font-bold text-white/90">{t('nsfw_hidden_title')}</span>
+                        <span className="text-[11px] text-white/60">{t('nsfw_tap_reveal')}</span>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end p-6">
+                        <span className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-950/40">
+                          {t('view_full')}
+                        </span>
+                      </div>
+                    )}
                   </div>
+                    )
+                  })()}
 
                   {/* Action Bar */}
                   <div className="flex items-center justify-between border-t border-white/5 pt-4">
@@ -380,7 +429,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                       </button>
 
                       <button 
-                        onClick={() => onOpenPost?.(post.id, post, feedPosts, feedPosts.indexOf(post))}
+                        onClick={() => onOpenPost?.(post.id, post, currentPosts, currentPosts.indexOf(post))}
                         className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-white transition-colors"
                       >
                         <MessageSquare className="w-4 h-4" />
@@ -403,22 +452,10 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
               )
             })}
 
-            {feedPosts.length > visibleFeedCount && (
-              <div className="flex justify-center pt-4">
-                <button
-                  onClick={handleLoadMoreFeed}
-                  disabled={loadingMore}
-                  className="glass-card px-8 py-3.5 border-purple-500/20 hover:border-purple-500/50 bg-[#12111a]/80 backdrop-blur-xl text-purple-400 hover:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2.5 active:scale-95 disabled:opacity-50"
-                >
-                  {loadingMore ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 animate-pulse text-purple-400" />
-                  )}
-                  <span>
-                    {loadingMore ? t('loading') : t('load_more_works')}
-                  </span>
-                </button>
+            {/* Infinite-scroll sentinel */}
+            {(activeSubTab === 'foryou' ? forYouHasMore : feedHasMore) && (
+              <div ref={loadMoreRef} className="flex justify-center pt-4 h-12">
+                {loadingMore && <Loader2 className="w-5 h-5 animate-spin text-purple-400" />}
               </div>
             )}
           </div>
@@ -578,15 +615,16 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
             
             <div className="space-y-8 w-full animate-in fade-in duration-500">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full">
-                {explorePaintings.slice(0, visibleExploreCount).map((painting, index) => {
+                {explorePaintings.map((painting, index) => {
                   const author = painting.profiles || {}
+                  const hidden = painting.is_nsfw && !revealedNsfw[painting.id]
                   return (
-                    <div 
+                    <div
                       key={painting.id}
-                      onClick={() => onOpenPost?.(painting.id, painting, explorePaintings.slice(0, visibleExploreCount), index)}
+                      onClick={() => { if (hidden) { toggleNsfwReveal(painting.id); return } onOpenPost?.(painting.id, painting, explorePaintings, index) }}
                       className="glass-card overflow-hidden rounded-2xl border-white/5 hover:border-purple-500/20 transition-all duration-500 hover:-translate-y-1.5 cursor-pointer group/card flex flex-col justify-between w-full"
                     >
-                      
+
                       {/* Visual media */}
                       <div className="w-full aspect-[4/3] overflow-hidden relative bg-[#0f0e16]">
                         <img
@@ -594,10 +632,15 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                           alt={painting.title}
                           loading="lazy"
                           decoding="async"
-                          className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-700 ease-out"
+                          className={`w-full h-full object-cover transition-transform duration-700 ease-out ${hidden ? 'blur-2xl scale-110' : 'group-hover/card:scale-105'}`}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0c0b11] via-transparent to-transparent opacity-60 group-hover/card:opacity-30 transition-opacity" />
-                        
+                        {hidden && (
+                          <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1.5 text-center px-3">
+                            <EyeOff className="w-6 h-6 text-white/80" />
+                            <span className="text-[11px] font-bold text-white/90">{t('nsfw_hidden_title')}</span>
+                          </div>
+                        )}
                         <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[10px] font-black text-white flex items-center gap-1.5 border border-white/5">
                           <Star className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
                           <span>{painting.likesCount || 0}</span>
@@ -655,22 +698,10 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                 })}
               </div>
 
-              {explorePaintings.length > visibleExploreCount && (
-                <div className="flex justify-center pt-4">
-                  <button
-                    onClick={handleLoadMoreExplore}
-                    disabled={loadingMore}
-                    className="glass-card px-8 py-3.5 border-purple-500/20 hover:border-purple-500/50 bg-[#12111a]/80 backdrop-blur-xl text-purple-400 hover:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2.5 active:scale-95 disabled:opacity-50"
-                  >
-                    {loadingMore ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                    ) : (
-                      <Compass className="w-4 h-4 animate-pulse text-purple-400" />
-                    )}
-                    <span>
-                      {loadingMore ? t('loading') : t('load_more_works')}
-                    </span>
-                  </button>
+              {/* Infinite-scroll sentinel */}
+              {exploreHasMore && (
+                <div ref={loadMoreRef} className="flex justify-center pt-4 h-12">
+                  {loadingMore && <Loader2 className="w-5 h-5 animate-spin text-purple-400" />}
                 </div>
               )}
             </div>

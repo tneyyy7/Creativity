@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle, Bookmark, Compass, Sparkles, Gem } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle, Bookmark, Compass, Sparkles, Gem, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchTotalUnreadCount } from '../lib/supabase'
 
-export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, currentUser, isPro }) {
+export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, currentUser, isPro, isAdmin }) {
   const { t } = useTranslation()
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -49,6 +49,7 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
     { id: 'ranks', icon: Trophy, label: t('ranks') },
     { id: 'subscription', icon: Gem, label: 'Creativity Pro', isProItem: true },
     { id: 'productivity', icon: BarChart3, label: t('productivity') },
+    ...(isAdmin ? [{ id: 'admin', icon: Shield, label: t('admin_panel') }] : []),
   ]
 
   return (
