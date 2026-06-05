@@ -446,13 +446,13 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
         )}
         <div className="relative max-w-full max-h-full flex items-center justify-center group">
           {painting.media_type === 'video' ? (
-            <video src={painting.image_url} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" controls autoPlay loop playsInline onClick={e => e.stopPropagation()} />
+            <video src={painting.image_url} className="max-w-full max-h-[calc(100vh-3rem)] object-contain rounded-lg shadow-2xl" controls autoPlay loop playsInline onClick={e => e.stopPropagation()} />
           ) : painting.media_type === 'carousel' && painting.media_urls?.length > 0 ? (
             <>
               {painting.media_urls[carouselIndex].type === 'video' ? (
-                <video src={painting.media_urls[carouselIndex].url} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" controls autoPlay loop playsInline onClick={e => e.stopPropagation()} />
+                <video src={painting.media_urls[carouselIndex].url} className="max-w-full max-h-[calc(100vh-3rem)] object-contain rounded-lg shadow-2xl" controls autoPlay loop playsInline onClick={e => e.stopPropagation()} />
               ) : (
-                <img src={painting.media_urls[carouselIndex].url} alt={painting.title ?? ''} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+                <img src={painting.media_urls[carouselIndex].url} alt={painting.title ?? ''} className="max-w-full max-h-[calc(100vh-3rem)] object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
               )}
               {painting.media_urls.length > 1 && (
                 <>
@@ -475,7 +475,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
               )}
             </>
           ) : (
-            <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+            <img src={painting.image_url} alt={painting.title ?? ''} className="max-w-full max-h-[calc(100vh-3rem)] object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
           )}
         </div>
       </div>

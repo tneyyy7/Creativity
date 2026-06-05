@@ -138,7 +138,7 @@ export function Settings({ userEmail, currentTheme = 'purple', onThemeChange }) 
 
           <button
             onClick={handleSave}
-            className="w-full py-3.5 md:py-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl shadow-purple-900/40 text-sm md:text-base"
+            className="btn btn-primary btn-block btn-lg"
           >
             <Save className="w-5 h-5" />
             {t('save_changes')}
@@ -223,7 +223,7 @@ export function Settings({ userEmail, currentTheme = 'purple', onThemeChange }) 
               data-lg-fx
               onClick={handleChangePassword}
               disabled={changingPassword || !newPassword}
-              className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-40 text-sm"
+              className="btn btn-secondary btn-block btn-lg"
             >
               {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
               {changingPassword ? t('saving') : t('change_password')}

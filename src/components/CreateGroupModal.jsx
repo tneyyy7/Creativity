@@ -216,7 +216,7 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
-            className="w-full h-12 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:opacity-50 text-white font-black text-sm tracking-wide transition-all flex items-center justify-center gap-2"
+            className="btn btn-primary btn-block h-12"
           >
             {submitting ? (
               <Loader2 className="w-5 h-5 animate-spin" />

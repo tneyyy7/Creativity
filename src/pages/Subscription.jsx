@@ -195,7 +195,7 @@ export function Subscription() {
       {subStatus.isPro ? (
         <div className="space-y-8">
           {/* Active status info */}
-          <div className="glass-card p-6 md:p-8 border-cyan-400/20 relative overflow-hidden bg-gradient-to-r from-purple-950/20 to-cyan-950/20">
+          <div data-lg-fx className="glass-card p-6 md:p-8 border-cyan-400/20 relative overflow-hidden bg-gradient-to-r from-purple-950/20 to-cyan-950/20">
             <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl -z-10"></div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="space-y-3">
@@ -219,6 +219,7 @@ export function Subscription() {
               </div>
               <div>
                 <a
+                  data-lg-fx
                   href="https://billing.stripe.com/p/login/3cI7sF5kP0lBcll3io4ko00" // Real Stripe customer portal
                   target="_blank"
                   rel="noreferrer"
@@ -231,7 +232,7 @@ export function Subscription() {
           </div>
 
           {/* Premium customization panel */}
-          <div className="glass-card p-6 md:p-8 border-white/5 space-y-8">
+          <div data-lg-fx className="glass-card p-6 md:p-8 border-white/5 space-y-8">
             <div className="border-b border-white/5 pb-4">
               <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
                 <Palette className="w-6 h-6 text-purple-400" /> {t('pro_customization_title', 'Персонализация Premium-профиля')}
@@ -300,7 +301,7 @@ export function Subscription() {
               <button
                 onClick={handleSaveSettings}
                 disabled={savingSettings}
-                className="bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/40 text-white font-bold px-8 py-3.5 rounded-xl transition-all text-sm shadow-[0_4px_20px_rgba(168,85,247,0.3)]"
+                className="btn btn-primary"
               >
                 {savingSettings ? t('pro_saving_text', 'Сохранение...') : t('pro_save_settings_btn', 'Сохранить настройки')}
               </button>
@@ -313,7 +314,7 @@ export function Subscription() {
           {/* Plan Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
             {/* Free Plan */}
-            <div className="glass-card p-6 md:p-8 border-white/5 flex flex-col justify-between relative opacity-80">
+            <div data-lg-fx className="glass-card p-6 md:p-8 border-white/5 flex flex-col justify-between relative opacity-80">
               <div className="space-y-6">
                 <div>
                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">{t('pro_free_th', 'Free')}</span>
@@ -346,7 +347,7 @@ export function Subscription() {
             </div>
 
             {/* Pro Monthly */}
-            <div className="glass-card p-6 md:p-8 border-purple-500/20 shadow-[0_8px_30px_rgba(168,85,247,0.15)] flex flex-col justify-between relative overflow-hidden bg-gradient-to-b from-purple-950/10 to-transparent">
+            <div data-lg-fx className="glass-card p-6 md:p-8 border-purple-500/20 shadow-[0_8px_30px_rgba(168,85,247,0.15)] flex flex-col justify-between relative overflow-hidden bg-gradient-to-b from-purple-950/10 to-transparent">
               <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl -z-10"></div>
               <div className="space-y-6">
                 <div>
@@ -385,9 +386,10 @@ export function Subscription() {
                 </ul>
               </div>
               <button
+                data-lg-fx
                 onClick={() => handleCheckout('monthly')}
                 disabled={checkoutLoading !== null}
-                className="w-full mt-8 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/40 text-white font-bold py-3.5 rounded-xl transition-all text-sm shadow-[0_4px_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2"
+                className="w-full mt-8 bg-purple-500 hover:bg-purple-400 disabled:bg-purple-500/40 text-white font-black py-3.5 rounded-xl transition-all text-sm shadow-[0_4px_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2"
               >
                 {checkoutLoading === 'monthly' ? t('loading', 'Запуск...') : t('pro_activate_btn', 'Активировать Pro')}
                 <ArrowRight className="w-4 h-4" />
@@ -395,7 +397,7 @@ export function Subscription() {
             </div>
 
             {/* Pro Yearly */}
-            <div className="glass-card p-6 md:p-8 border-cyan-500/20 shadow-[0_8px_30px_rgba(34,211,238,0.15)] flex flex-col justify-between relative overflow-hidden bg-gradient-to-b from-cyan-950/10 to-transparent">
+            <div data-lg-fx className="glass-card p-6 md:p-8 border-cyan-500/20 shadow-[0_8px_30px_rgba(34,211,238,0.15)] flex flex-col justify-between relative overflow-hidden bg-gradient-to-b from-cyan-950/10 to-transparent">
               <div className="absolute top-0 right-0 bg-cyan-500 text-neutral-900 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">
                 {t('pro_yearly_benefit', 'Выгода 33%')}
               </div>
@@ -452,7 +454,7 @@ export function Subscription() {
           </div>
 
           {/* Detailed Features comparison */}
-          <div className="glass-card p-6 md:p-8 border-white/5 space-y-6">
+          <div data-lg-fx className="glass-card p-6 md:p-8 border-white/5 space-y-6">
             <h2 className="text-xl md:text-2xl font-black text-white text-center flex items-center justify-center gap-2">
               <Shield className="w-6 h-6 text-purple-400" /> {t('pro_comparison_title', 'Подробное сравнение функций')}
             </h2>

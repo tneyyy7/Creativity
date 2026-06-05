@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
-import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus, upsertProfile, fetchIsAdmin } from './lib/supabase'
+import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus, upsertProfile, fetchAdminRole, fetchPaintingById, attachReferral } from './lib/supabase'
 import { Auth } from './pages/Auth'
 import { Onboarding } from './pages/Onboarding'
 import { TagPage } from './pages/TagPage'
@@ -9,6 +9,13 @@ import { PostViewerModal } from './components/PostViewerModal'
 import { initOneSignal } from './lib/pwa'
 import { applyTheme, getStoredTheme } from './lib/theme'
 import { identifyUser, resetUser } from './lib/observability'
+import { captureReferral, getReferral, clearReferral } from './utils/referral'
+
+// Захватываем реферальную атрибуцию (?ref=код + домен-источник) как можно
+// раньше, до OAuth-редиректов — first-touch сохраняется в localStorage.
+// arrivedViaReferral=true, если в этой загрузке был параметр ?ref= — тогда
+// для разлогиненного гостя по умолчанию открываем регистрацию.
+const arrivedViaReferral = captureReferral()
 
 // Lazy-load page components so each route ships in its own chunk
 // instead of bloating the initial bundle.
@@ -49,6 +56,16 @@ const parseInitialUrl = () => {
     return { tab: 'public_profile', targetId, exploreCategory: 'All' }
   }
 
+  if (path.startsWith('post/')) {
+    const postId = path.split('post/')[1] || null
+    return { tab: 'explore', targetId: null, exploreCategory: 'All', postId }
+  }
+
+  if (path.startsWith('tag/')) {
+    const tagName = decodeURIComponent(path.split('tag/')[1] || '')
+    return { tab: 'explore', targetId: null, exploreCategory: 'All', tagName }
+  }
+
   if (path.startsWith('explore/')) {
     const rawCat = path.split('explore/')[1] || 'All'
     // Capitalize first letter to match component categories
@@ -80,6 +97,7 @@ function App() {
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [isVerified, setIsVerified] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [adminRole, setAdminRole] = useState(null)
   const [specialization, setSpecialization] = useState('painter')
   const [workCount, setWorkCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -112,15 +130,47 @@ function App() {
 
   const [authMode, setAuthMode] = useState(() => {
     const initial = parseInitialUrl()
-    return initial.authMode || 'login'
+    // Гость, пришедший по реф-ссылке, должен сразу видеть регистрацию.
+    return initial.authMode || (arrivedViaReferral ? 'signup' : 'login')
   })
   
   const [isOnboarding, setIsOnboarding] = useState(false)
   const [activeTag, setActiveTag] = useState(null)
 
+  // Deep-link target captured from the initial URL (/post/:id or /tag/:name) at
+  // mount — before the URL-sync effect can rewrite the path — and resolved once
+  // the user session is ready. Consumed exactly once.
+  const [initialDeepLink] = useState(() => {
+    const i = parseInitialUrl()
+    return { postId: i.postId || null, tagName: i.tagName || null }
+  })
+  const deepLinkConsumedRef = useRef(false)
+
   // Monotonic index attached to each in-app history entry so "smart back"
   // can tell whether there is a previous page to return to.
   const navIndexRef = useRef(0)
+
+  // Open a shared post / tag page once the session is ready.
+  useEffect(() => {
+    if (!user || deepLinkConsumedRef.current) return
+    const { postId, tagName } = initialDeepLink
+    if (!postId && !tagName) return
+    deepLinkConsumedRef.current = true
+
+    if (tagName) {
+      setActiveTag(tagName)
+      return
+    }
+    fetchPaintingById(postId).then(painting => {
+      if (!painting) return
+      setPostViewer({
+        painting,
+        paintings: [painting],
+        index: 0,
+        externalProfile: painting.profiles || null
+      })
+    })
+  }, [user])
 
   useEffect(() => {
     // Detect password recovery mode on initial load
@@ -137,7 +187,24 @@ function App() {
       if (currUser) {
         setUser(currUser)
         identifyUser(currUser.id)
-        fetchIsAdmin(currUser.id).then(setIsAdmin)
+
+        // Привязываем реферал, если он был захвачен по ссылке (?ref=). Работает
+        // независимо от способа создания профиля; перезаписи нет — заполняются
+        // только пустые поля. Источник: localStorage или метаданные signup.
+        const storedRef = getReferral()
+        const meta0 = currUser.user_metadata
+        const refCode0 = storedRef.code || meta0?.referral_code || null
+        const refHost0 = storedRef.host || meta0?.referrer_host || null
+        if (refCode0 || refHost0) {
+          attachReferral({ code: refCode0, host: refHost0 }).then((ok) => {
+            if (ok) clearReferral()
+          })
+        }
+
+        fetchAdminRole(currUser.id).then(({ isAdmin, role }) => {
+          setIsAdmin(isAdmin)
+          setAdminRole(role)
+        })
         const meta = currUser.user_metadata
         
         // Fetch full profile info to get avatar and other DB-specific fields
@@ -163,6 +230,8 @@ function App() {
               try {
                 const defaultNickname = meta?.full_name || currUser.email?.split('@')[0] || 'Artist'
                 const defaultSpecialization = 'painter'
+                // Реферальная атрибуция пишется отдельно через attachReferral()
+                // выше — она надёжна независимо от способа создания профиля.
                 const newProfile = await upsertProfile({
                   id: currUser.id,
                   nickname: defaultNickname,
@@ -192,6 +261,7 @@ function App() {
         setUser(null)
         resetUser()
         setIsAdmin(false)
+        setAdminRole(null)
         setNickname('Artist User')
         setAvatarUrl(null)
         setIsVerified(false)
@@ -571,6 +641,7 @@ function App() {
           />}
           {activeTab === 'subscription' && <Subscription />}
           {activeTab === 'admin' && isAdmin && <Admin
+            adminRole={adminRole}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
             onOpenPost={(id, painting, collection, index) => setPostViewer({
               painting,
@@ -603,6 +674,10 @@ function App() {
             setTargetUserId(id);
             setActiveTab('public_profile');
             setPostViewer(null);
+          }}
+          onTagClick={(tagName) => {
+            setPostViewer(null);
+            setActiveTag(tagName);
           }}
         />
       )}

@@ -797,7 +797,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
               <button
                 type="submit"
                 disabled={!selectedFile || isUploading}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/30 disabled:text-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-purple-900/30"
+                className="btn btn-primary btn-block btn-sm"
               >
                 {isUploading ? (
                   <>

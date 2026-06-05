@@ -1,22 +1,35 @@
 import { Suspense, lazy } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Shield, Flag, Users, FileImage, CreditCard, ScrollText, Loader2 } from 'lucide-react'
+import { Shield, Flag, Users, FileImage, CreditCard, ScrollText, Link2, Loader2 } from 'lucide-react'
 
 // Вкладки будут lazy-loading, так как админка может быть тяжелой
 const ReportsQueue = lazy(() => import('./ReportsQueue').then(m => ({ default: m.ReportsQueue })))
 const Dashboard = lazy(() => import('./Dashboard').then(m => ({ default: m.Dashboard })))
+const UsersTab = lazy(() => import('./Users').then(m => ({ default: m.Users })))
+const ContentTab = lazy(() => import('./Content').then(m => ({ default: m.Content })))
+const SubscriptionsTab = lazy(() => import('./Subscriptions').then(m => ({ default: m.Subscriptions })))
+const LogsTab = lazy(() => import('./Logs').then(m => ({ default: m.Logs })))
+const ReferralsTab = lazy(() => import('./Referrals').then(m => ({ default: m.Referrals })))
 
+// minRole — минимальная роль для доступа к вкладке (роль-иерархия ниже).
 const TABS = [
-  { id: 'dashboard', icon: Shield, label: 'Dashboard' }, // Пока хардкодим лейблы для прототипа
-  { id: 'reports', icon: Flag, label: 'Reports' },
-  { id: 'users', icon: Users, label: 'Users' },
-  { id: 'content', icon: FileImage, label: 'Content' },
-  { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
-  { id: 'logs', icon: ScrollText, label: 'Logs' }
+  { id: 'dashboard', icon: Shield, label: 'Dashboard', minRole: 'moderator' },
+  { id: 'reports', icon: Flag, label: 'Reports', minRole: 'moderator' },
+  { id: 'users', icon: Users, label: 'Users', minRole: 'admin' },
+  { id: 'content', icon: FileImage, label: 'Content', minRole: 'moderator' },
+  { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions', minRole: 'admin' },
+  { id: 'referrals', icon: Link2, label: 'Referrals', minRole: 'admin' },
+  { id: 'logs', icon: ScrollText, label: 'Logs', minRole: 'admin' }
 ]
 
-export function AdminLayout({ activeTab = 'reports', onTabChange, onViewProfile, onOpenPost }) {
+const ROLE_RANK = { moderator: 1, admin: 2, superadmin: 3 }
+const hasAccess = (role, minRole) => (ROLE_RANK[role] || 0) >= (ROLE_RANK[minRole] || 0)
+
+export function AdminLayout({ activeTab = 'reports', onTabChange, onViewProfile, onOpenPost, adminRole = 'superadmin' }) {
   const { t } = useTranslation()
+
+  // Показываем только доступные текущей роли вкладки.
+  const visibleTabs = TABS.filter(tab => hasAccess(adminRole, tab.minRole))
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6 pb-16 animate-in fade-in duration-500">
@@ -31,11 +44,16 @@ export function AdminLayout({ activeTab = 'reports', onTabChange, onViewProfile,
             {TABS.find(tab => tab.id === activeTab)?.label || 'Administration'}
           </p>
         </div>
+        {adminRole && (
+          <span className="ml-auto px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-600/15 border border-purple-500/25 text-purple-300">
+            {adminRole}
+          </span>
+        )}
       </div>
 
       {/* Tabs Navigation */}
       <div className="flex flex-wrap items-center gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit overflow-x-auto custom-scrollbar">
-        {TABS.map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
@@ -66,29 +84,18 @@ export function AdminLayout({ activeTab = 'reports', onTabChange, onViewProfile,
             />
           )}
           {activeTab === 'users' && (
-            <div className="text-center py-20 bg-[#12111a]/20 border border-white/5 rounded-3xl p-8 max-w-md mx-auto space-y-3">
-               <h3 className="text-base font-bold text-white">Users Management</h3>
-               <p className="text-xs text-gray-500">Coming soon in Phase 3</p>
-            </div>
+            <UsersTab adminRole={adminRole} onViewProfile={onViewProfile} />
           )}
           {activeTab === 'content' && (
-             <div className="text-center py-20 bg-[#12111a]/20 border border-white/5 rounded-3xl p-8 max-w-md mx-auto space-y-3">
-               <h3 className="text-base font-bold text-white">Content Moderation</h3>
-               <p className="text-xs text-gray-500">Coming soon in Phase 4</p>
-            </div>
+            <ContentTab onViewProfile={onViewProfile} />
           )}
           {activeTab === 'subscriptions' && (
-             <div className="text-center py-20 bg-[#12111a]/20 border border-white/5 rounded-3xl p-8 max-w-md mx-auto space-y-3">
-               <h3 className="text-base font-bold text-white">Subscriptions</h3>
-               <p className="text-xs text-gray-500">Coming soon in Phase 5</p>
-            </div>
+            <SubscriptionsTab onViewProfile={onViewProfile} />
           )}
-           {activeTab === 'logs' && (
-             <div className="text-center py-20 bg-[#12111a]/20 border border-white/5 rounded-3xl p-8 max-w-md mx-auto space-y-3">
-               <h3 className="text-base font-bold text-white">Audit Logs</h3>
-               <p className="text-xs text-gray-500">Coming soon</p>
-            </div>
+          {activeTab === 'referrals' && (
+            <ReferralsTab onViewProfile={onViewProfile} />
           )}
+          {activeTab === 'logs' && <LogsTab />}
         </Suspense>
       </div>
     </div>

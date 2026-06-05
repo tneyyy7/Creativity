@@ -38,7 +38,15 @@ brain/
 # Qwen agent files
 .qwen/
 
-# Screenshots and videos
-*.png
-*.mp4
-*.MP4
+# Screenshots and videos (root-level only — keep public/ assets tracked)
+/*.png
+/*.jpg
+/*.jpeg
+/*.mp4
+/*.MP4
+Screenshot*.png
+IMG_*.MP4
+
+# Local dev/debug scripts (not part of the app)
+/check_*.js
+/test_*.js

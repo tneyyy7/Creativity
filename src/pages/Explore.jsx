@@ -8,6 +8,7 @@ import { ru, enUS } from 'date-fns/locale'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
+import SmartImage from '../components/SmartImage'
 
 // Базовые классы переключателей (как в оригинальной вёрстке) — общие для групп.
 const TAB_CONTAINER = 'relative flex items-center gap-2 bg-white/[0.03] p-1 rounded-2xl border border-white/5 shadow-inner'
@@ -412,14 +413,16 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                     return (
                   <div
                     onClick={() => { if (hidden) { toggleNsfwReveal(post.id); return } onOpenPost?.(post.id, post, currentPosts, currentPosts.indexOf(post)) }}
-                    className="w-full h-[280px] sm:h-[380px] md:h-[420px] rounded-2xl overflow-hidden cursor-pointer bg-[#0f0e16] border border-white/5 relative group/img mb-4"
+                    className="w-full rounded-2xl overflow-hidden cursor-pointer bg-[#0f0e16] border border-white/5 relative group/img mb-4"
                   >
-                    <img
+                    <SmartImage
                       src={post.image_url}
                       alt={post.title}
-                      loading="lazy"
-                      decoding="async"
-                      className={`w-full h-full object-cover transition-transform duration-700 ease-out ${hidden ? 'blur-2xl scale-110' : 'group-hover/img:scale-105'}`}
+                      width={1200}
+                      srcWidths={[400, 800, 1200]}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 720px"
+                      fit="natural"
+                      className={hidden ? 'blur-2xl' : ''}
                     />
                     {hidden ? (
                       <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2 text-center px-6">
@@ -467,7 +470,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                       }`}
                     >
                       <Bookmark className={`w-4 h-4 ${bookmarkedMap[post.id] ? 'fill-purple-500' : ''}`} />
-                      <span>{bookmarkedMap[post.id] ? 'Saved' : 'Save'}</span>
+                      <span>{bookmarkedMap[post.id] ? t('bookmark_saved', 'Saved') : t('save', 'Save')}</span>
                     </button>
                   </div>
 
@@ -559,12 +562,12 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
                           {isFollowing ? (
                             <>
                               <Check className="w-4 h-4" />
-                              <span>Following</span>
+                              <span>{t('following', 'Following')}</span>
                             </>
                           ) : (
                             <>
                               <UserPlus className="w-4 h-4" />
-                              <span>Follow</span>
+                              <span>{t('follow', 'Follow')}</span>
                             </>
                           )}
                         </button>
@@ -650,11 +653,12 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
                       {/* Visual media */}
                       <div className="w-full aspect-[4/3] overflow-hidden relative bg-[#0f0e16]">
-                        <img
+                        <SmartImage
                           src={painting.image_url}
                           alt={painting.title}
-                          loading="lazy"
-                          decoding="async"
+                          width={600}
+                          srcWidths={[300, 600]}
+                          sizes="(max-width: 640px) 50vw, 360px"
                           className={`w-full h-full object-cover transition-transform duration-700 ease-out ${hidden ? 'blur-2xl scale-110' : 'group-hover/card:scale-105'}`}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0c0b11] via-transparent to-transparent opacity-60 group-hover/card:opacity-30 transition-opacity" />

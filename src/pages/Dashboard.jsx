@@ -303,7 +303,7 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost,
                     {painting.image_url && (
                       <img src={painting.image_url} alt="" className="w-12 h-12 object-cover rounded-lg border border-white/10 flex-shrink-0" />
                     )}
-                    <span className="text-sm font-bold text-white truncate">{painting.title || 'Untitled Work'}</span>
+                    <span className="text-sm font-bold text-white truncate">{painting.title || t('untitled_work', 'Untitled Work')}</span>
                   </div>
                   <div className="flex items-center gap-6 text-xs text-gray-400 font-bold">
                     <span className="flex items-center gap-1.5"><Eye className="w-4 h-4 text-cyan-400" /> {painting.views_count || 0}</span>

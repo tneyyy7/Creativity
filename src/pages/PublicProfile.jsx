@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool, MoreVertical, Flag, Ban } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts, blockUser, unblockUser, isUserBlocked } from '../lib/supabase'
@@ -6,6 +7,7 @@ import { ProfileAvatar } from '../components/ProfileAvatar'
 import { FollowListModal } from '../components/FollowListModal'
 import { ReportModal } from '../components/ReportModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
+import SmartImage from '../components/SmartImage'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost }) {
   const { t } = useTranslation()
@@ -366,7 +368,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                         <button 
                           onClick={handleAccept}
                           disabled={actionLoading}
-                          className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-purple-900/20 disabled:opacity-50"
+                          className="btn btn-primary"
                         >
                           <Check className="w-4 h-4" />
                           {t('accept') || 'Accept'}
@@ -403,7 +405,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                   <button 
                     onClick={handleAddFriend}
                     disabled={actionLoading}
-                    className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all flex items-center gap-2 mx-auto md:mx-0 shadow-lg shadow-purple-900/20 disabled:opacity-50"
+                    className="btn btn-primary mx-auto md:mx-0"
                   >
                     <UserPlus className="w-5 h-5" />
                     {t('add_friend') || 'Add Friend'}
@@ -438,11 +440,13 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
             {paintings.map((painting, idx) => (
               <div key={painting.id} className="group cursor-pointer" onClick={() => onOpenPost?.(painting.id, painting, paintings, idx, profile)}>
                 <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-[#0c0b11] relative">
-                  <img
+                  <SmartImage
                     src={painting.image_url}
                     alt={painting.title}
+                    width={600}
+                    srcWidths={[300, 600]}
+                    sizes="(max-width: 1024px) 50vw, 33vw"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
                     <h3 className="text-white font-bold text-lg leading-tight mb-2 drop-shadow-md translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
@@ -457,37 +461,49 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
       </div>
 
       {/* Share Modal */}
-      {showShareModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowShareModal(false)}></div>
-          <div className="glass-card w-full max-w-md p-6 relative animate-in zoom-in-95 duration-300">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-black text-white">{t('share_with_friends') || 'Share with friends'}</h3>
-              <button 
-                onClick={() => setShowShareModal(false)} 
-                className="p-2 text-gray-400 hover:text-white transition-colors"
+      {showShareModal && createPortal(
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 font-sans"
+          onClick={() => setShowShareModal(false)}
+        >
+          <div
+            className="lg-card w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 fade-in duration-200"
+            style={{ borderRadius: 28 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-400/30 flex items-center justify-center text-purple-300">
+                  <Share2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white tracking-tight">{t('share_with_friends', 'Share with friends')}</h3>
+                  <p className="text-[11px] text-gray-400">{t('share', 'Share')}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="text-gray-400 hover:text-white transition-colors w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10"
                 type="button"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="relative mb-6">
-              <input 
-                type="text"
-                placeholder={t('search_friends') || 'Search friends...'}
-                value={sharingSearch}
-                onChange={(e) => setSharingSearch(e.target.value)}
-                className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-white focus:border-purple-500/50 outline-none"
-              />
-            </div>
+            <input
+              type="text"
+              placeholder={t('search_friends', 'Search friends...')}
+              value={sharingSearch}
+              onChange={(e) => setSharingSearch(e.target.value)}
+              className="w-full bg-white/[0.04] border border-white/10 focus:border-purple-400/50 focus:outline-none rounded-xl px-4 py-3 text-xs text-foreground placeholder:text-foreground/50 backdrop-blur-sm transition-colors"
+            />
 
-            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar pr-1">
               {friends.filter(f => f?.profile && (f.profile.nickname || '').toLowerCase().includes((sharingSearch || '').toLowerCase())).map(friendItem => (
-                <div key={friendItem.id} className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all group">
+                <div key={friendItem.id} className="lg-pill flex items-center justify-between px-3 py-2.5 rounded-xl group">
                   <div className="flex items-center gap-3">
                     <ProfileAvatar avatarUrl={friendItem.profile?.avatar_url} workCount={friendItem.profile?.finished_work_count} size="sm" isPro={friendItem.profile?.isPro} avatarFrame={friendItem.profile?.avatar_frame} />
-                     <span className="text-white font-bold flex items-center gap-1.5" style={{ color: friendItem.profile?.nickname_color || undefined }}>
+                     <span className="text-white font-semibold text-xs flex items-center gap-1.5" style={{ color: friendItem.profile?.nickname_color || undefined }}>
                       {friendItem.profile?.nickname || 'Unknown'}
                       {friendItem.profile?.is_verified && (
                         <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20 flex-shrink-0" />
@@ -500,10 +516,10 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                       )}
                     </span>
                   </div>
-                  <button 
+                  <button
                     onClick={() => sendShareMessage(friendItem.profile)}
                     disabled={actionLoading}
-                    className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                    className="p-2 bg-purple-600/90 hover:bg-purple-500 text-white rounded-lg transition-all sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-50 active:scale-95"
                     type="button"
                   >
                     <Send className="w-4 h-4" />
@@ -511,11 +527,12 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                 </div>
               ))}
               {friends.length === 0 && (
-                <p className="text-center text-gray-500 py-6">{t('no_friends_found') || 'No friends found.'}</p>
+                <p className="text-center text-gray-500 text-xs py-6">{t('no_friends_found', 'No friends found.')}</p>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {followModalTab && (

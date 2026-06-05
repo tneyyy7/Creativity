@@ -1,4 +1,4 @@
-import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem } from 'lucide-react'
+import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
 import { AnimatedPillGroup } from './AnimatedPillGroup'
@@ -53,6 +53,20 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
           bgClass: 'bg-blue-500',
           icon: <MessageCircle className="w-2.5 h-2.5 text-white" />,
           text: t('commented_on_your_story', 'ответил(а) на вашу историю 💬')
+        }
+      case 'moderation_ban':
+      case 'moderation_delete':
+        return {
+          bgClass: 'bg-red-500',
+          icon: <Shield className="w-2.5 h-2.5 text-white" />,
+          isSystem: true,
+        }
+      case 'moderation_unban':
+      case 'moderation':
+        return {
+          bgClass: 'bg-amber-500',
+          icon: <Shield className="w-2.5 h-2.5 text-white" />,
+          isSystem: true,
         }
       default:
         return {
@@ -370,6 +384,26 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
 
                         // Activity notification (like, comment, follow, bookmark, friend_accept)
                         const notifConfig = getNotifConfig(item.type)
+
+                        // System / moderation notification — no actor, content is the message.
+                        if (notifConfig.isSystem) {
+                          return (
+                            <div
+                              key={item.id}
+                              className={`p-3 flex items-center gap-3 border-b border-white/[0.03] last:border-0 ${!item.is_read ? 'bg-white/[0.02]' : ''}`}
+                            >
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${notifConfig.bgClass}`}>
+                                <Shield className="w-4 h-4 text-white" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-white">Creativity</p>
+                                <p className="text-[11px] text-gray-300 leading-snug mt-0.5">{item.content}</p>
+                                <p className="text-[10px] text-gray-600 mt-0.5">{formatTime(item.created_at)}</p>
+                              </div>
+                            </div>
+                          )
+                        }
+
                         return (
                           <div
                             key={item.id}

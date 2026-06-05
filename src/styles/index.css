@@ -150,6 +150,15 @@ code, kbd, samp, pre {
   font-family: inherit;
 }
 
+/* Inter renders the password masking bullet small and raised, so a filled
+   password field looks "off". Once the user types (placeholder hidden), fall
+   back to a system font with proper centered discs. Empty fields still show
+   the placeholder in Inter via :placeholder-shown. */
+input[type="password"]:not(:placeholder-shown) {
+  font-family: Verdana, system-ui, sans-serif;
+  letter-spacing: 0.1em;
+}
+
 /* Reference-like background */
 .app-container {
   background: var(--app-gradient);
@@ -214,6 +223,58 @@ code, kbd, samp, pre {
   .glass-card {
     border-radius: 1.25rem;
   }
+}
+
+/*
+  STANDARD BUTTON SYSTEM
+  ----------------------
+  One consistent look for every button: identical padding, radius, font weight,
+  focus ring, hover and active feedback. Compose a variant and (optionally) a
+  size on top of the base:
+
+    <button class="btn btn-primary">…</button>
+    <button class="btn btn-secondary btn-sm">…</button>
+    <button class="btn-icon">…</button>   ← square icon-only button
+
+  These live in @layer components, so plain Tailwind utilities in the markup
+  still override them when a one-off tweak is genuinely needed.
+*/
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl
+           text-sm font-bold whitespace-nowrap select-none cursor-pointer
+           transition-all duration-200 active:scale-[0.97]
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-purple-500/20
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-sm { @apply px-3.5 py-2 text-xs rounded-xl gap-1.5; }
+  .btn-lg { @apply px-7 py-3.5 text-base; }
+  .btn-block { @apply w-full; }
+
+  .btn-primary {
+    @apply bg-purple-600 hover:bg-purple-500 text-white
+           shadow-lg shadow-purple-900/20;
+  }
+  .btn-secondary {
+    @apply bg-white/5 hover:bg-white/10 text-white border border-white/10;
+  }
+  .btn-ghost {
+    @apply bg-transparent hover:bg-white/5 text-gray-300 hover:text-white;
+  }
+  .btn-danger {
+    @apply bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300
+           border border-red-500/20;
+  }
+
+  /* Square, icon-only button (self-contained — no .btn needed). */
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-10 h-10 p-0 rounded-xl
+           text-gray-400 hover:text-white bg-white/5 hover:bg-white/10
+           transition-all duration-200 active:scale-95 cursor-pointer
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-purple-500/20
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-icon-sm { @apply w-8 h-8 rounded-lg; }
 }
 
 /* Custom scrollbar */

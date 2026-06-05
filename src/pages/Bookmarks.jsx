@@ -6,6 +6,7 @@ import { supabase, fetchBookmarks, fetchUserCollections, createCollection } from
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
+import SmartImage from '../components/SmartImage'
 
 export function Bookmarks({ onOpenPost }) {
   const { t } = useTranslation()
@@ -176,11 +177,12 @@ export function Bookmarks({ onOpenPost }) {
                   className="glass-card group relative overflow-hidden flex flex-col hover:-translate-y-2 transition-all duration-500 border-white/5 hover:border-purple-500/30 shadow-2xl cursor-pointer"
                 >
                   <div className="aspect-[4/3] overflow-hidden relative">
-                    <img
+                    <SmartImage
                       src={painting.image_url}
                       alt={painting.title}
-                      loading="lazy"
-                      decoding="async"
+                      width={600}
+                      srcWidths={[300, 600]}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 300px"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                     <div className="absolute top-4 left-4">
@@ -411,7 +413,7 @@ export function Bookmarks({ onOpenPost }) {
               <button
                 type="submit"
                 disabled={creating}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all"
+                className="btn btn-primary btn-block btn-sm"
               >
                 {creating ? t('creating') : t('create')}
               </button>

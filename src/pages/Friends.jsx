@@ -216,11 +216,11 @@ export function Friends({ user, onViewProfile }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 sm:ml-auto">
-                  <button onClick={() => handleAccept(req.id)} className="flex-1 sm:flex-none px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20 uppercase text-xs tracking-widest">
+                  <button onClick={() => handleAccept(req.id)} className="btn btn-primary flex-1 sm:flex-none uppercase text-xs tracking-widest">
                     <Check className="w-4 h-4" />
                     {t('accept') || 'Accept'}
                   </button>
-                  <button onClick={() => handleReject(req.id)} className="px-4 py-3 bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-500 font-bold rounded-2xl transition-all flex items-center justify-center shadow-inner">
+                  <button onClick={() => handleReject(req.id)} className="btn-icon hover:bg-red-500/20 hover:text-red-500">
                     <X className="w-4 h-4" />
                   </button>
                 </div>

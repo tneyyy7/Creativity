@@ -32,8 +32,10 @@ BEGIN
   RETURN QUERY
   SELECT p.*
   FROM paintings p
+  -- painting_tags is a join table (painting_id, tag_id); the tag name lives in `tags`.
   LEFT JOIN painting_tags pt ON pt.painting_id = p.id
-  LEFT JOIN tag_follows tf ON tf.tag_name = pt.name AND tf.user_id = p_user_id
+  LEFT JOIN tags t ON t.id = pt.tag_id
+  LEFT JOIN tag_follows tf ON tf.tag_name = t.name AND tf.user_id = p_user_id
   WHERE p.is_finished = true
     AND (array_length(p_blocked_ids, 1) IS NULL OR NOT (p.user_id = ANY(p_blocked_ids)))
   GROUP BY p.id

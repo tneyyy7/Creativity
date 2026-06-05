@@ -119,9 +119,9 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
           <button
             data-lg-fx
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+            className="btn-icon"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -206,14 +206,14 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
                   type="button"
                   data-lg-fx
                   onClick={() => setShowCreator(false)}
-                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-400 hover:text-white rounded-xl transition-all"
+                  className="btn btn-secondary btn-sm flex-1"
                 >
                   {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                  className="btn btn-primary btn-sm flex-1"
                 >
                   {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderPlus className="w-3.5 h-3.5" />}
                   <span>{t('create')}</span>
@@ -229,7 +229,7 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-purple-900/30"
+              className="btn btn-primary btn-block"
             >
               {saving
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('saving_bookmark')}</>

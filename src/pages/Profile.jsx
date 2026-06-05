@@ -524,11 +524,11 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
               <button 
                 disabled={isSaving || isUploading}
                 type="submit"
-                className={`w-full py-4 font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl ${
-                  saveSuccess 
-                    ? 'bg-green-500 text-white shadow-green-900/40'
-                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/40 hover:shadow-purple-900/60'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`btn btn-block btn-lg ${
+                  saveSuccess
+                    ? 'bg-green-500 hover:bg-green-500 text-white'
+                    : 'btn-primary'
+                }`}
               >
                 {isSaving ? (
                   <Loader2 className="w-6 h-6 animate-spin" />

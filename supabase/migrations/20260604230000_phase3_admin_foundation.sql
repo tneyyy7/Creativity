@@ -35,6 +35,7 @@ CREATE INDEX IF NOT EXISTS admin_actions_created_at_idx ON public.admin_actions(
 -- RLS для admin_actions: только админы могут читать логи, никто не может их изменять с клиента
 ALTER TABLE public.admin_actions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can view logs" ON public.admin_actions;
 CREATE POLICY "Admins can view logs" ON public.admin_actions
     FOR SELECT USING (
         (SELECT admin_role FROM public.profiles WHERE id = auth.uid()) IN ('admin', 'superadmin') OR

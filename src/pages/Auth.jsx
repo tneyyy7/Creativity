@@ -3,6 +3,7 @@ import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Sh
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { LiquidGlassButton } from '../components/LiquidGlass'
+import { getReferral } from '../utils/referral'
 
 export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, onModeChange }) {
   const { t } = useTranslation()
@@ -71,6 +72,10 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
           throw new Error(t('password_mismatch') || "Passwords do not match")
         }
 
+        // Дублируем реферальную атрибуцию в метаданные пользователя — это
+        // подстраховка на случай подтверждения email в другом браузере, где
+        // localStorage с first-touch недоступен (см. utils/referral.js).
+        const ref = getReferral()
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -78,7 +83,9 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
             data: {
               nickname: email.split('@')[0],
               full_name: email.split('@')[0],
-              specialization: 'painter'
+              specialization: 'painter',
+              ...(ref.code ? { referral_code: ref.code } : {}),
+              ...(ref.host ? { referrer_host: ref.host } : {})
             }
           }
         })

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle, Bookmark, Compass, Sparkles, Gem, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchTotalUnreadCount } from '../lib/supabase'
+import { supabase, fetchTotalUnreadCount, fetchPendingReportsCount } from '../lib/supabase'
 
 export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, currentUser, isPro, isAdmin }) {
   const { t } = useTranslation()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [pendingReports, setPendingReports] = useState(0)
 
   useEffect(() => {
     if (!currentUser) return
@@ -38,6 +39,26 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
       supabase.removeChannel(channel)
     }
   }, [currentUser])
+
+  // Realtime badge of open reports for admins. Refreshes the pending count on any
+  // change to the reports table. Subscription is cleaned up on unmount.
+  useEffect(() => {
+    if (!isAdmin) { setPendingReports(0); return }
+
+    const loadPending = async () => setPendingReports(await fetchPendingReportsCount())
+    loadPending()
+
+    const channel = supabase
+      .channel('admin_pending_reports')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
+        loadPending()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [isAdmin])
 
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: t('dashboard') },
@@ -134,6 +155,11 @@ export function Sidebar({ activeTab, setActiveTab, onLogout, isOpen, onClose, cu
               {item.id === 'messages' && unreadCount > 0 && (
                 <div className="ml-2 px-2 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-lg shadow-red-500/40 animate-pulse">
                   {unreadCount > 99 ? '99+' : unreadCount}
+                </div>
+              )}
+              {item.id === 'admin' && pendingReports > 0 && (
+                <div className="ml-2 px-2 py-0.5 bg-amber-500 text-black text-[10px] font-black rounded-full shadow-lg shadow-amber-500/40 animate-pulse">
+                  {pendingReports > 99 ? '99+' : pendingReports}
                 </div>
               )}
               {activeTab === item.id && <div className="ml-auto w-1.5 h-1.5 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(147,51,234,0.8)]"></div>}
