@@ -38,12 +38,13 @@ export async function fetchProfile(userId) {
 
 // Дозаписывает реферальную атрибуцию текущему юзеру, только если поля ещё
 // пустые (first-touch). Надёжно работает даже если профиль создан триггером.
-export const attachReferral = async ({ code, host }) => {
+export const attachReferral = async ({ code, host, ts }) => {
   if (!code && !host) return false
   try {
     const { error } = await supabase.rpc('set_my_referral', {
       p_code: code || null,
       p_host: host || null,
+      p_captured_at: ts || null,
     })
     if (error) throw error
     return true

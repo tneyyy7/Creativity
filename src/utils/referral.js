@@ -8,6 +8,7 @@
 
 const CODE_KEY = 'creativity_ref_code'
 const HOST_KEY = 'creativity_ref_host'
+const TS_KEY = 'creativity_ref_ts'
 
 // Нормализуем код: латиница/цифры/-/_ до 64 символов, в нижнем регистре.
 const sanitizeCode = (raw) =>
@@ -41,6 +42,9 @@ export function captureReferral() {
 
     if (code && !localStorage.getItem(CODE_KEY)) {
       localStorage.setItem(CODE_KEY, code)
+      // Метка времени клика — атрибуция засчитывается только аккаунтам,
+      // созданным в этот момент или позже (отсекает давно зарегистрированных).
+      localStorage.setItem(TS_KEY, new Date().toISOString())
       const host = externalHost()
       if (host) localStorage.setItem(HOST_KEY, host)
     } else if (!localStorage.getItem(HOST_KEY)) {
@@ -64,15 +68,16 @@ export function captureReferral() {
   }
 }
 
-/** Возвращает сохранённую атрибуцию: { code, host } (значения или null). */
+/** Возвращает сохранённую атрибуцию: { code, host, ts } (значения или null). */
 export function getReferral() {
   try {
     return {
       code: localStorage.getItem(CODE_KEY) || null,
       host: localStorage.getItem(HOST_KEY) || null,
+      ts: localStorage.getItem(TS_KEY) || null,
     }
   } catch {
-    return { code: null, host: null }
+    return { code: null, host: null, ts: null }
   }
 }
 
@@ -81,5 +86,6 @@ export function clearReferral() {
   try {
     localStorage.removeItem(CODE_KEY)
     localStorage.removeItem(HOST_KEY)
+    localStorage.removeItem(TS_KEY)
   } catch { /* ignore */ }
 }

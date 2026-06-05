@@ -196,7 +196,7 @@ function App() {
         const refCode0 = storedRef.code || meta0?.referral_code || null
         const refHost0 = storedRef.host || meta0?.referrer_host || null
         if (refCode0 || refHost0) {
-          attachReferral({ code: refCode0, host: refHost0 }).then((ok) => {
+          attachReferral({ code: refCode0, host: refHost0, ts: storedRef.ts }).then((ok) => {
             if (ok) clearReferral()
           })
         }
