@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useLayoutEffect, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff, Loader2, Pin, PinOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, fetchChatMutes, fetchChatPins, toggleChatPin, fetchHiddenChats, hideConversation, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat, uploadAvatar } from '../lib/supabase'
+import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, fetchChatMutes, fetchChatPins, toggleChatPin, fetchHiddenChats, hideConversation, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat, uploadAvatar, fetchProfile } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { CreateGroupModal } from '../components/CreateGroupModal'
 import { PostViewerModal } from '../components/PostViewerModal'
@@ -615,8 +615,20 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     let heartbeatInterval = null
     if (!chatIsGroup) {
       updateChatPresence(currentUser.id, chatId)
+      
+      const fetchPartnerStatus = () => {
+        fetchProfile(chatId).then(p => {
+          if (p && messagesChatIdRef.current === chatId) {
+            setActiveChat(prev => (prev && prev.id === chatId ? { ...prev, ...p } : prev))
+          }
+        }).catch(err => console.error("Error fetching partner profile:", err))
+      }
+      
+      fetchPartnerStatus() // Initial fetch
+      
       heartbeatInterval = setInterval(() => {
         updateChatPresence(currentUser.id, chatId)
+        fetchPartnerStatus()
       }, 20000)
     }
 
