@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Search, Loader2, ChevronLeft, ChevronRight, CreditCard, ExternalLink,
   Star, Ban, RotateCcw, XCircle, DollarSign, Users as UsersIcon, Hand,
-  X, User, Calendar, Clock, Hash, AlertTriangle
+  X, User, Calendar, Clock, Hash, AlertTriangle, Gem
 } from 'lucide-react'
 import {
   adminListSubscriptions, adminSubscriptionStats, adminStripeAction, computeMrr
@@ -178,7 +178,12 @@ export function Subscriptions({ onViewProfile }) {
                         >
                           {s.user_nickname || 'Unknown'}
                         </span>
-                        {s.is_pro && <Star className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />}
+                        {s.is_pro && (
+                          <span className="pro-badge shrink-0">
+                            <Gem className="pro-badge-icon" />
+                            <span className="pro-badge-text">Pro</span>
+                          </span>
+                        )}
                       </div>
                       <span className="text-xs text-gray-500 truncate block">{s.user_email || '—'}</span>
                     </div>
@@ -314,7 +319,12 @@ function SubscriptionDetail({ sub: s, busy, canManageStripe, fmtDate, stripeUrl,
               >
                 {s.user_nickname || 'Unknown'}
               </h2>
-              {s.is_pro && <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />}
+              {s.is_pro && (
+                <span className="pro-badge pro-badge-lg shrink-0">
+                  <Gem className="pro-badge-icon" />
+                  <span className="pro-badge-text">Pro</span>
+                </span>
+              )}
             </div>
             <span className="text-xs text-gray-500 truncate block">{s.user_email || '—'}</span>
           </div>

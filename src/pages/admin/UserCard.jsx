@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   X, Loader2, Ban, ShieldCheck, Crown, Trash2, ExternalLink,
-  Mail, Calendar, Clock, FileImage, Flag, Star, ShieldOff, Link2, Globe
+  Mail, Calendar, Clock, FileImage, Flag, Star, ShieldOff, Link2, Globe, Gem
 } from 'lucide-react'
 import {
   adminGetUserDetails, setUserBanned, logAdminAction,
@@ -116,7 +116,12 @@ export function UserCard({ userId, adminRole, onClose, onViewProfile, onChanged 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-black text-white truncate notranslate" translate="no" style={getNicknameStyle(p.nickname_color, '#fff')}>{p.nickname || 'Unknown'}</h2>
-                  {p.is_pro && <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />}
+                  {p.is_pro && (
+                    <span className="pro-badge pro-badge-lg shrink-0">
+                      <Gem className="pro-badge-icon" />
+                      <span className="pro-badge-text">Pro</span>
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
                   {p.is_banned && (

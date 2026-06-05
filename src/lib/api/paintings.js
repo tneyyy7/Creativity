@@ -224,8 +224,16 @@ export async function savePaintingTags(paintingId, tagNames) {
 
     if (!tagNames || tagNames.length === 0) return
 
-    // 2. Clean and deduplicate tag names
-    const cleanTags = [...new Set(tagNames.map(t => t.trim().replace(/^#/, '').toLowerCase()).filter(t => t.length > 0))]
+    // 2. Clean and deduplicate tag names.
+    // A single entry can contain several hashtags ("#dog #slave") or
+    // comma/space separated words — split them so each becomes its own tag,
+    // and strip every '#' (not just a leading one).
+    const cleanTags = [...new Set(
+      tagNames
+        .flatMap(t => String(t).split(/[\s,#]+/))
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0)
+    )]
     if (cleanTags.length === 0) return
 
     // 3. For each tag, upsert it to ensure it exists in 'tags' table

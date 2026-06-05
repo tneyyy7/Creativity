@@ -88,7 +88,7 @@ export function Gallery({ onOpenPost }) {
       if (!user) throw new Error("Not authenticated")
 
       const tagNamesArray = newTags
-        .split(',')
+        .split(/[\s,#]+/)
         .map(t => t.trim())
         .filter(t => t.length > 0)
 
@@ -221,7 +221,7 @@ export function Gallery({ onOpenPost }) {
     if (!editingPainting || !newTitle.trim()) return
     try {
       const tagNamesArray = newTags
-        .split(',')
+        .split(/[\s,#]+/)
         .map(t => t.trim())
         .filter(t => t.length > 0)
 

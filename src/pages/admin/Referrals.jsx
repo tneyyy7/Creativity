@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Loader2, Link2, Globe, Users as UsersIcon, ChevronDown, ChevronRight,
-  Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, X, Shuffle
+  Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, X, Shuffle, Gem
 } from 'lucide-react'
 import {
   adminReferralStats, adminReferralUsers,
@@ -334,13 +334,21 @@ function CodeRow({ code: c, expanded, onToggle, onDelete, fmtDate, onViewProfile
                     workCount={u.finished_work_count}
                   />
                   <div className="min-w-0 flex-1">
-                    <span
-                      className="text-xs font-bold text-white truncate block notranslate"
-                      translate="no"
-                      style={getNicknameStyle(u.nickname_color, '#fff')}
-                    >
-                      {u.nickname || 'Unknown'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="text-xs font-bold text-white truncate block notranslate"
+                        translate="no"
+                        style={getNicknameStyle(u.nickname_color, '#fff')}
+                      >
+                        {u.nickname || 'Unknown'}
+                      </span>
+                      {u.is_pro && (
+                        <span className="pro-badge shrink-0">
+                          <Gem className="pro-badge-icon" />
+                          <span className="pro-badge-text">Pro</span>
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] text-gray-500 truncate block">{u.email || '—'}</span>
                   </div>
                   <span className="text-[10px] text-gray-500 whitespace-nowrap">{fmtDate(u.created_at)}</span>

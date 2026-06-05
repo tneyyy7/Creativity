@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Loader2, ChevronLeft, ChevronRight, Star, Ban, Users as UsersIcon } from 'lucide-react'
+import { Search, Loader2, ChevronLeft, ChevronRight, Gem, Ban, Users as UsersIcon } from 'lucide-react'
 import { adminSearchUsers } from '../../lib/supabase'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
 import { getNicknameStyle } from '../../lib/nicknameStyle'
@@ -98,7 +98,12 @@ export function Users({ adminRole, onViewProfile }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-bold text-white truncate notranslate" translate="no" style={getNicknameStyle(u.nickname_color, '#fff')}>{u.nickname || 'Unknown'}</span>
-                      {u.is_pro && <Star className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />}
+                      {u.is_pro && (
+                        <span className="pro-badge shrink-0">
+                          <Gem className="pro-badge-icon" />
+                          <span className="pro-badge-text">Pro</span>
+                        </span>
+                      )}
                       {u.admin_role && (
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-purple-500/15 text-purple-300 shrink-0">{u.admin_role}</span>
                       )}
