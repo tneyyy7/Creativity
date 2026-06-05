@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Search, Loader2, ChevronLeft, ChevronRight, CreditCard, ExternalLink,
-  Star, Ban, RotateCcw, XCircle, DollarSign, Users as UsersIcon, Hand,
+  Ban, RotateCcw, XCircle, DollarSign, Users as UsersIcon, Hand,
   X, User, Calendar, Clock, Hash, AlertTriangle, Gem
 } from 'lucide-react'
 import {
@@ -98,7 +98,7 @@ export function Subscriptions({ onViewProfile }) {
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={DollarSign} label={t('admin_sub_mrr')} value={`$${mrr.toFixed(2)}`} accent="text-emerald-400" />
-        <StatCard icon={Star} label={t('admin_sub_active_pro')} value={stats?.active_pro ?? '—'} accent="text-amber-400" />
+        <StatCard icon={Gem} label={t('admin_sub_active_pro')} value={stats?.active_pro ?? '—'} accent="text-cyan-400" />
         <StatCard icon={UsersIcon} label={t('admin_sub_total')} value={stats?.total ?? '—'} accent="text-purple-400" />
         <StatCard icon={Hand} label={t('admin_sub_manual')} value={stats?.manual ?? '—'} accent="text-sky-400" />
       </div>

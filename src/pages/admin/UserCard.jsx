@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   X, Loader2, Ban, ShieldCheck, Crown, Trash2, ExternalLink,
-  Mail, Calendar, Clock, FileImage, Flag, Star, ShieldOff, Link2, Globe, Gem
+  Mail, Calendar, Clock, FileImage, Flag, ShieldOff, Link2, Globe, Gem
 } from 'lucide-react'
 import {
   adminGetUserDetails, setUserBanned, logAdminAction,
@@ -143,7 +143,7 @@ export function UserCard({ userId, adminRole, onClose, onViewProfile, onChanged 
               <Meta icon={Mail} label={t('admin_users_email')} value={p.email || '—'} />
               <Meta icon={Calendar} label={t('admin_users_joined')} value={fmtDate(p.created_at)} />
               <Meta icon={Clock} label={t('admin_users_last_seen')} value={fmtDate(p.last_sign_in_at || p.last_seen)} />
-              <Meta icon={Star} label={t('admin_users_pro_status')} value={p.is_pro ? `${p.sub_plan || 'pro'} (${p.sub_source || 'stripe'})` : t('admin_users_free')} />
+              <Meta icon={Gem} label={t('admin_users_pro_status')} value={p.is_pro ? `${p.sub_plan || 'pro'} (${p.sub_source || 'stripe'})` : t('admin_users_free')} />
               <Meta icon={Link2} label={t('admin_ref_code')} value={p.referral_code || '—'} />
               <Meta icon={Globe} label={t('admin_ref_host')} value={p.referrer_host || '—'} />
             </div>
