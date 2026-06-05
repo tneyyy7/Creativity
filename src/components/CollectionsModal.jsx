@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, FolderPlus, Folder, Check, Loader2, Bookmark } from 'lucide-react'
+import { Plus, FolderPlus, Folder, Check, Loader2, Bookmark } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { createCollection, fetchUserCollections, addPaintingToCollection, removePaintingFromCollection, fetchPaintingCollectionStatus } from '../lib/supabase'
+import {
+  GlassModal,
+  GlassModalHeader,
+  glassInput,
+  glassActionBase,
+  glassActionPrimary,
+  glassActionNeutral,
+} from './GlassModal'
 
 /**
  * Two modes:
@@ -107,27 +115,12 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
   }
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[500] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-md p-6 relative overflow-hidden shadow-2xl shadow-purple-500/10 animate-in zoom-in-95 duration-200">
-
-        {/* Header */}
-        <div className="flex justify-between items-center mb-1">
-          <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            <Bookmark className="w-5 h-5 text-purple-400 fill-purple-400/20" />
-            <span>{isSaveMode ? t('bookmark_save_btn') : t('save_to_collection')}</span>
-          </h3>
-          <button
-            data-lg-fx
-            onClick={onClose}
-            className="btn-icon"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {isSaveMode && (
-          <p className="text-xs text-gray-500 mb-5">{t('choose_album_hint')}</p>
-        )}
+    <GlassModal onClose={onClose} z="z-[500]">
+        <GlassModalHeader
+          icon={<Bookmark className="w-4 h-4 fill-purple-400/20" />}
+          title={isSaveMode ? t('bookmark_save_btn') : t('save_to_collection')}
+          subtitle={isSaveMode ? t('choose_album_hint') : undefined}
+        />
 
         {/* Collection list */}
         {loading ? (
@@ -145,8 +138,8 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
                     onClick={() => handleToggle(coll.id)}
                     className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all duration-200 ${
                       isSelected
-                        ? 'bg-purple-600/10 border-purple-500/30 text-purple-400'
-                        : 'bg-[#181622] hover:bg-[#201e2e] border-white/5 text-gray-300'
+                        ? 'bg-purple-600/15 border-purple-500/30 text-purple-200'
+                        : 'bg-white/[0.03] hover:bg-white/5 border-white/5 hover:border-white/10 text-gray-300'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -159,7 +152,7 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
                       </div>
                     </div>
                     <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all ${
-                      isSelected ? 'bg-purple-600 border-purple-500 text-white' : 'border-gray-700 bg-[#0c0b11]'
+                      isSelected ? 'bg-purple-600 border-purple-500 text-white' : 'border-white/20 bg-white/[0.03]'
                     }`}>
                       {isSelected && <Check className="w-3.5 h-3.5" />}
                     </div>
@@ -177,7 +170,7 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
           {!showCreator ? (
             <button
               onClick={() => setShowCreator(true)}
-              className="w-full py-3 bg-[#181622] hover:bg-[#201e2e] border border-white/5 text-xs text-gray-300 hover:text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+              className={`${glassActionBase} ${glassActionNeutral} normal-case tracking-normal text-xs font-bold`}
             >
               <Plus className="w-4 h-4 text-purple-400" />
               <span>{t('create_collection')}</span>
@@ -191,7 +184,7 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
                 onChange={(e) => setNewCollName(e.target.value)}
                 placeholder={t('collection_name')}
                 maxLength={30}
-                className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-gray-600 transition-all"
+                className={glassInput}
               />
               <input
                 type="text"
@@ -199,21 +192,20 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
                 onChange={(e) => setNewCollDesc(e.target.value)}
                 placeholder={t('collection_desc')}
                 maxLength={100}
-                className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-gray-600 transition-all"
+                className={glassInput}
               />
               <div className="flex gap-3">
                 <button
                   type="button"
-                  data-lg-fx
                   onClick={() => setShowCreator(false)}
-                  className="btn btn-secondary btn-sm flex-1"
+                  className={`${glassActionBase} ${glassActionNeutral} flex-1`}
                 >
                   {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="btn btn-primary btn-sm flex-1"
+                  className={`${glassActionBase} ${glassActionPrimary} flex-1`}
                 >
                   {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderPlus className="w-3.5 h-3.5" />}
                   <span>{t('create')}</span>
@@ -229,7 +221,7 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
             <button
               onClick={handleSave}
               disabled={saving}
-              className="btn btn-primary btn-block"
+              className={`${glassActionBase} ${glassActionPrimary}`}
             >
               {saving
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('saving_bookmark')}</>
@@ -238,7 +230,6 @@ export function CollectionsModal({ paintingId, currentUserId, onClose, onSave })
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </GlassModal>
   )
 }

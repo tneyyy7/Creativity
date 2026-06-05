@@ -279,7 +279,7 @@ function SubscriptionDetail({ sub: s, busy, canManageStripe, fmtDate, stripeUrl,
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md max-h-[88vh] overflow-y-auto custom-scrollbar bg-[#15141d] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 space-y-5">
+      <div className="relative w-full max-w-md max-h-[88vh] overflow-y-auto custom-scrollbar bg-[#15141d]/75 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 space-y-5">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all"

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { X, Loader2, BadgeCheck, Gem, Users, Camera, Check } from 'lucide-react'
+import { Loader2, BadgeCheck, Gem, Users, Camera, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchFriends, uploadAvatar, createGroupChat, addGroupMembers } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
+import { GlassModal, glassInput, glassActionBase, glassActionPrimary } from './GlassModal'
 
 /**
  * Friend picker used both to create a new group chat and to add members to an
@@ -88,28 +88,18 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
     (u?.nickname || '').toLowerCase().includes((search || '').toLowerCase())
   )
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
-      onClick={onClose}
+  return (
+    <GlassModal
+      onClose={onClose}
+      z="z-[120]"
+      padding="p-0"
+      cardClassName="overflow-hidden flex flex-col max-h-[85vh]"
     >
-      <div
-        className="w-full max-w-md bg-[#15131d] border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[85vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-2">
-          <h3 className="text-lg font-black text-white tracking-tight">
+        <div className="flex items-center justify-between px-5 pt-5 pb-2 pr-12">
+          <h3 className="text-sm font-bold text-white tracking-tight">
             {isAddMode ? (t('add_members') || 'Add members') : (t('create_group') || 'New group')}
           </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 -mr-2 text-gray-400 hover:text-white transition-colors"
-            aria-label={t('close') || 'Close'}
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Group name + avatar (create mode only) */}
@@ -118,7 +108,7 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="relative w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 hover:bg-white/10 transition-colors"
+              className="relative w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 hover:bg-white/5 transition-all"
             >
               {uploadingAvatar ? (
                 <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
@@ -141,7 +131,7 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
               onChange={(e) => setName(e.target.value)}
               placeholder={t('group_name') || 'Group name'}
               maxLength={50}
-              className="flex-1 h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white focus:border-purple-500/50 outline-none"
+              className={`${glassInput} flex-1 py-0 h-12`}
             />
           </div>
         )}
@@ -153,7 +143,7 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('search_friends_only') || 'Search among friends...'}
-            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white focus:border-purple-500/50 outline-none"
+            className={`${glassInput} h-11 py-0`}
           />
         </div>
 
@@ -180,7 +170,7 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
                   key={u.id}
                   type="button"
                   onClick={() => toggle(u.id)}
-                  className={`w-full flex items-center gap-3 p-2.5 rounded-2xl transition-all text-left ${isSel ? 'bg-purple-600/15' : 'hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition-all text-left ${isSel ? 'bg-purple-600/15 border-purple-500/30' : 'border-transparent hover:bg-white/5'}`}
                 >
                   <ProfileAvatar
                     avatarUrl={u.avatar_url}
@@ -216,7 +206,7 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
-            className="btn btn-primary btn-block h-12"
+            className={`${glassActionBase} ${glassActionPrimary}`}
           >
             {submitting ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -227,8 +217,6 @@ export function CreateGroupModal({ currentUser, mode = 'create', groupId = null,
             )}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </GlassModal>
   )
 }

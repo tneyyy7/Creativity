@@ -92,7 +92,7 @@ export function UserCard({ userId, adminRole, onClose, onViewProfile, onChanged 
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto custom-scrollbar bg-[#15141d] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto custom-scrollbar bg-[#15141d]/75 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Close */}
         <button
           onClick={onClose}

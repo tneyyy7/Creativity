@@ -10,6 +10,7 @@ import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 import { GroupAvatar } from '../components/GroupAvatar'
 import { CHAT_THEME_STYLES } from '../lib/chatThemes'
+import { GlassModal } from '../components/GlassModal'
 
 export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile }) {
   const { t } = useTranslation()
@@ -2264,21 +2265,13 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       )}
 
       {/* Members panel */}
-      {showMembersPanel && isGroup && createPortal(
-        <div
-          className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
-          onClick={() => setShowMembersPanel(false)}
+      {showMembersPanel && isGroup && (
+        <GlassModal
+          onClose={() => setShowMembersPanel(false)}
+          z="z-[120]"
+          padding="p-0"
+          cardClassName="overflow-hidden flex flex-col max-h-[80vh] pt-2"
         >
-          <div
-            className="w-full max-w-md bg-[#15131d] border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[80vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-end px-3 pt-3">
-              <button onClick={() => setShowMembersPanel(false)} className="p-2 text-gray-400 hover:text-white transition-colors">
-                <CloseIcon className="w-5 h-5" />
-              </button>
-            </div>
-
             {/* Group identity — admins tap the avatar to change the group photo */}
             <div className="flex flex-col items-center px-5 pb-3 -mt-1">
               <button
@@ -2316,7 +2309,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
               <div className="px-5 pb-3">
                 <button
                   onClick={() => { setShowMembersPanel(false); setShowAddMembers(true) }}
-                  className="w-full h-11 rounded-xl bg-purple-600/15 hover:bg-purple-600/25 text-purple-200 font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                  className="w-full h-11 rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 border border-purple-500/20 font-bold text-sm flex items-center justify-center gap-2 transition-all"
                 >
                   <UserPlus className="w-4 h-4" /> {t('add_members') || 'Add members'}
                 </button>
@@ -2355,9 +2348,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                 </div>
               ))}
             </div>
-          </div>
-        </div>,
-        document.body
+        </GlassModal>
       )}
 
       {/* Telegram-style mobile/tablet context menu overlay.

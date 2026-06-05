@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool, MoreVertical, Flag, Ban } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts, blockUser, unblockUser, isUserBlocked } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { FollowListModal } from '../components/FollowListModal'
 import { ReportModal } from '../components/ReportModal'
+import { GlassModal, GlassModalHeader, glassInput } from '../components/GlassModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 import SmartImage from '../components/SmartImage'
 
@@ -461,46 +461,25 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
       </div>
 
       {/* Share Modal */}
-      {showShareModal && createPortal(
-        <div
-          className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 font-sans"
-          onClick={() => setShowShareModal(false)}
-        >
-          <div
-            className="lg-card w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 fade-in duration-200"
-            style={{ borderRadius: 28 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-400/30 flex items-center justify-center text-purple-300">
-                  <Share2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white tracking-tight">{t('share_with_friends', 'Share with friends')}</h3>
-                  <p className="text-[11px] text-gray-400">{t('share', 'Share')}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="text-gray-400 hover:text-white transition-colors w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10"
-                type="button"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {showShareModal && (
+        <GlassModal onClose={() => setShowShareModal(false)} z="z-[300]">
+            <GlassModalHeader
+              icon={<Share2 className="w-4 h-4" />}
+              title={t('share_with_friends', 'Share with friends')}
+              subtitle={t('share', 'Share')}
+            />
 
             <input
               type="text"
               placeholder={t('search_friends', 'Search friends...')}
               value={sharingSearch}
               onChange={(e) => setSharingSearch(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/10 focus:border-purple-400/50 focus:outline-none rounded-xl px-4 py-3 text-xs text-foreground placeholder:text-foreground/50 backdrop-blur-sm transition-colors"
+              className={`${glassInput} mb-4`}
             />
 
             <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar pr-1">
               {friends.filter(f => f?.profile && (f.profile.nickname || '').toLowerCase().includes((sharingSearch || '').toLowerCase())).map(friendItem => (
-                <div key={friendItem.id} className="lg-pill flex items-center justify-between px-3 py-2.5 rounded-xl group">
+                <div key={friendItem.id} className="bg-white/[0.03] hover:bg-white/5 border border-white/5 hover:border-white/10 transition-all flex items-center justify-between px-3 py-2.5 rounded-2xl group">
                   <div className="flex items-center gap-3">
                     <ProfileAvatar avatarUrl={friendItem.profile?.avatar_url} workCount={friendItem.profile?.finished_work_count} size="sm" isPro={friendItem.profile?.isPro} avatarFrame={friendItem.profile?.avatar_frame} />
                      <span className="text-white font-semibold text-xs flex items-center gap-1.5" style={{ color: friendItem.profile?.nickname_color || undefined }}>
@@ -530,9 +509,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                 <p className="text-center text-gray-500 text-xs py-6">{t('no_friends_found', 'No friends found.')}</p>
               )}
             </div>
-          </div>
-        </div>,
-        document.body
+        </GlassModal>
       )}
 
       {followModalTab && (

@@ -7,6 +7,7 @@ import { ProfileAvatar } from './ProfileAvatar'
 import { AnimatedPillGroup } from './AnimatedPillGroup'
 import { createPortal } from 'react-dom'
 import { getNicknameStyle } from '../lib/nicknameStyle'
+import { GlassModal, glassInput, glassActionBase, glassActionPrimary } from './GlassModal'
 
 export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewProfile }) {
   const { t } = useTranslation()
@@ -486,19 +487,10 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
       )}
 
       {/* Upload WIP Story Modal */}
-      {uploadModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-md max-h-[90vh] p-5 relative overflow-y-auto overflow-x-hidden shadow-2xl shadow-purple-500/10" onClick={e => e.stopPropagation()}>
-            
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-white tracking-tight">{t('add_to_story')}</h3>
-              <button 
-                type="button"
-                onClick={() => setUploadModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-              >
-                <X className="w-4 h-4 text-gray-400" />
-              </button>
+      {uploadModalOpen && (
+        <GlassModal onClose={() => setUploadModalOpen(false)} z="z-[100]" padding="p-5" cardClassName="max-h-[90vh] overflow-y-auto overflow-x-hidden">
+            <div className="flex items-center mb-4 pr-10">
+              <h3 className="text-sm font-bold text-white tracking-tight">{t('add_to_story')}</h3>
             </div>
 
             <form onSubmit={handleUploadSubmit} className="space-y-4">
@@ -785,7 +777,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                   onChange={(e) => setCaption(e.target.value)}
                   maxLength={120}
                   rows={2}
-                  className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 transition-all resize-none"
+                  className={`${glassInput} resize-none`}
                   placeholder={selectedFile?.type.startsWith('video/') ? "Type text to overlay on the video..." : "e.g. Sketching the background details..."}
                 />
                 <div className="text-right text-[9px] text-gray-500 font-bold px-0.5 leading-none">
@@ -797,7 +789,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
               <button
                 type="submit"
                 disabled={!selectedFile || isUploading}
-                className="btn btn-primary btn-block btn-sm"
+                className={`${glassActionBase} ${glassActionPrimary}`}
               >
                 {isUploading ? (
                   <>
@@ -809,9 +801,7 @@ export function StoriesBanner({ currentUser, avatarUrl, nickname, isPro, onViewP
                 )}
               </button>
             </form>
-          </div>
-        </div>,
-        document.body
+        </GlassModal>
       )}
     </div>
   )

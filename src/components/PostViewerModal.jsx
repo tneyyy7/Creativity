@@ -5,6 +5,7 @@ import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostCom
 import { ProfileAvatar } from './ProfileAvatar'
 import { CollectionsModal } from './CollectionsModal'
 import { ReportModal } from './ReportModal'
+import { GlassModal, glassActionBase, glassActionDanger, glassActionNeutral } from './GlassModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 
@@ -599,22 +600,22 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
       )}
 
       {blockConfirm && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setBlockConfirm(false)}>
-          <div className="glass-card w-full max-w-sm rounded-3xl border-white/10 p-6 space-y-4 bg-[#12111a]/95 text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mx-auto">
+        <GlassModal onClose={() => setBlockConfirm(false)} z="z-[120]" maxWidth="max-w-sm" showClose={false}>
+          <div className="text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-400/30 flex items-center justify-center text-red-300 mx-auto">
               <Ban className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-black text-white">{t('block_confirm_title')}</h3>
+            <h3 className="text-sm font-bold text-white">{t('block_confirm_title')}</h3>
             <p className="text-[11px] text-gray-400">{t('block_confirm_text')}</p>
             <div className="flex gap-3 pt-1">
-              <button onClick={() => setBlockConfirm(false)} className="flex-1 py-2.5 rounded-2xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-300 transition-all">{t('cancel')}</button>
+              <button onClick={() => setBlockConfirm(false)} className={`${glassActionBase} ${glassActionNeutral} flex-1`}>{t('cancel')}</button>
               <button
                 onClick={async () => { await blockUser(currentUserId, resolvedAuthor?.id); setBlockConfirm(false); onClose?.() }}
-                className="flex-1 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white transition-all active:scale-95"
+                className={`${glassActionBase} ${glassActionDanger} flex-1`}
               >{t('block')}</button>
             </div>
           </div>
-        </div>
+        </GlassModal>
       )}
     </div>
   )

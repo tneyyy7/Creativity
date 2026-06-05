@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { Plus, Search, Trash2, MoreHorizontal, User, Palette, X, Upload, Loader2, Star, Medal, Zap, Crown, Sparkles, Rocket, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, uploadPainting, fetchPaintings, savePaintingMetadata, deletePainting, fetchPaintingTags, savePaintingTags } from '../lib/supabase'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
+import { GlassModal, glassSectionLabel, glassInput, glassActionBase, glassActionPrimary, glassActionNeutral } from '../components/GlassModal'
 
 export function Gallery({ onOpenPost }) {
   const { t } = useTranslation()
@@ -470,11 +470,15 @@ export function Gallery({ onOpenPost }) {
         ))}
       </div>
 
-      {(editingPainting || pendingUploads.length > 0) && createPortal(
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-in zoom-in duration-300 overflow-y-auto">
-           <div className="glass-card p-5 sm:p-6 w-full max-w-lg space-y-3.5 my-auto max-h-[95vh] overflow-y-auto custom-scrollbar">
-              <div className="flex items-center justify-between gap-4">
-                <h3 className="text-xl font-black text-white uppercase tracking-tighter">
+      {(editingPainting || pendingUploads.length > 0) && (
+        <GlassModal
+          onClose={() => { if (pendingUploads.length > 0) { setPendingUploads([]); setPendingIndex(0) } else { setEditingPainting(null) } }}
+          z="z-[120]"
+          maxWidth="max-w-lg"
+          cardClassName="space-y-3.5 max-h-[95vh] overflow-y-auto custom-scrollbar"
+        >
+              <div className="flex items-center justify-between gap-4 pr-10">
+                <h3 className="text-sm font-bold text-white tracking-tight">
                   {pendingUploads.length > 0 ? t('publish_artwork', 'Опубликовать работу') : t('edit_masterpiece')}
                 </h3>
                 {pendingUploads.length > 1 && (
@@ -526,33 +530,33 @@ export function Gallery({ onOpenPost }) {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('title_label')}</label>
+                <label className={glassSectionLabel}>{t('title_label')}</label>
                 <input
                   type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full h-11 px-5 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all text-xs"
+                  className={glassInput}
                   placeholder={t('title_placeholder')}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('description_label')}</label>
+                <label className={glassSectionLabel}>{t('description_label')}</label>
                 <textarea
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full min-h-[60px] max-h-[100px] p-4 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-medium transition-all resize-none text-xs"
+                  className={`${glassInput} min-h-[60px] max-h-[100px] resize-none`}
                   placeholder={t('description_placeholder')}
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('category_label')}</label>
+                  <label className={glassSectionLabel}>{t('category_label')}</label>
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full h-11 px-5 bg-[#16151c] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all text-xs"
+                    className={glassInput}
                   >
                     <option value="Digital">{t('cat_digital')}</option>
                     <option value="Painting">{t('cat_painting')}</option>
@@ -565,12 +569,12 @@ export function Gallery({ onOpenPost }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('tags_label')}</label>
+                  <label className={glassSectionLabel}>{t('tags_label')}</label>
                   <input
                     type="text"
                     value={newTags}
                     onChange={(e) => setNewTags(e.target.value)}
-                    className="w-full h-11 px-5 bg-white/[0.03] border border-white/5 rounded-2xl focus:outline-none focus:border-purple-500 text-white font-bold transition-all text-xs"
+                    className={glassInput}
                     placeholder={t('tags_placeholder')}
                   />
                 </div>
@@ -598,7 +602,6 @@ export function Gallery({ onOpenPost }) {
 
               <div className="flex gap-4 pt-2">
                 <button
-                  data-lg-fx
                   onClick={() => {
                     if (pendingUploads.length > 0) {
                       setPendingUploads([])
@@ -607,20 +610,18 @@ export function Gallery({ onOpenPost }) {
                       setEditingPainting(null)
                     }
                   }}
-                  className="flex-1 py-3 bg-white/5 text-gray-400 font-bold rounded-2xl hover:bg-white/10 transition-all text-xs"
+                  className={`${glassActionBase} ${glassActionNeutral} flex-1`}
                 >
                   {t('cancel')}
                 </button>
                 <button
                   onClick={pendingUploads.length > 0 ? handlePublishUpload : handleUpdateMetadata}
-                  className="flex-1 py-3 bg-purple-600 text-white font-black rounded-2xl hover:bg-purple-500 transition-all shadow-lg shadow-purple-900/40 text-xs"
+                  className={`${glassActionBase} ${glassActionPrimary} flex-1`}
                 >
                   {pendingUploads.length > 0 ? t('publish', 'Опубликовать') : t('save_changes')}
                 </button>
               </div>
-           </div>
-        </div>,
-        document.body
+        </GlassModal>
       )}
     </div>
   )

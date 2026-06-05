@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { X, Loader2, BadgeCheck, Gem, Users } from 'lucide-react'
+import { Loader2, BadgeCheck, Gem, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { fetchFollowers, fetchFollowing } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 import { AnimatedPillGroup } from './AnimatedPillGroup'
+import { GlassModal, glassInput } from './GlassModal'
 
 /**
  * Modal showing a user's followers / following lists with two switchable tabs.
@@ -40,26 +40,16 @@ export function FollowListModal({ userId, initialTab = 'followers', onClose, onV
     (u?.nickname || '').toLowerCase().includes((search || '').toLowerCase())
   )
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
-      onClick={onClose}
+  return (
+    <GlassModal
+      onClose={onClose}
+      z="z-[120]"
+      padding="p-0"
+      cardClassName="overflow-hidden flex flex-col max-h-[80vh]"
     >
-      <div
-        className="w-full max-w-md bg-[#15131d] border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[80vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-2">
-          <h3 className="text-lg font-black text-white tracking-tight">{t('connections') || 'Connections'}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 -mr-2 text-gray-400 hover:text-white transition-colors"
-            aria-label={t('close') || 'Close'}
-          >
-            <X className="w-5 h-5" />
-          </button>
+        <div className="flex items-center justify-between px-5 pt-5 pb-2 pr-12">
+          <h3 className="text-sm font-bold text-white tracking-tight">{t('connections') || 'Connections'}</h3>
         </div>
 
         {/* Tabs */}
@@ -86,7 +76,7 @@ export function FollowListModal({ userId, initialTab = 'followers', onClose, onV
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('search_people') || 'Search...'}
-            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white focus:border-purple-500/50 outline-none"
+            className={`${glassInput} h-11 py-0`}
           />
         </div>
 
@@ -144,8 +134,6 @@ export function FollowListModal({ userId, initialTab = 'followers', onClose, onV
             </div>
           )}
         </div>
-      </div>
-    </div>,
-    document.body
+    </GlassModal>
   )
 }

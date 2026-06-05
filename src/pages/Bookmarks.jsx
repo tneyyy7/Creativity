@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus, Gem, X, BadgeCheck, Box, PenTool } from 'lucide-react'
+import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus, Gem, BadgeCheck, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchBookmarks, fetchUserCollections, createCollection } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
 import SmartImage from '../components/SmartImage'
+import { GlassModal, GlassModalHeader, glassInput, glassActionBase, glassActionPrimary } from '../components/GlassModal'
 
 export function Bookmarks({ onOpenPost }) {
   const { t } = useTranslation()
@@ -369,58 +369,42 @@ export function Bookmarks({ onOpenPost }) {
       {/* Album Creation Panel Modal Overlay.
           Рендерим через портал в document.body, иначе fixed-оверлей привязывается
           к контейнеру .tab-transition (will-change: transform) и выглядит как чёрный квадрат. */}
-      {showAlbumCreator && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-[#12111a] border border-white/5 rounded-3xl w-full max-w-md p-6 relative shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                <FolderPlus className="w-5 h-5 text-purple-400" />
-                <span>{t('create_collection')}</span>
-              </h3>
-              <button 
-                data-lg-fx
-                onClick={() => setShowAlbumCreator(false)}
-                className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
+      {showAlbumCreator && (
+        <GlassModal onClose={() => setShowAlbumCreator(false)} z="z-[100]">
+          <GlassModalHeader
+            icon={<FolderPlus className="w-4 h-4" />}
+            title={t('create_collection')}
+          />
 
-            <form onSubmit={handleCreateAlbum} className="space-y-4">
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  required
-                  value={albumName}
-                  onChange={(e) => setAlbumName(e.target.value)}
-                  placeholder={t('collection_name')}
-                  maxLength={30}
-                  className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-xl px-4 py-3 text-xs text-white"
-                />
-              </div>
+          <form onSubmit={handleCreateAlbum} className="space-y-4">
+            <input
+              type="text"
+              required
+              value={albumName}
+              onChange={(e) => setAlbumName(e.target.value)}
+              placeholder={t('collection_name')}
+              maxLength={30}
+              className={glassInput}
+            />
 
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  value={albumDesc}
-                  onChange={(e) => setAlbumDesc(e.target.value)}
-                  placeholder={t('collection_desc')}
-                  maxLength={100}
-                  className="w-full bg-[#181622] border border-white/5 focus:border-purple-500/50 focus:outline-none rounded-xl px-4 py-3 text-xs text-white"
-                />
-              </div>
+            <input
+              type="text"
+              value={albumDesc}
+              onChange={(e) => setAlbumDesc(e.target.value)}
+              placeholder={t('collection_desc')}
+              maxLength={100}
+              className={glassInput}
+            />
 
-              <button
-                type="submit"
-                disabled={creating}
-                className="btn btn-primary btn-block btn-sm"
-              >
-                {creating ? t('creating') : t('create')}
-              </button>
-            </form>
-          </div>
-        </div>,
-        document.body
+            <button
+              type="submit"
+              disabled={creating}
+              className={`${glassActionBase} ${glassActionPrimary}`}
+            >
+              {creating ? t('creating') : t('create')}
+            </button>
+          </form>
+        </GlassModal>
       )}
 
     </div>
