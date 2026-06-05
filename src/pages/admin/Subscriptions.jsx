@@ -10,6 +10,8 @@ import {
   adminListSubscriptions, adminSubscriptionStats, adminStripeAction, computeMrr
 } from '../../lib/supabase'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { getNicknameStyle } from '../../lib/nicknameStyle'
+import { AnimatedPillGroup } from '../../components/AnimatedPillGroup'
 
 const PAGE_SIZE = 25
 
@@ -112,26 +114,21 @@ export function Subscriptions({ onViewProfile }) {
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-all"
           />
         </div>
-        <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/5 overflow-x-auto">
-          {STATUS_FILTERS.map(v => (
-            <button
-              key={v}
-              onClick={() => { setPage(0); setStatus(v) }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
-                status === v ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {t(`admin_sub_status_${v}`)}
-            </button>
-          ))}
-        </div>
+        <AnimatedPillGroup
+          value={status}
+          onChange={(v) => { setPage(0); setStatus(v) }}
+          options={STATUS_FILTERS.map(v => ({ value: v, label: t(`admin_sub_status_${v}`) }))}
+          containerClassName="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/5 rounded-xl overflow-x-auto"
+          buttonClassName="lg-pill px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap"
+          pillVariant="glass"
+        />
         <span className="text-xs text-gray-500 font-bold whitespace-nowrap">
           {data.total} {t('admin_content_total')}
         </span>
       </div>
 
       {/* Table */}
-      <div className="bg-[#1a1924]/60 border border-white/5 rounded-2xl overflow-hidden">
+      <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div>
         ) : error ? (
@@ -165,10 +162,22 @@ export function Subscriptions({ onViewProfile }) {
                     onClick={() => setSelected(s)}
                     className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition-opacity"
                   >
-                    <ProfileAvatar avatarUrl={s.user_avatar} size="sm" isPro={s.is_pro} />
+                    <ProfileAvatar
+                      avatarUrl={s.user_avatar}
+                      size="sm"
+                      isPro={s.is_pro}
+                      avatarFrame={s.user_avatar_frame}
+                      workCount={s.user_finished_work_count}
+                    />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-white truncate">{s.user_nickname || 'Unknown'}</span>
+                        <span
+                          className="text-sm font-bold text-white truncate notranslate"
+                          translate="no"
+                          style={getNicknameStyle(s.user_nickname_color, '#fff')}
+                        >
+                          {s.user_nickname || 'Unknown'}
+                        </span>
                         {s.is_pro && <Star className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />}
                       </div>
                       <span className="text-xs text-gray-500 truncate block">{s.user_email || '—'}</span>
@@ -289,10 +298,22 @@ function SubscriptionDetail({ sub: s, busy, canManageStripe, fmtDate, stripeUrl,
 
         {/* Header */}
         <div className="flex items-center gap-3 pr-8">
-          <ProfileAvatar avatarUrl={s.user_avatar} size="lg" isPro={s.is_pro} />
+          <ProfileAvatar
+            avatarUrl={s.user_avatar}
+            size="lg"
+            isPro={s.is_pro}
+            avatarFrame={s.user_avatar_frame}
+            workCount={s.user_finished_work_count}
+          />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h2 className="text-lg font-black text-white truncate">{s.user_nickname || 'Unknown'}</h2>
+              <h2
+                className="text-lg font-black text-white truncate notranslate"
+                translate="no"
+                style={getNicknameStyle(s.user_nickname_color, '#fff')}
+              >
+                {s.user_nickname || 'Unknown'}
+              </h2>
               {s.is_pro && <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />}
             </div>
             <span className="text-xs text-gray-500 truncate block">{s.user_email || '—'}</span>
@@ -383,7 +404,7 @@ function DetailRow({ icon: Icon, label, value, mono }) {
 
 function StatCard({ icon: Icon, label, value, accent }) {
   return (
-    <div className="bg-[#1a1924]/60 border border-white/5 rounded-2xl p-3.5 flex items-center gap-3">
+    <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-3.5 flex items-center gap-3">
       <div className={`w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center shrink-0 ${accent}`}>
         <Icon className="w-4 h-4" />
       </div>

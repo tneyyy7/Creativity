@@ -10,6 +10,7 @@ import {
   adminBulkSetNsfw
 } from '../../lib/supabase'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { AnimatedPillGroup } from '../../components/AnimatedPillGroup'
 
 const Tags = lazy(() => import('./Tags').then(m => ({ default: m.Tags })))
 
@@ -28,20 +29,14 @@ export function Content({ onViewProfile }) {
   return (
     <div className="space-y-4">
       {/* Sub-tabs */}
-      <div className="flex items-center gap-1.5 bg-white/[0.03] p-1 rounded-xl border border-white/5 w-fit">
-        {SUBTABS.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setMode(s.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              mode === s.id ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <s.icon className="w-3.5 h-3.5" />
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <AnimatedPillGroup
+        value={mode}
+        onChange={setMode}
+        options={SUBTABS.map(s => ({ value: s.id, label: s.label, icon: <s.icon className="w-3.5 h-3.5" /> }))}
+        containerClassName="flex items-center gap-1.5 p-1 bg-white/[0.03] border border-white/5 rounded-xl w-fit"
+        buttonClassName="lg-pill flex items-center px-3 py-1.5 rounded-lg text-xs font-bold"
+        pillVariant="glass"
+      />
 
       {mode === 'tags' ? (
         <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div>}>
@@ -144,19 +139,14 @@ function ContentFeed({ type, onViewProfile, t, lang }) {
           />
         </div>
         {!isStory && (
-          <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/5">
-            {['all', 'nsfw', 'sfw'].map(v => (
-              <button
-                key={v}
-                onClick={() => { setPage(0); setNsfw(v) }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  nsfw === v ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {t(`admin_content_filter_${v}`)}
-              </button>
-            ))}
-          </div>
+          <AnimatedPillGroup
+            value={nsfw}
+            onChange={(v) => { setPage(0); setNsfw(v) }}
+            options={['all', 'nsfw', 'sfw'].map(v => ({ value: v, label: t(`admin_content_filter_${v}`) }))}
+            containerClassName="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/5 rounded-xl"
+            buttonClassName="lg-pill px-3 py-1.5 rounded-lg text-xs font-bold"
+            pillVariant="glass"
+          />
         )}
         <span className="text-xs text-gray-500 font-bold whitespace-nowrap">
           {data.total} {t('admin_content_total')}
@@ -218,7 +208,7 @@ function ContentFeed({ type, onViewProfile, t, lang }) {
                   key={item.id}
                   className={`relative group rounded-2xl overflow-hidden border transition-all ${
                     isSel ? 'border-purple-500 ring-2 ring-purple-500/40' : 'border-white/5'
-                  } bg-[#1a1924]/60`}
+                  } bg-[#15141d]/60 backdrop-blur-xl`}
                 >
                   {/* Image */}
                   <button onClick={() => toggleSelect(item.id)} className="block w-full aspect-square bg-white/5 relative">

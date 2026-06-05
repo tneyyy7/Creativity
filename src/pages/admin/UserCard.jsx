@@ -10,6 +10,7 @@ import {
   adminSetRole, adminGrantPro, adminRevokePro, adminDeleteAccount
 } from '../../lib/supabase'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { getNicknameStyle } from '../../lib/nicknameStyle'
 
 const ROLE_RANK = { moderator: 1, admin: 2, superadmin: 3 }
 const ROLE_OPTIONS = ['', 'moderator', 'admin', 'superadmin']
@@ -111,10 +112,10 @@ export function UserCard({ userId, adminRole, onClose, onViewProfile, onChanged 
           <div className="p-6 space-y-5">
             {/* Header */}
             <div className="flex items-center gap-4 pr-8">
-              <ProfileAvatar avatarUrl={p.avatar_url} workCount={p.finished_work_count} size="lg" isPro={p.is_pro} />
+              <ProfileAvatar avatarUrl={p.avatar_url} workCount={p.finished_work_count} size="lg" isPro={p.is_pro} avatarFrame={p.avatar_frame} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-black text-white truncate">{p.nickname || 'Unknown'}</h2>
+                  <h2 className="text-lg font-black text-white truncate notranslate" translate="no" style={getNicknameStyle(p.nickname_color, '#fff')}>{p.nickname || 'Unknown'}</h2>
                   {p.is_pro && <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1">

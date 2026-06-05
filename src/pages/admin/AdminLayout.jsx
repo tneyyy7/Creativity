@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Shield, Flag, Users, FileImage, CreditCard, ScrollText, Link2, Loader2 } from 'lucide-react'
+import { AnimatedPillGroup } from '../../components/AnimatedPillGroup'
 
 // Вкладки будут lazy-loading, так как админка может быть тяжелой
 const ReportsQueue = lazy(() => import('./ReportsQueue').then(m => ({ default: m.ReportsQueue })))
@@ -34,8 +35,8 @@ export function AdminLayout({ activeTab = 'reports', onTabChange, onViewProfile,
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6 pb-16 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-purple-600/15 border border-purple-500/25 flex items-center justify-center text-purple-400">
+      <div className="flex items-center gap-3 bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-4">
+        <div className="w-11 h-11 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
           <Shield className="w-5 h-5" />
         </div>
         <div>
@@ -45,29 +46,25 @@ export function AdminLayout({ activeTab = 'reports', onTabChange, onViewProfile,
           </p>
         </div>
         {adminRole && (
-          <span className="ml-auto px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-600/15 border border-purple-500/25 text-purple-300">
+          <span className="ml-auto px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-primary/20 border border-primary/40 text-primary">
             {adminRole}
           </span>
         )}
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex flex-wrap items-center gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit overflow-x-auto custom-scrollbar">
-        {visibleTabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-tighter transition-all ${
-              activeTab === tab.id 
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' 
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-gray-500'}`} />
-            <span className="uppercase">{tab.label}</span>
-          </button>
-        ))}
-      </div>
+      <AnimatedPillGroup
+        value={activeTab}
+        onChange={onTabChange}
+        options={visibleTabs.map(tab => ({
+          value: tab.id,
+          label: tab.label,
+          icon: <tab.icon className="w-3.5 h-3.5" />,
+        }))}
+        containerClassName="flex flex-wrap items-center gap-2 p-1.5 bg-white/[0.03] border border-white/5 rounded-2xl w-fit max-w-full overflow-x-auto custom-scrollbar"
+        buttonClassName="lg-pill flex items-center px-4 py-2 rounded-xl text-xs font-black tracking-tighter uppercase whitespace-nowrap"
+        pillVariant="glass"
+      />
 
       {/* Tab Content */}
       <div className="min-h-[400px]">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff, Loader2, Pin, PinOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -13,7 +13,25 @@ import { CHAT_THEME_STYLES } from '../lib/chatThemes'
 import { GlassModal } from '../components/GlassModal'
 
 export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpened, onViewProfile }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+
+  // Telegram-style day separator label. Returns "Today" / "Yesterday" for
+  // recent days, otherwise a localized date so it's clear which day a message
+  // belongs to (e.g. "today at 12:00" vs "yesterday at 12:00").
+  const formatDateSeparator = (dateStr) => {
+    const d = new Date(dateStr)
+    const today = new Date()
+    const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+    const dayDiff = Math.round((startOf(today) - startOf(d)) / 86400000)
+    if (dayDiff === 0) return t('chat_date_today')
+    if (dayDiff === 1) return t('chat_date_yesterday')
+    const sameYear = d.getFullYear() === today.getFullYear()
+    return d.toLocaleDateString(i18n.language, {
+      day: 'numeric',
+      month: 'long',
+      ...(sameYear ? {} : { year: 'numeric' }),
+    })
+  }
   const [conversations, setConversations] = useState([])
   const [activeChat, setActiveChat] = useState(null)
   const [messages, setMessages] = useState([])
@@ -1857,9 +1875,22 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                 onScroll={handleMessagesScroll}
                 className={`flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2 sm:space-y-3 custom-scrollbar transition-all duration-500 ${activeTheme.bg}`}
               >
-                {messages.map((msg, i) => (
+                {messages.map((msg, i) => {
+                  const prev = messages[i - 1]
+                  const showDateSeparator = msg.created_at && (
+                    !prev ||
+                    new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
+                  )
+                  return (
+                  <Fragment key={msg.id || i}>
+                  {showDateSeparator && (
+                    <div className="flex justify-center my-2 sm:my-3">
+                      <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-sm text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white/70 shadow-lg">
+                        {formatDateSeparator(msg.created_at)}
+                      </span>
+                    </div>
+                  )}
                   <div
-                    key={msg.id || i}
                     className={`flex group ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}
                   >
                     <div 
@@ -2017,7 +2048,9 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                       </div>
                     </div>
                   </div>
-                ))}
+                  </Fragment>
+                  )
+                })}
 
                 {(isGroup ? Object.keys(groupTypers).length > 0 : isPartnerTyping) && (
                   <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">

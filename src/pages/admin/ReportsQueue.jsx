@@ -8,6 +8,7 @@ import {
   adminBulkUpdateReports, adminNotifyUser
 } from '../../lib/supabase'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { AnimatedPillGroup } from '../../components/AnimatedPillGroup'
 
 const STATUS_TABS = ['pending', 'reviewed', 'dismissed', 'all']
 const REASONS = ['spam', 'inappropriate', 'harassment', 'nsfw', 'copyright', 'other']
@@ -179,23 +180,18 @@ export function ReportsQueue({ onOpenPost, onViewProfile }) {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 pb-16 animate-in fade-in duration-500">
       {/* Status filter */}
-      <div className="flex flex-wrap items-center gap-2 bg-white/[0.03] p-1 rounded-2xl border border-white/5 w-fit">
-        {STATUS_TABS.map(s => (
-          <button
-            key={s}
-            onClick={() => setStatus(s)}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tighter transition-all ${
-              status === s ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            {t(`admin_status_${s}`)}
-          </button>
-        ))}
-      </div>
+      <AnimatedPillGroup
+        value={status}
+        onChange={setStatus}
+        options={STATUS_TABS.map(s => ({ value: s, label: t(`admin_status_${s}`) }))}
+        containerClassName="flex flex-wrap items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl w-fit"
+        buttonClassName="lg-pill px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tighter"
+        pillVariant="glass"
+      />
 
       {/* Reason filter + search */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-1.5 bg-white/[0.03] p-1 rounded-2xl border border-white/5">
+        <div className="flex flex-wrap items-center gap-1.5 bg-[#15141d]/60 backdrop-blur-xl p-1 rounded-2xl border border-white/10">
           <button
             onClick={() => setReasonFilter('all')}
             className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
@@ -218,7 +214,7 @@ export function ReportsQueue({ onOpenPost, onViewProfile }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={t('admin_search_reports')}
-            className="w-full pl-9 pr-3 py-2.5 bg-white/[0.03] border border-white/5 rounded-2xl text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500/40"
+            className="w-full pl-9 pr-3 py-2.5 bg-white/[0.04] border border-white/10 rounded-2xl text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-white/25 transition-all"
           />
         </div>
       </div>

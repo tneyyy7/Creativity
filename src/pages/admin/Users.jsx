@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Search, Loader2, ChevronLeft, ChevronRight, Star, Ban, Users as UsersIcon } from 'lucide-react'
 import { adminSearchUsers } from '../../lib/supabase'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { getNicknameStyle } from '../../lib/nicknameStyle'
 import { UserCard } from './UserCard'
 
 const PAGE_SIZE = 25
@@ -64,7 +65,7 @@ export function Users({ adminRole, onViewProfile }) {
       </div>
 
       {/* Table */}
-      <div className="bg-[#1a1924]/60 border border-white/5 rounded-2xl overflow-hidden">
+      <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
@@ -93,10 +94,10 @@ export function Users({ adminRole, onViewProfile }) {
               >
                 {/* User */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <ProfileAvatar avatarUrl={u.avatar_url} size="sm" isPro={u.is_pro} />
+                  <ProfileAvatar avatarUrl={u.avatar_url} size="sm" isPro={u.is_pro} avatarFrame={u.avatar_frame} workCount={u.finished_work_count} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-bold text-white truncate">{u.nickname || 'Unknown'}</span>
+                      <span className="text-sm font-bold text-white truncate notranslate" translate="no" style={getNicknameStyle(u.nickname_color, '#fff')}>{u.nickname || 'Unknown'}</span>
                       {u.is_pro && <Star className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />}
                       {u.admin_role && (
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-purple-500/15 text-purple-300 shrink-0">{u.admin_role}</span>

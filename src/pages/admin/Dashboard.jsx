@@ -56,7 +56,7 @@ export function Dashboard() {
         <button
           onClick={() => loadStats(true)}
           disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5 border border-white/10 transition-all disabled:opacity-40"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/[0.04] border border-white/10 hover:bg-white/10 transition-all disabled:opacity-40"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           {t('admin_dash_refresh')}
@@ -65,7 +65,7 @@ export function Dashboard() {
 
       {/* Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col justify-between">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm">{t('admin_dash_total_users')}</p>
@@ -81,7 +81,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col justify-between">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm">{t('admin_dash_active_subs')}</p>
@@ -98,7 +98,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col justify-between">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm">{t('admin_dash_pending_reports')}</p>
@@ -115,7 +115,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col justify-between">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm">{t('admin_dash_total_content')}</p>
@@ -135,7 +135,7 @@ export function Dashboard() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Registrations Chart */}
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5">
           <h4 className="text-sm font-medium text-gray-400 mb-4">{t('admin_dash_registrations_7d')}</h4>
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -150,7 +150,7 @@ export function Dashboard() {
                 <XAxis dataKey="date" stroke="#ffffff50" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#ffffff50" fontSize={12} tickLine={false} axisLine={false} width={30} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1a1924', border: '1px solid #ffffff10', borderRadius: '12px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#15141d', border: '1px solid #ffffff1a', borderRadius: '14px', color: '#fff' }}
                   itemStyle={{ color: '#3b82f6' }}
                 />
                 <Area type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorReg)" />
@@ -160,7 +160,7 @@ export function Dashboard() {
         </div>
 
         {/* Content Chart */}
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5">
           <h4 className="text-sm font-medium text-gray-400 mb-4">{t('admin_dash_content_7d')}</h4>
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -175,7 +175,7 @@ export function Dashboard() {
                 <XAxis dataKey="date" stroke="#ffffff50" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#ffffff50" fontSize={12} tickLine={false} axisLine={false} width={30} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1a1924', border: '1px solid #ffffff10', borderRadius: '12px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#15141d', border: '1px solid #ffffff1a', borderRadius: '14px', color: '#fff' }}
                   itemStyle={{ color: '#a855f7' }}
                 />
                 <Area type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorPosts)" />
@@ -188,13 +188,13 @@ export function Dashboard() {
       {/* Lists Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Pending Reports */}
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 overflow-hidden flex flex-col">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5 overflow-hidden flex flex-col">
           <h4 className="text-sm font-medium text-gray-400 mb-4">{t('admin_dash_recent_reports')}</h4>
           <div className="flex-1 overflow-y-auto pr-2">
             {stats.recent_reports?.length > 0 ? (
               <div className="space-y-3">
                 {stats.recent_reports.map((report) => (
-                  <div key={report.id} className="p-3 bg-white/5 rounded-xl text-sm flex justify-between items-start">
+                  <div key={report.id} className="p-3 bg-white/[0.04] border border-white/5 rounded-2xl text-sm flex justify-between items-start">
                     <div>
                       <span className="px-2 py-0.5 rounded-full text-[10px] bg-red-500/20 text-red-400 font-medium mb-2 inline-block">
                         {report.reason}
@@ -221,13 +221,13 @@ export function Dashboard() {
         </div>
 
         {/* Recent Admin Actions */}
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 overflow-hidden flex flex-col">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5 overflow-hidden flex flex-col">
           <h4 className="text-sm font-medium text-gray-400 mb-4">{t('admin_dash_recent_actions')}</h4>
           <div className="flex-1 overflow-y-auto pr-2">
             {stats.recent_actions?.length > 0 ? (
               <div className="space-y-3">
                 {stats.recent_actions.map((action) => (
-                  <div key={action.id} className="p-3 bg-white/5 rounded-xl text-sm flex justify-between items-start">
+                  <div key={action.id} className="p-3 bg-white/[0.04] border border-white/5 rounded-2xl text-sm flex justify-between items-start">
                     <div>
                       <p className="text-gray-300">
                         <span className="text-white font-medium">{action.admin_name || 'Admin'}</span> · <span className="text-blue-400">{action.action}</span>
@@ -251,7 +251,7 @@ export function Dashboard() {
         </div>
 
         {/* Recent Subscription Cancellations */}
-        <div className="bg-[#1a1924]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 overflow-hidden flex flex-col">
+        <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-5 overflow-hidden flex flex-col">
           <h4 className="text-sm font-medium text-gray-400 mb-4 flex items-center gap-1.5">
             <XCircle className="w-4 h-4 text-amber-400" />
             {t('admin_dash_recent_cancellations')}
@@ -260,7 +260,7 @@ export function Dashboard() {
             {stats.recent_cancellations?.length > 0 ? (
               <div className="space-y-3">
                 {stats.recent_cancellations.map((sub) => (
-                  <div key={sub.id} className="p-3 bg-white/5 rounded-xl text-sm flex justify-between items-start">
+                  <div key={sub.id} className="p-3 bg-white/[0.04] border border-white/5 rounded-2xl text-sm flex justify-between items-start">
                     <div>
                       <p className="text-gray-300">
                         <span className="text-white font-medium">{sub.user_name || 'Unknown'}</span>

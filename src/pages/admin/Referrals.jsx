@@ -10,6 +10,7 @@ import {
   adminCreateReferralCode, adminDeleteReferralCode
 } from '../../lib/supabase'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { getNicknameStyle } from '../../lib/nicknameStyle'
 
 // База для генерации кастомных ссылок друзьям (?ref=код). Берём прод-домен из
 // env, чтобы ссылки не указывали на localhost при разработке.
@@ -85,7 +86,7 @@ export function Referrals({ onViewProfile }) {
           </button>
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-white bg-purple-600 hover:bg-purple-500 transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-white bg-primary/25 hover:bg-primary/35 border border-primary/40 transition-all"
           >
             <Plus className="w-4 h-4" /> {t('admin_ref_new')}
           </button>
@@ -93,7 +94,7 @@ export function Referrals({ onViewProfile }) {
       </div>
 
       {/* Codes breakdown */}
-      <div className="bg-[#1a1924]/60 border border-white/5 rounded-2xl overflow-hidden">
+      <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
         {stats.codes.length === 0 ? (
           <div className="py-12 text-center text-sm text-gray-500 flex flex-col items-center gap-2">
             <Link2 className="w-8 h-8 text-gray-600" />
@@ -123,7 +124,7 @@ export function Referrals({ onViewProfile }) {
           <h3 className="text-sm font-black text-white flex items-center gap-2">
             <Globe className="w-4 h-4 text-sky-400" /> {t('admin_ref_by_host')}
           </h3>
-          <div className="bg-[#1a1924]/60 border border-white/5 rounded-2xl divide-y divide-white/5">
+          <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl divide-y divide-white/5">
             {stats.hosts.map(h => (
               <div key={h.host} className="flex items-center justify-between px-4 py-2.5">
                 <span className="text-sm text-gray-300 truncate flex items-center gap-2">
@@ -233,7 +234,7 @@ function CreateCodeModal({ existing, onClose, onCreated, t }) {
           <button
             onClick={submit}
             disabled={busy || duplicate}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white bg-purple-600 hover:bg-purple-500 transition-all disabled:opacity-40"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white bg-primary/25 hover:bg-primary/35 border border-primary/40 transition-all disabled:opacity-40"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {t('admin_ref_create')}
@@ -325,9 +326,21 @@ function CodeRow({ code: c, expanded, onToggle, onDelete, fmtDate, onViewProfile
                   onClick={() => onViewProfile?.(u.id)}
                   className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-left"
                 >
-                  <ProfileAvatar avatarUrl={u.avatar_url} size="sm" />
+                  <ProfileAvatar
+                    avatarUrl={u.avatar_url}
+                    size="sm"
+                    isPro={u.is_pro}
+                    avatarFrame={u.avatar_frame}
+                    workCount={u.finished_work_count}
+                  />
                   <div className="min-w-0 flex-1">
-                    <span className="text-xs font-bold text-white truncate block">{u.nickname || 'Unknown'}</span>
+                    <span
+                      className="text-xs font-bold text-white truncate block notranslate"
+                      translate="no"
+                      style={getNicknameStyle(u.nickname_color, '#fff')}
+                    >
+                      {u.nickname || 'Unknown'}
+                    </span>
                     <span className="text-[10px] text-gray-500 truncate block">{u.email || '—'}</span>
                   </div>
                   <span className="text-[10px] text-gray-500 whitespace-nowrap">{fmtDate(u.created_at)}</span>
@@ -345,7 +358,7 @@ function CodeRow({ code: c, expanded, onToggle, onDelete, fmtDate, onViewProfile
 
 function StatCard({ icon: Icon, label, value, accent }) {
   return (
-    <div className="bg-[#1a1924]/60 border border-white/5 rounded-2xl p-3.5 flex items-center gap-3">
+    <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl p-3.5 flex items-center gap-3">
       <div className={`w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center shrink-0 ${accent}`}>
         <Icon className="w-4 h-4" />
       </div>

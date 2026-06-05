@@ -110,7 +110,7 @@ export function Tags() {
       )}
 
       {/* Table */}
-      <div className="bg-[#1a1924]/60 border border-white/5 rounded-2xl overflow-hidden">
+      <div className="bg-[#15141d]/70 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div>
         ) : data.tags.length === 0 ? (
