@@ -113,8 +113,14 @@ export function Onboarding({ user, onComplete }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#0c0b11] flex flex-col items-center justify-center p-6 sm:p-8 animate-in fade-in duration-700">
-      <div className="max-w-2xl w-full flex flex-col items-center text-center space-y-8">
+    <div
+      className="fixed inset-0 z-[200] bg-[#0c0b11] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] flex flex-col items-center p-6 sm:p-8 animate-in fade-in duration-700"
+      style={{
+        paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(2.5rem, calc(env(safe-area-inset-bottom) + 2rem))',
+      }}
+    >
+      <div className="max-w-2xl w-full flex flex-col items-center text-center space-y-8 my-auto">
         <div className="w-20 h-20 bg-purple-600/20 rounded-full flex items-center justify-center shadow-2xl shadow-purple-900/30">
           <Sparkles className="w-10 h-10 text-purple-400" />
         </div>

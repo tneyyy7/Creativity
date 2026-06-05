@@ -170,13 +170,13 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
   return (
     <div className="fixed inset-0 z-[100] h-screen h-[100dvh] bg-[#0c0b11] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
       <div
-        className={`min-h-full flex justify-center px-4 sm:px-6 ${isSignup ? 'items-start' : 'items-center'}`}
+        className="min-h-full flex flex-col items-center justify-start px-4 sm:px-6"
         style={{
           paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
           paddingBottom: 'max(2.5rem, calc(env(safe-area-inset-bottom) + 2rem))',
         }}
       >
-        <div className="w-full max-w-md min-h-0 space-y-8 animate-in fade-in zoom-in duration-500">
+        <div className="w-full max-w-md min-h-0 my-auto space-y-8 animate-in fade-in zoom-in duration-500">
           <div className="text-center">
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-600 rounded-[1.5rem] sm:rounded-[2rem] flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-2xl shadow-purple-900/40">
               <Lock className="text-white w-8 h-8 sm:w-10 sm:h-10" />
