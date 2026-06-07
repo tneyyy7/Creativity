@@ -171,7 +171,8 @@ function App() {
         externalProfile: painting.profiles || null
       })
     })
-  }, [user])
+    // initialDeepLink is a stable useState value (never changes); safe in deps.
+  }, [user, initialDeepLink])
 
   useEffect(() => {
     // Detect password recovery mode on initial load
