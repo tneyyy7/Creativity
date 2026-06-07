@@ -62,12 +62,13 @@ export const uploadPainting = async (file, userId) => {
 
   // Normalize filename: remove special characters, spaces to dashes, etc.
   const cleanName = processedFile.name
+    // eslint-disable-next-line no-control-regex -- intentional: strip non-ASCII incl. control chars
     .replace(/[^\x00-\x7F]/g, "") // remove non-ascii
     .replace(/\s+/g, '-')         // spaces to dashes
     .replace(/[^a-zA-Z0-9.-]/g, '') // remove anything not alphanumeric, dot or dash
 
   const fileName = `${userId}/${Date.now()}-${cleanName || 'image'}`
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from('paintings')
     .upload(fileName, processedFile)
 

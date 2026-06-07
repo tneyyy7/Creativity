@@ -1,5 +1,4 @@
 import { supabase } from './core'
-import { fetchProfile } from './profile'
 
 export async function fetchBlockedIds(userId) {
   if (!userId) return []

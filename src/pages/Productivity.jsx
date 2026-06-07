@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
-import { TrendingUp, Award, Calendar, Zap, Sparkles, Image as ImageIcon } from 'lucide-react'
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { TrendingUp, Image as ImageIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'

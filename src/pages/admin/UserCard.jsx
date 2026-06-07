@@ -12,7 +12,6 @@ import {
 import { ProfileAvatar } from '../../components/ProfileAvatar'
 import { getNicknameStyle } from '../../lib/nicknameStyle'
 
-const ROLE_RANK = { moderator: 1, admin: 2, superadmin: 3 }
 const ROLE_OPTIONS = ['', 'moderator', 'admin', 'superadmin']
 
 export function UserCard({ userId, adminRole, onClose, onViewProfile, onChanged }) {

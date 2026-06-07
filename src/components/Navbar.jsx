@@ -1,4 +1,4 @@
-import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem, Shield, Rocket } from 'lucide-react'
+import { Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem, Shield, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
 import { AnimatedPillGroup } from './AnimatedPillGroup'
