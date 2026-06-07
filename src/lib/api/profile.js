@@ -78,6 +78,32 @@ export const upsertProfile = async (profile) => {
 }
 
 
+// Persist the free banner gradient preset id on the user's own profile row.
+// Kept separate from upsertProfile so a not-yet-migrated banner_gradient column
+// (returns "column does not exist") fails softly without blocking other saves.
+// Returns true on success, false if the column is missing or the update failed.
+export const updateBannerGradient = async (userId, gradientId) => {
+  if (!userId) return false
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ banner_gradient: gradientId || null, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+    if (error) {
+      if (/banner_gradient/.test(error.message || '')) {
+        console.warn('banner_gradient column not migrated yet — skipping persist')
+        return false
+      }
+      throw error
+    }
+    return true
+  } catch (e) {
+    console.error('updateBannerGradient error:', e)
+    return false
+  }
+}
+
+
 export const uploadAvatar = async (file, userId) => {
   const processedFile = await convertHeicToJpeg(file)
   const fileExt = processedFile.name.split('.').pop()
@@ -102,11 +128,21 @@ export const uploadAvatar = async (file, userId) => {
 
 export const fetchPublicProfile = async (userId) => {
   try {
-    const { data, error } = await supabase
+    const baseCols = 'id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization'
+    let { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization')
+      .select(`${baseCols}, banner_gradient`)
       .eq('id', userId)
       .single()
+    // banner_gradient column may not be migrated yet — retry without it so the
+    // profile still loads (the gradient just falls back to the default preset).
+    if (error && /banner_gradient/.test(error.message || '')) {
+      ;({ data, error } = await supabase
+        .from('profiles')
+        .select(baseCols)
+        .eq('id', userId)
+        .single())
+    }
     if (error && error.message?.includes('finished_work_count')) {
       const { data: retry } = await supabase
         .from('profiles')
@@ -183,6 +219,7 @@ export async function updateProProfileSettings(userId, settings) {
         avatar_frame: settings.avatar_frame || 'default',
         nickname_color: settings.nickname_color || '',
         chat_theme: settings.chat_theme || 'default',
+        cover_url: settings.cover_url || '',
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' })
       .select()
@@ -192,6 +229,33 @@ export async function updateProProfileSettings(userId, settings) {
     return data
   } catch (e) {
     console.error('updateProProfileSettings error:', e)
+    throw e
+  }
+}
+
+
+// Upload a profile cover (header background) image to the `paintings` bucket.
+// Returns the public URL. The caller persists it via updateProProfileSettings.
+export async function uploadProfileCover(userId, file) {
+  try {
+    if (!userId || !file) throw new Error('Missing user ID or file')
+
+    const fileExt = file.name ? file.name.split('.').pop() : 'jpg'
+    const fileName = `${userId}/cover/${Date.now()}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('paintings')
+      .upload(fileName, file, { upsert: true })
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('paintings')
+      .getPublicUrl(fileName)
+
+    return publicUrl
+  } catch (e) {
+    console.error('uploadProfileCover error:', e)
     throw e
   }
 }

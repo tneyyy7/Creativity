@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Check, Crown, Sparkles, Zap, Gem, AlertCircle, ArrowRight, Palette, Shield } from 'lucide-react'
+import { Check, Crown, Sparkles, Zap, Gem, AlertCircle, ArrowRight, Palette, Shield, Image as ImageIcon, Upload, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchSubscriptionStatus, fetchProProfileSettings, updateProProfileSettings } from '../lib/supabase'
+import { supabase, fetchSubscriptionStatus, fetchProProfileSettings, updateProProfileSettings, uploadProfileCover } from '../lib/supabase'
 import { redirectToStripeCheckout } from '../lib/stripe'
 import { CustomEmojisManager } from '../components/CustomEmojisManager'
 import { ProfileAvatar } from '../components/ProfileAvatar'
@@ -73,11 +73,13 @@ export function Subscription() {
   const [profileSettings, setProfileSettings] = useState({
     avatar_frame: 'default',
     nickname_color: '',
-    chat_theme: 'default'
+    chat_theme: 'default',
+    cover_url: ''
   })
   const [loading, setLoading] = useState(true)
   const [savingSettings, setSavingSettings] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(null)
+  const [coverUploading, setCoverUploading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
@@ -106,7 +108,8 @@ export function Subscription() {
             setProfileSettings({
               avatar_frame: settings.avatar_frame || 'default',
               nickname_color: settings.nickname_color || '',
-              chat_theme: settings.chat_theme || 'default'
+              chat_theme: settings.chat_theme || 'default',
+              cover_url: settings.cover_url || ''
             })
           }
         }
@@ -136,6 +139,82 @@ export function Subscription() {
       setMessage({ type: 'error', text: t('pro_checkout_error', 'Не удалось запустить платежную форму. Попробуйте еще раз.') })
     } finally {
       setCheckoutLoading(null)
+    }
+  }
+
+  // Center-crop an image file to 4:1 (1600x400), re-encode as WebP, and upload.
+  const COVER_W = 1600
+  const COVER_H = 400
+  const handleCoverChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file || !user || !subStatus.isPro) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: t('pro_cover_too_large', 'Файл слишком большой. Максимум 5 МБ.') })
+      return
+    }
+    if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) {
+      setMessage({ type: 'error', text: t('pro_cover_bad_type', 'Поддерживаются только JPG, PNG или WebP.') })
+      return
+    }
+
+    try {
+      setCoverUploading(true)
+      setMessage({ type: '', text: '' })
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const blob = await new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas')
+            canvas.width = COVER_W
+            canvas.height = COVER_H
+            const ctx = canvas.getContext('2d')
+            if (!ctx) { reject(new Error('canvas context')); return }
+            // Center-crop the source to a 4:1 region, then scale to 1600x400.
+            const targetRatio = COVER_W / COVER_H
+            const srcRatio = img.width / img.height
+            let sx, sy, sw, sh
+            if (srcRatio > targetRatio) {
+              // source is wider — crop sides
+              sh = img.height
+              sw = sh * targetRatio
+              sx = (img.width - sw) / 2
+              sy = 0
+            } else {
+              // source is taller — crop top/bottom
+              sw = img.width
+              sh = sw / targetRatio
+              sx = 0
+              sy = (img.height - sh) / 2
+            }
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, COVER_W, COVER_H)
+            canvas.toBlob((b) => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/webp', 0.85)
+          } catch (err) {
+            reject(err)
+          }
+        }
+        img.onerror = reject
+        img.src = dataUrl
+      })
+
+      const coverFile = new File([blob], 'cover.webp', { type: 'image/webp' })
+      const publicUrl = await uploadProfileCover(user.id, coverFile)
+      setProfileSettings((prev) => ({ ...prev, cover_url: publicUrl }))
+      setMessage({ type: 'success', text: t('pro_cover_uploaded', 'Обложка загружена. Не забудьте сохранить настройки.') })
+    } catch (err) {
+      console.error('Error uploading cover:', err)
+      setMessage({ type: 'error', text: t('pro_cover_error', 'Не удалось загрузить обложку.') })
+    } finally {
+      setCoverUploading(false)
     }
   }
 
@@ -294,6 +373,44 @@ export function Subscription() {
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Profile Cover (header background) */}
+            <div className="space-y-3">
+              <label className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-purple-400" /> {t('pro_cover_label', 'Обложка профиля')}
+              </label>
+              <p className="text-gray-400 text-xs">
+                {t('pro_cover_hint', 'Рекомендуемый размер: 1600 × 400 px (4:1). JPG, PNG или WebP, до 5 МБ.')}
+              </p>
+              <div className="relative w-full aspect-[4/1] rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+                {profileSettings.cover_url ? (
+                  <>
+                    <img src={profileSettings.cover_url} alt="Cover preview" className="absolute inset-0 w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/70" />
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-xs">
+                    {t('pro_cover_empty', 'Обложка не задана')}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className={`btn btn-secondary cursor-pointer ${coverUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                  <Upload className="w-4 h-4" />
+                  {coverUploading ? t('pro_cover_uploading', 'Загрузка...') : t('pro_cover_upload_btn', 'Загрузить обложку')}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverChange} className="hidden" disabled={coverUploading} />
+                </label>
+                {profileSettings.cover_url && (
+                  <button
+                    type="button"
+                    onClick={() => setProfileSettings((prev) => ({ ...prev, cover_url: '' }))}
+                    className="px-3 py-2 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-xl transition-all flex items-center gap-1.5 text-sm font-bold border border-white/10"
+                  >
+                    <Trash2 className="w-4 h-4" /> {t('pro_cover_remove_btn', 'Убрать')}
+                  </button>
+                )}
               </div>
             </div>
 

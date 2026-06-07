@@ -44,7 +44,7 @@ export function ProfileAvatar({ avatarUrl, workCount = 0, size = "md", className
     sm: "w-10 h-10",
     md: "w-12 h-12",
     lg: "w-20 h-20",
-    profile: "w-[110px] h-[110px]",
+    profile: "w-24 h-24 sm:w-[110px] sm:h-[110px]",
     xl: "w-32 h-32 md:w-40 md:h-40"
   }
 

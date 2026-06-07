@@ -113,6 +113,7 @@ function App() {
   const [isPro, setIsPro] = useState(false)
   const [avatarFrame, setAvatarFrame] = useState('default')
   const [nicknameColor, setNicknameColor] = useState('')
+  const [coverUrl, setCoverUrl] = useState('')
   const [initialMessageUser, setInitialMessageUser] = useState(null)
   const [isResettingPassword, setIsResettingPassword] = useState(() => {
     const initial = parseInitialUrl()
@@ -218,6 +219,7 @@ function App() {
               setWorkCount(data.finished_work_count || 0)
               setAvatarFrame(data.avatar_frame || 'default')
               setNicknameColor(data.nickname_color || '')
+              setCoverUrl(data.cover_url || '')
               // Sync the saved theme from the profile across devices.
               if (data.theme) setTheme(applyTheme(data.theme))
               
@@ -613,7 +615,15 @@ function App() {
             isPro={isPro}
             avatarFrame={avatarFrame}
             nicknameColor={nicknameColor}
+            coverUrl={coverUrl}
             onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile'); }}
+            onMessage={openMessageWithUser}
+            onOpenPost={(id, painting, collection, index, profile) => setPostViewer({
+              painting,
+              paintings: collection || [painting],
+              index: index ?? 0,
+              externalProfile: profile
+            })}
           />}
           {activeTab === 'friends' && <Friends
             user={user} 

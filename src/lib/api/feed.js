@@ -195,6 +195,18 @@ export async function fetchExplorePaintings(filters = {}, { page = 0, pageSize =
   try {
     const { searchQuery, category, onlyFinished, tag, sort } = filters
 
+    // Boost surfacing: on the default Popular browse (no search/tag), boosted posts
+    // are pulled to the top of page 0 and removed from the normal stream so they
+    // appear exactly once. Filtered/searched views are left untouched.
+    const boostMode = sort === 'popular' && !(searchQuery && searchQuery.trim()) && !tag
+    let boostedIds = []
+    if (boostMode) {
+      try {
+        const { data: bIds } = await supabase.rpc('get_active_boosted_ids')
+        boostedIds = (bIds || []).map(r => r.painting_id)
+      } catch (e) { console.error('get_active_boosted_ids error:', e) }
+    }
+
     let paintingIdsFromTag = null
 
     // 1. Если выбран тег, сначала находим связанные картины
@@ -239,6 +251,11 @@ export async function fetchExplorePaintings(filters = {}, { page = 0, pageSize =
     // Hide works from blocked authors
     if (blockedIds.length > 0) {
       query = query.not('user_id', 'in', `(${blockedIds.join(',')})`)
+    }
+
+    // Pull boosted posts out of the normal stream (they're prepended on page 0).
+    if (boostMode && boostedIds.length > 0) {
+      query = query.not('id', 'in', `(${boostedIds.join(',')})`)
     }
 
     // 3. Текстовый поиск (по названию, описанию или хештегам)
@@ -307,10 +324,10 @@ export async function fetchExplorePaintings(filters = {}, { page = 0, pageSize =
     const { data: paintings, error } = await query
 
     if (error) throw error
-    if (!paintings || paintings.length === 0) return empty
 
-    const hasMore = paintings.length > pageSize
-    const pageRows = hasMore ? paintings.slice(0, pageSize) : paintings
+    const rows = paintings || []
+    const hasMore = rows.length > pageSize
+    const pageRows = hasMore ? rows.slice(0, pageSize) : rows
 
     // 5. Догружаем профили авторов для результатов
     const enriched = await attachAuthors(pageRows)
@@ -320,6 +337,21 @@ export async function fetchExplorePaintings(filters = {}, { page = 0, pageSize =
       likesCount: p.likes_count ?? 0
     }))
 
+    // Prepend boosted posts at the top of the default Popular browse (page 0 only).
+    if (boostMode && page === 0 && boostedIds.length > 0) {
+      let bQuery = supabase.from('paintings').select('*').in('id', boostedIds)
+      if (onlyFinished) bQuery = bQuery.eq('is_finished', true)
+      if (category && category !== 'All' && category !== 'Все') bQuery = bQuery.eq('category', category)
+      if (blockedIds.length > 0) bQuery = bQuery.not('user_id', 'in', `(${blockedIds.join(',')})`)
+      const { data: boostedRows } = await bQuery.order('created_at', { ascending: false })
+      if (boostedRows && boostedRows.length > 0) {
+        const boostedEnriched = await attachAuthors(boostedRows)
+        const boostedItems = boostedEnriched.map(p => ({ ...p, likesCount: p.likes_count ?? 0, boosted: true }))
+        return { items: [...boostedItems, ...items], hasMore }
+      }
+    }
+
+    if (items.length === 0) return empty
     return { items, hasMore }
   } catch (e) {
     console.error('fetchExplorePaintings error:', e)

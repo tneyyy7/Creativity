@@ -1,4 +1,4 @@
-import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem, Shield } from 'lucide-react'
+import { LogOut, Settings, Bell, Menu, BadgeCheck, Languages, Check, X, User, Heart, MessageCircle, Bookmark, Gem, Shield, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProfileAvatar } from './ProfileAvatar'
 import { AnimatedPillGroup } from './AnimatedPillGroup'
@@ -35,6 +35,12 @@ export function Navbar({ nickname, avatarUrl, userEmail, user, onToggleSidebar, 
           bgClass: 'bg-green-600',
           icon: <User className="w-2.5 h-2.5 text-white" />,
           text: t('followed_you', 'followed you')
+        }
+      case 'boost':
+        return {
+          bgClass: 'bg-cyan-500',
+          icon: <Rocket className="w-2.5 h-2.5 text-white" />,
+          text: t('boosted_your_post', 'продвинул(а) вашу работу')
         }
       case 'friend_accept':
         return {

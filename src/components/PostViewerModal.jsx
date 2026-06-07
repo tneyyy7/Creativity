@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck, Box, PenTool, MoreVertical, Flag, Ban, Link2 } from 'lucide-react'
+import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck, Box, PenTool, MoreVertical, Flag, Ban, Link2, Rocket, Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection, blockUser } from '../lib/supabase'
+import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection, blockUser, getBoostBalance, applyBoost, reassignBoost, getMyBoosts } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 import { CollectionsModal } from './CollectionsModal'
 import { ReportModal } from './ReportModal'
@@ -31,6 +31,14 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const [showModMenu, setShowModMenu] = useState(false)
   const [reportTarget, setReportTarget] = useState(null) // { type, id }
   const [blockConfirm, setBlockConfirm] = useState(false)
+  // Boost
+  const [boostInfo, setBoostInfo] = useState({ available: 0, is_pro: false })
+  const [myBoostedIds, setMyBoostedIds] = useState(new Set())
+  const [isBoosting, setIsBoosting] = useState(false)
+  const [showReassign, setShowReassign] = useState(false)
+  const [showBoostUpsell, setShowBoostUpsell] = useState(false)
+  const [myBoosts, setMyBoosts] = useState([])
+  const [boostToast, setBoostToast] = useState('')
 
   const commentInputRef = useRef(null)
   const commentsEndRef = useRef(null)
@@ -152,6 +160,75 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [])
+
+  // Load the viewer's boost balance and which posts they've already boosted.
+  useEffect(() => {
+    let cancelled = false
+    if (!currentUserId) return
+    ;(async () => {
+      try {
+        const [bal, mine] = await Promise.all([getBoostBalance(), getMyBoosts()])
+        if (cancelled) return
+        setBoostInfo({ available: bal.available ?? 0, is_pro: !!bal.is_pro })
+        setMyBoosts(mine)
+        setMyBoostedIds(new Set(mine.map(b => b.painting_id)))
+      } catch (e) { console.error('Boost load error:', e) }
+    })()
+    return () => { cancelled = true }
+  }, [currentUserId])
+
+  const isBoostedByMe = !!painting && myBoostedIds.has(painting.id)
+
+  const handleBoost = async () => {
+    if (!currentUserId || isBoosting || !painting) return
+    if (!boostInfo.is_pro) { setShowBoostUpsell(true); return }
+    if (isBoostedByMe) return
+    if (boostInfo.available <= 0) {
+      // Out of boosts — offer to move one from another post.
+      const mine = await getMyBoosts()
+      setMyBoosts(mine)
+      setShowReassign(true)
+      return
+    }
+    setIsBoosting(true)
+    try {
+      const newAvail = await applyBoost(painting.id)
+      setBoostInfo(prev => ({ ...prev, available: typeof newAvail === 'number' ? newAvail : prev.available - 1 }))
+      setMyBoostedIds(prev => new Set(prev).add(painting.id))
+      setBoostToast(t('boost_applied', 'Пост забустен! 🚀'))
+      setTimeout(() => setBoostToast(''), 2500)
+    } catch (e) {
+      console.error('Boost error:', e)
+      const msg = e?.message?.includes('no_boosts_left')
+        ? t('boost_none_left', 'Бусты закончились')
+        : e?.message?.includes('already_boosted')
+        ? t('boost_already', 'Вы уже забустили этот пост')
+        : t('boost_failed', 'Не удалось забустить')
+      setBoostToast(msg)
+      setTimeout(() => setBoostToast(''), 2500)
+    } finally { setIsBoosting(false) }
+  }
+
+  const handleReassign = async (fromPaintingId) => {
+    if (!painting) return
+    setIsBoosting(true)
+    try {
+      await reassignBoost(fromPaintingId, painting.id)
+      setMyBoostedIds(prev => {
+        const next = new Set(prev)
+        next.delete(fromPaintingId)
+        next.add(painting.id)
+        return next
+      })
+      setShowReassign(false)
+      setBoostToast(t('boost_moved', 'Буст перенесён сюда! 🚀'))
+      setTimeout(() => setBoostToast(''), 2500)
+    } catch (e) {
+      console.error('Reassign error:', e)
+      setBoostToast(t('boost_failed', 'Не удалось перенести буст'))
+      setTimeout(() => setBoostToast(''), 2500)
+    } finally { setIsBoosting(false) }
+  }
 
   const handleLike = async () => {
     if (!currentUserId || isLiking) return
@@ -420,6 +497,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             commentsEndRef={commentsEndRef}
             handleLike={handleLike}
             handleBookmark={handleBookmark}
+            boost={{ isPro: boostInfo.is_pro, available: boostInfo.available, isBoosted: isBoostedByMe, isBoosting, onBoost: handleBoost }}
             handleSendComment={handleSendComment}
             handleDeleteComment={handleDeleteComment}
             handleShareOpen={handleShareOpen}
@@ -504,6 +582,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           commentsEndRef={commentsEndRef}
           handleLike={handleLike}
           handleBookmark={handleBookmark}
+          boost={{ isPro: boostInfo.is_pro, available: boostInfo.available, isBoosted: isBoostedByMe, isBoosting, onBoost: handleBoost }}
           handleSendComment={handleSendComment}
           handleDeleteComment={handleDeleteComment}
           handleShareOpen={handleShareOpen}
@@ -617,12 +696,68 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           </div>
         </GlassModal>
       )}
+
+      {/* Boost: Pro-only upsell */}
+      {showBoostUpsell && (
+        <GlassModal onClose={() => setShowBoostUpsell(false)} z="z-[120]" maxWidth="max-w-sm" showClose={false}>
+          <div className="text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-300 mx-auto">
+              <Rocket className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-bold text-white">{t('boost_pro_title', 'Boost — функция Pro')}</h3>
+            <p className="text-[11px] text-gray-400">{t('boost_pro_desc', 'Подписка Pro даёт бусты каждый месяц, чтобы продвигать понравившиеся работы выше в рекомендациях.')}</p>
+            <button onClick={() => setShowBoostUpsell(false)} className={`${glassActionBase} ${glassActionNeutral} w-full`}>{t('close', 'Закрыть')}</button>
+          </div>
+        </GlassModal>
+      )}
+
+      {/* Boost: reassign picker (out of boosts) */}
+      {showReassign && (
+        <GlassModal onClose={() => setShowReassign(false)} z="z-[120]" maxWidth="max-w-md" showClose={false}>
+          <div className="space-y-4">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-300 mx-auto">
+                <Rocket className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-white">{t('boost_reassign_title', 'Бусты закончились')}</h3>
+              <p className="text-[11px] text-gray-400">{t('boost_reassign_desc', 'Выберите пост, с которого забрать буст и перенести на этот.')}</p>
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-2">
+              {myBoosts.length === 0 && (
+                <p className="text-center text-[11px] text-gray-500 py-4">{t('boost_no_active', 'Нет активных бустов')}</p>
+              )}
+              {myBoosts.map(b => (
+                <button
+                  key={b.painting_id}
+                  onClick={() => handleReassign(b.painting_id)}
+                  disabled={isBoosting}
+                  className="w-full flex items-center gap-3 p-2 bg-white/5 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-400/30 rounded-xl transition-all disabled:opacity-50 text-left"
+                >
+                  <img src={b.image_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-xs font-bold text-white truncate">{b.title || t('untitled', 'Без названия')}</span>
+                    <span className="block text-[10px] text-gray-500">{t('boost_move_here', 'Перенести буст сюда →')}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowReassign(false)} className={`${glassActionBase} ${glassActionNeutral} w-full`}>{t('cancel', 'Отмена')}</button>
+          </div>
+        </GlassModal>
+      )}
+
+      {/* Boost toast */}
+      {boostToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[130] bg-cyan-500/90 text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-xl backdrop-blur-md flex items-center gap-2">
+          <Rocket className="w-4 h-4" /> {boostToast}
+        </div>
+      )}
     </div>
   )
 }
 
 // Shared info panel used for both mobile and desktop
-function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags, onTagClick }) {
+function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, boost, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags, onTagClick }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col h-full">
@@ -729,6 +864,20 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
           <button onClick={handleShareOpen} className="text-gray-400 hover:text-purple-400 transition-colors">
             <Share2 className="w-6 h-6" />
           </button>
+          {boost && (
+            <button
+              onClick={boost.onBoost}
+              disabled={!currentUserId || boost.isBoosting || boost.isBoosted}
+              title={!boost.isPro ? t('boost_pro_only', 'Boost — функция Pro') : boost.isBoosted ? t('boost_done', 'Забустено') : t('boost', 'Забустить')}
+              className={`transition-all group disabled:opacity-60 flex items-center gap-1.5 ${boost.isBoosted ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
+            >
+              <span className="relative">
+                <Rocket className={`w-6 h-6 transition-all ${boost.isBoosted ? 'fill-cyan-400/30 scale-110' : 'group-hover:scale-110'}`} />
+                {!boost.isPro && <Lock className="w-3 h-3 absolute -bottom-1 -right-1 text-gray-300 bg-[#12111a] rounded-full p-px" />}
+              </span>
+              {boost.isPro && !boost.isBoosted && boost.available > 0 && <span className="text-sm font-black">{boost.available}</span>}
+            </button>
+          )}
           <button onClick={handleBookmark} disabled={!currentUserId || isBookmarking} className={`transition-all group disabled:opacity-40 ml-auto ${isSaved ? 'text-purple-500' : 'text-gray-400 hover:text-purple-400'}`}>
             <Bookmark className={`w-6 h-6 transition-all ${isSaved ? 'fill-purple-500 scale-110' : 'group-hover:scale-110'}`} />
           </button>

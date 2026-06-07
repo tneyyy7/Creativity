@@ -37,7 +37,7 @@ export async function enrichProfilesWithProData(profiles) {
     // pro_profile_settings has RLS USING(true) — always readable.
     const [subResult, settingsResult] = await Promise.all([
       supabase.from('subscriptions').select('user_id, status, current_period_end').in('user_id', profileIds),
-      supabase.from('pro_profile_settings').select('user_id, avatar_frame, nickname_color, chat_theme').in('user_id', profileIds)
+      supabase.from('pro_profile_settings').select('user_id, avatar_frame, nickname_color, chat_theme, cover_url').in('user_id', profileIds)
     ])
 
     const now = new Date()
@@ -73,7 +73,8 @@ export async function enrichProfilesWithProData(profiles) {
         isPro,
         avatar_frame: settings.avatar_frame || 'default',
         nickname_color: settings.nickname_color || '',
-        chat_theme: settings.chat_theme || 'default'
+        chat_theme: settings.chat_theme || 'default',
+        cover_url: settings.cover_url || ''
       }
     })
 

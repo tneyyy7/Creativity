@@ -28,6 +28,8 @@ const TRANSLATIONS: Record<string, Dict> = {
     follow_msg: "followed you",
     bookmark_title: "Added to favorites",
     bookmark_msg: "added your work to bookmarks",
+    boost_title: "New boost",
+    boost_msg: "boosted your work",
     default_msg: "You have a new notification",
     share_profile: "Shared a profile",
     share_post: "Shared a post",
@@ -49,6 +51,8 @@ const TRANSLATIONS: Record<string, Dict> = {
     follow_msg: "подписался(ась) на ваши обновления",
     bookmark_title: "В избранном",
     bookmark_msg: "добавил(а) вашу работу в избранное",
+    boost_title: "Новый буст",
+    boost_msg: "продвинул(а) вашу работу",
     default_msg: "У вас новое уведомление",
     share_profile: "Поделился(ась) профилем",
     share_post: "Поделился(ась) публикацией",
@@ -70,6 +74,8 @@ const TRANSLATIONS: Record<string, Dict> = {
     follow_msg: "ha iniziato a seguirti",
     bookmark_title: "Aggiunto ai preferiti",
     bookmark_msg: "ha aggiunto la tua opera ai preferiti",
+    boost_title: "Nuovo boost",
+    boost_msg: "ha messo in evidenza la tua opera",
     default_msg: "Hai una nuova notifica",
     share_profile: "Ha condiviso un profilo",
     share_post: "Ha condiviso un post",
@@ -135,6 +141,9 @@ function buildText(
   } else if (notifType === 'bookmark') {
     title = d.bookmark_title
     message = d.bookmark_msg
+  } else if (notifType === 'boost') {
+    title = d.boost_title
+    message = d.boost_msg
   } else {
     message = record.content || d.default_msg
   }

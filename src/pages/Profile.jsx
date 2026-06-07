@@ -1,18 +1,25 @@
 import { useState, useRef, useEffect } from 'react'
-import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar, Gem, Box, PenTool, Share } from 'lucide-react'
+import { User, Camera, Loader2, Save, Mail, AtSign, CheckCircle2, BadgeCheck, Palette, Shapes, Users, Image, Calendar, Gem, Box, PenTool, Share, ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts } from '../lib/supabase'
+import { supabase, upsertProfile, uploadAvatar, fetchFollowCounts, updateBannerGradient } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { FollowListModal } from '../components/FollowListModal'
+import { PublicProfile } from './PublicProfile'
+import { BANNER_GRADIENTS, getBannerGradientCss, DEFAULT_BANNER_GRADIENT_ID } from '../lib/bannerGradients'
 import { getNicknameStyle, sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification, isPushSubscribed } from '../lib/pwa'
 
-export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor, onViewProfile }) {
+export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor, coverUrl, onViewProfile, onMessage, onOpenPost }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
-  
+
+  // 'view' shows the public-facing profile card (same as friends see), 'edit'
+  // shows the settings form below. Defaults to the read-only public view.
+  const [mode, setMode] = useState('view')
+
   const [formNickname, setFormNickname] = useState(nickname)
   const [bio, setBio] = useState('')
+  const [bannerGradient, setBannerGradient] = useState(DEFAULT_BANNER_GRADIENT_ID)
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -40,17 +47,18 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     // Fetch bio when component mounts
     const fetchProfileData = async () => {
       if (user) {
-        // Fetch profile
-        const { data } = await supabase.from('profiles').select('bio, specialization, created_at').eq('id', user.id).single()
+        // Fetch profile. banner_gradient may not be migrated yet — retry without
+        // it so bio/specialization still load.
+        let { data } = await supabase.from('profiles').select('bio, specialization, banner_gradient').eq('id', user.id).single()
+        if (!data) {
+          ;({ data } = await supabase.from('profiles').select('bio, specialization').eq('id', user.id).single())
+        }
         if (data) {
           if (data.bio) setBio(data.bio)
           if (data.specialization) setSpecialization(data.specialization)
-          const rawDate = data.created_at || user.created_at
-          if (rawDate) {
-            const date = new Date(rawDate)
-            setJoinedDate(new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(date))
-          }
-        } else if (user.created_at) {
+          if (data.banner_gradient) setBannerGradient(data.banner_gradient)
+        }
+        if (user.created_at) {
           const date = new Date(user.created_at)
           setJoinedDate(new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(date))
         }
@@ -218,7 +226,11 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
         specialization: specialization,
         updated_at: new Date().toISOString()
       })
-      
+
+      // Free banner gradient — persisted separately so a not-yet-migrated
+      // column can't block the rest of the save.
+      await updateBannerGradient(user.id, bannerGradient)
+
       setNickname(trimmedNickname)
       
       // Update auth metadata as a fallback
@@ -245,9 +257,34 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   }
   const RoleIcon = roleIcons[specialization] || Palette
 
+  // Default view: render the same public profile friends see, with an edit
+  // button (handled inside PublicProfile via onEditProfile) that opens the form.
+  if (mode === 'view') {
+    return (
+      <PublicProfile
+        currentUserId={user?.id}
+        targetUserId={user?.id}
+        onBack={() => setMode('edit')}
+        onMessage={onMessage}
+        onViewProfile={onViewProfile}
+        onOpenPost={onOpenPost}
+        onEditProfile={() => setMode('edit')}
+      />
+    )
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-0">
-      
+
+      <button
+        type="button"
+        onClick={() => setMode('view')}
+        className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold mb-1"
+      >
+        <ArrowLeft className="w-5 h-5" />
+        {t('back_to_profile') || 'Back to Profile'}
+      </button>
+
       <div className="text-center md:text-left">
         <h1 className="text-lg md:text-xl font-black text-white tracking-tighter mb-0 flex items-center justify-center md:justify-start gap-2 leading-none">
           {t('profile_title') || 'Your Profile'}
@@ -261,12 +298,19 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
         {/* Left Column: Public Presence & Stats */}
         <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
           <div className="glass-card p-4 flex flex-col items-center text-center space-y-2 relative overflow-hidden group">
+            {/* Pro cover photo (header background) */}
+            {isPro && coverUrl && (
+              <div className="absolute inset-x-0 top-0 h-32 z-0 pointer-events-none">
+                <img src={coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-[#12111a]/70 to-[#12111a]" />
+              </div>
+            )}
             {/* Background flourish */}
             <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-600/10 rounded-full blur-3xl group-hover:bg-purple-600/20 transition-all duration-500"></div>
             
-            <div 
+            <div
               onClick={handleAvatarClick}
-              className="group cursor-pointer relative"
+              className="group cursor-pointer relative z-10"
             >
               <ProfileAvatar 
                 avatarUrl={avatarUrl} 
@@ -289,7 +333,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
               className="hidden" 
             />
 
-            <div>
+            <div className="relative z-10">
               <h2 className="text-2xl font-black text-white notranslate flex items-center justify-center gap-2 animate-in fade-in duration-300" translate="no">
                 <span style={getNicknameStyle(nicknameColor, '#fff')}>
                   {nickname}
@@ -428,6 +472,40 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Banner gradient (free for everyone) */}
+              <div className="space-y-3 pt-1">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">
+                  {t('banner_color') || 'Banner Color'}
+                </label>
+                {/* Live preview */}
+                <div
+                  className="h-16 rounded-2xl border border-white/10"
+                  style={{ backgroundImage: getBannerGradientCss(bannerGradient) }}
+                />
+                <div className="grid grid-cols-6 sm:grid-cols-11 gap-2">
+                  {BANNER_GRADIENTS.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setBannerGradient(g.id)}
+                      title={g.label}
+                      aria-label={g.label}
+                      className={`h-9 rounded-xl border transition-all ${
+                        bannerGradient === g.id
+                          ? 'border-white ring-2 ring-purple-500 scale-105'
+                          : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{ backgroundImage: g.css }}
+                    />
+                  ))}
+                </div>
+                {isPro && coverUrl && (
+                  <p className="text-[10px] text-gray-500 pl-2 leading-tight">
+                    {t('banner_color_pro_note') || 'Your Pro cover photo is shown instead of the gradient.'}
+                  </p>
+                )}
               </div>
 
               {/* Push Notifications Toggle */}

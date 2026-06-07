@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool, MoreVertical, Flag, Ban } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool, MoreVertical, Flag, Ban, Settings, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts, blockUser, unblockUser, isUserBlocked } from '../lib/supabase'
+import { supabase, fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts, blockUser, unblockUser, isUserBlocked } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { FollowListModal } from '../components/FollowListModal'
 import { ReportModal } from '../components/ReportModal'
 import { GlassModal, GlassModalHeader, glassInput } from '../components/GlassModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
+import { getBannerGradientCss } from '../lib/bannerGradients'
 import SmartImage from '../components/SmartImage'
 
-export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost }) {
+export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost, onEditProfile }) {
   const { t } = useTranslation()
   const [profile, setProfile] = useState(null)
   const [paintings, setPaintings] = useState([])
   const [friendship, setFriendship] = useState(null)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
+  const [friendCount, setFriendCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -63,6 +65,15 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
       fetchFollowCounts(targetUserId)
         .then(setFollowCounts)
         .catch(e => console.error("Error loading follow counts:", e))
+
+      // Load friend count (shown on own profile)
+      supabase
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .or(`sender_id.eq.${targetUserId},receiver_id.eq.${targetUserId}`)
+        .eq('status', 'accepted')
+        .then(({ count }) => setFriendCount(count || 0))
+        .catch(e => console.error("Error loading friend count:", e))
 
       if (currentUserId && currentUserId !== targetUserId) {
         checkFriendshipStatus(currentUserId, targetUserId)
@@ -210,78 +221,117 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   const isAccepted = friendship?.status === 'accepted'
   const isReceiver = friendship?.receiver_id === currentUserId
 
+  const joinedDate = profile.created_at
+    ? new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(profile.created_at))
+    : null
+
+  const SpecIcon = profile.specialization === 'painter' ? Palette
+    : profile.specialization === 'photographer' ? Camera
+    : profile.specialization === '3D' ? Box
+    : profile.specialization === 'designer' ? PenTool
+    : Shapes
+
   return (
     <div id="public-profile-page" className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       
-      <button 
-        onClick={onBack}
-        className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        {t('back_to_friends') || 'Back to Friends'}
-      </button>
+      {!isSelf && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          {t('back_to_friends') || 'Back to Friends'}
+        </button>
+      )}
 
-      <div className="glass-card p-4 sm:p-6 md:p-10 relative overflow-hidden">
-        {/* Decorative background blur */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
-
-        <div className="absolute top-4 right-4 flex items-center gap-1.5 sm:gap-2 z-20">
-          {!isSelf && currentUserId && (
-            <div className="relative">
-              <button
-                onClick={() => setShowModMenu(v => !v)}
-                className="p-2 sm:p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl sm:rounded-2xl transition-all border border-white/5"
-                title={t('report')}
-              >
-                <MoreVertical className="w-4 h-4 sm:w-5 h-5" />
-              </button>
-              {showModMenu && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowModMenu(false)} />
-                  <div className="absolute right-0 mt-2 w-48 z-20 glass-card rounded-2xl border-white/10 bg-[#12111a]/95 p-1.5 shadow-2xl">
-                    <button
-                      onClick={() => { setShowModMenu(false); setShowReport(true) }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all"
-                    >
-                      <Flag className="w-4 h-4" /> {t('report_user')}
-                    </button>
-                    <button
-                      onClick={handleToggleBlock}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 transition-all"
-                    >
-                      <Ban className="w-4 h-4" /> {isBlocked ? t('unblock') : t('block')}
-                    </button>
-                  </div>
-                </>
-              )}
+      <div className="glass-card p-0 relative overflow-hidden">
+        {/* Banner */}
+        <div className="relative w-full h-32 sm:h-44 md:h-52 lg:h-60">
+          {profile.isPro && profile.cover_url ? (
+            <img src={profile.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0" style={{ backgroundImage: getBannerGradientCss(profile.banner_gradient) }}>
+              <div className="absolute -top-1/2 right-0 w-2/3 h-[200%] bg-white/10 rounded-full blur-3xl" />
+              <div className="absolute -bottom-1/2 left-1/4 w-1/2 h-[200%] bg-black/10 rounded-full blur-3xl" />
             </div>
           )}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#12111a]" />
 
-          <button
-            onClick={handleShare}
-            className="p-2 sm:p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-purple-400 rounded-xl sm:rounded-2xl transition-all border border-white/5"
-            title={t('share') || 'Share'}
-          >
-            <Share2 className="w-4 h-4 sm:w-5 h-5" />
-          </button>
+          {/* Top-right icon actions */}
+          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1.5 sm:gap-2 z-20">
+            {!isSelf && currentUserId && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowModMenu(v => !v)}
+                  className="p-2 sm:p-2.5 bg-black/30 backdrop-blur-md hover:bg-black/50 text-white rounded-full transition-all border border-white/10"
+                  title={t('report')}
+                >
+                  <MoreVertical className="w-4 h-4 sm:w-5 h-5" />
+                </button>
+                {showModMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowModMenu(false)} />
+                    <div className="absolute right-0 mt-2 w-48 z-20 glass-card rounded-2xl border-white/10 bg-[#12111a]/95 p-1.5 shadow-2xl">
+                      <button
+                        onClick={() => { setShowModMenu(false); setShowReport(true) }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all"
+                      >
+                        <Flag className="w-4 h-4" /> {t('report_user')}
+                      </button>
+                      <button
+                        onClick={handleToggleBlock}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 transition-all"
+                      >
+                        <Ban className="w-4 h-4" /> {isBlocked ? t('unblock') : t('block')}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleShare}
+              className="p-2 sm:p-2.5 bg-black/30 backdrop-blur-md hover:bg-black/50 text-white rounded-full transition-all border border-white/10"
+              title={t('share') || 'Share'}
+            >
+              <Share2 className="w-4 h-4 sm:w-5 h-5" />
+            </button>
+
+            {isSelf && onEditProfile && (
+              <button
+                onClick={onEditProfile}
+                className="p-2 sm:p-2.5 bg-black/30 backdrop-blur-md hover:bg-black/50 text-white rounded-full transition-all border border-white/10"
+                title={t('edit_profile') || 'Edit profile'}
+                aria-label={t('edit_profile') || 'Edit profile'}
+              >
+                <Settings className="w-4 h-4 sm:w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
-          <ProfileAvatar 
-            avatarUrl={profile.avatar_url} 
-            workCount={profile.finished_work_count} 
-            size="profile"
-            isPro={profile.isPro}
-            avatarFrame={profile.avatar_frame}
-          />
-          
-          <div className="flex-1 text-center md:text-left space-y-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight notranslate flex items-center justify-center md:justify-start gap-2 flex-wrap" translate="no">
+        {/* Body */}
+        <div className="relative px-4 sm:px-6 md:px-8 pb-5 sm:pb-6">
+          {/* Avatar (overlapping banner) */}
+          <div className="-mt-12 sm:-mt-16 md:-mt-[4.5rem] w-fit mb-3">
+            <ProfileAvatar
+              avatarUrl={profile.avatar_url}
+              workCount={profile.finished_work_count}
+              size="profile"
+              isPro={profile.isPro}
+              avatarFrame={profile.avatar_frame}
+            />
+          </div>
+
+          {/* Name + handle with action buttons */}
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
+            <div className="space-y-0.5 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight notranslate flex items-center gap-2 flex-wrap leading-tight" translate="no">
                 <span style={getNicknameStyle(profile.nickname_color)}>
                   {profile.nickname || 'Unknown Artist'}
                 </span>
-                {profile.is_verified && <BadgeCheck className="w-6 h-6 text-purple-400 fill-purple-400/20" />}
+                {profile.is_verified && <BadgeCheck className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 fill-purple-400/20 flex-shrink-0" />}
                 {profile.isPro && (
                   <span className="pro-badge pro-badge-lg">
                     <Gem className="pro-badge-icon" />
@@ -289,130 +339,153 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
                   </span>
                 )}
               </h1>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
-                {profile.specialization && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 text-gray-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-white/10 group-hover:border-purple-500/30 transition-all">
-                    {profile.specialization === 'painter' ? <Palette className="w-3 h-3 text-purple-400" /> : 
-                     profile.specialization === 'photographer' ? <Camera className="w-3 h-3 text-purple-400" /> : 
-                     profile.specialization === '3D' ? <Box className="w-3 h-3 text-purple-400" /> : 
-                     profile.specialization === 'designer' ? <PenTool className="w-3 h-3 text-purple-400" /> : 
-                     <Shapes className="w-3 h-3 text-purple-400" />}
-                    {t(profile.specialization)}
-                  </span>
-                )}
-                {isAccepted && <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-purple-500/20"><Check className="w-3 h-3"/> {t('friend')}</span>}
-              </div>
+              <p className="text-gray-500 font-medium text-sm notranslate" translate="no">@{profile.nickname}</p>
             </div>
-
-            {/* Followers and Following counters */}
-            <div className="flex items-center justify-center md:justify-start gap-6 text-sm py-1 border-t border-b border-white/[0.04] w-fit px-4 bg-white/[0.01] rounded-xl">
-              <span className="text-gray-400">
-                <strong className="text-white font-black">{profile.finished_work_count || 0}</strong> {t('works') || 'Works'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setFollowModalTab('followers')}
-                className="text-gray-400 border-l border-white/5 pl-6 hover:text-white transition-colors cursor-pointer"
-              >
-                <strong className="text-white font-black">{followCounts.followers}</strong> {t('followers') || 'Followers'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFollowModalTab('following')}
-                className="text-gray-400 border-l border-white/5 pl-6 hover:text-white transition-colors cursor-pointer"
-              >
-                <strong className="text-white font-black">{followCounts.following}</strong> {t('following') || 'Following'}
-              </button>
-            </div>
-
-            {profile.bio ? (
-              <p className="text-gray-300 leading-relaxed text-base md:text-lg max-w-2xl notranslate" translate="no">{profile.bio}</p>
-            ) : (
-              <p className="text-gray-500 italic">{t('no_bio') || 'This artist prefers to let their work speak for itself.'}</p>
-            )}
 
             {!isSelf && (
-              <div className="pt-4 flex flex-wrap gap-3 items-center justify-center md:justify-start">
-                    {/* Follow Button */}
-                    <button 
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  {!isPending && (
+                    <button
                       onClick={handleFollowToggle}
                       disabled={actionLoading}
-                      className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 border shadow-lg ${
-                        isFollowing 
-                          ? 'bg-white/5 hover:bg-red-500/10 text-gray-300 hover:text-red-400 border-white/10' 
-                          : 'bg-purple-600 hover:bg-purple-500 text-white border-purple-500 shadow-purple-900/20'
+                      title={isFollowing ? t('unfollow', 'Unfollow') : t('follow', 'Follow')}
+                      className={`flex items-center justify-center gap-2 h-10 sm:h-11 w-10 sm:w-auto px-0 sm:px-5 font-bold rounded-full transition-all border text-sm active:scale-95 disabled:opacity-60 ${
+                        isFollowing
+                          ? 'bg-white/5 hover:bg-red-500/10 text-gray-300 hover:text-red-400 border-white/15'
+                          : 'bg-purple-600 hover:bg-purple-500 text-white border-purple-500'
                       }`}
                     >
-                      <User className="w-5 h-5" />
-                      {isFollowing ? t('unfollow', 'Unfollow') : t('follow', 'Follow')}
+                      <User className="w-4 h-4 shrink-0" />
+                      <span className="hidden sm:inline">{isFollowing ? t('unfollow', 'Unfollow') : t('follow', 'Follow')}</span>
                     </button>
+                  )}
 
-                    {isAccepted && (
-                      <button 
-                        data-lg-fx
-                        onClick={() => onMessage?.(profile)}
-                        className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-all flex items-center gap-2 mx-auto md:mx-0 border border-white/10"
-                      >
-                        <MessageCircle className="w-5 h-5 text-purple-400" />
-                        {t('message') || 'Message'}
-                      </button>
-                    )}
-                    {isPending ? (
-                  isReceiver ? (
-                    <div className="flex flex-col sm:flex-row items-center gap-3 justify-center md:justify-start">
-                      <span className="text-gray-400 font-bold flex items-center gap-2 mb-2 sm:mb-0">
-                        <User className="w-5 h-5 text-purple-400" />
-                        {t('sent_you_request') || 'Sent you a request'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button 
+                  {isAccepted && (
+                    <button
+                      data-lg-fx
+                      onClick={() => onMessage?.(profile)}
+                      title={t('message') || 'Message'}
+                      aria-label={t('message') || 'Message'}
+                      className="flex items-center justify-center w-10 sm:w-11 h-10 sm:h-11 bg-white/5 hover:bg-white/10 text-purple-400 rounded-full transition-all border border-white/15 active:scale-95"
+                    >
+                      <MessageCircle className="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" />
+                    </button>
+                  )}
+
+                  {isPending ? (
+                    isReceiver ? (
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <button
                           onClick={handleAccept}
                           disabled={actionLoading}
-                          className="btn btn-primary"
+                          title={t('accept') || 'Accept'}
+                          className="flex items-center justify-center gap-2 h-10 sm:h-11 w-10 sm:w-auto px-0 sm:px-5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-full transition-all text-sm active:scale-95 disabled:opacity-60"
                         >
-                          <Check className="w-4 h-4" />
-                          {t('accept') || 'Accept'}
+                          <Check className="w-4 h-4 shrink-0" />
+                          <span className="hidden sm:inline">{t('accept') || 'Accept'}</span>
                         </button>
-                        <button 
+                        <button
                           onClick={handleReject}
                           disabled={actionLoading}
-                          className="px-4 py-2 bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-500 font-bold rounded-xl transition-all"
+                          title={t('reject') || 'Reject'}
+                          aria-label={t('reject') || 'Reject'}
+                          className="flex items-center justify-center w-10 sm:w-11 h-10 sm:h-11 bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-500 rounded-full transition-all border border-white/15 active:scale-95"
                         >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-                    </div>
-                  ) : (
-                    <button 
-                      disabled
-                      className="px-6 py-3 bg-white/5 text-gray-400 font-bold rounded-xl flex items-center gap-2 mx-auto md:mx-0 border border-white/10"
+                    ) : (
+                      <button
+                        disabled
+                        title={t('request_pending') || 'Request Sent'}
+                        className="flex items-center justify-center gap-2 h-10 sm:h-11 w-10 sm:w-auto px-0 sm:px-5 bg-white/5 text-gray-400 font-bold rounded-full border border-white/15 text-sm"
+                      >
+                        <Clock className="w-4 h-4 shrink-0" />
+                        <span className="hidden sm:inline">{t('request_pending') || 'Request Sent'}</span>
+                      </button>
+                    )
+                  ) : isAccepted ? (
+                    <button
+                      data-lg-fx
+                      onClick={handleRemoveFriend}
+                      disabled={actionLoading}
+                      title={t('remove_friend') || 'Remove Friend'}
+                      aria-label={t('remove_friend') || 'Remove Friend'}
+                      className="flex items-center justify-center w-10 sm:w-11 h-10 sm:h-11 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-full transition-all border border-white/15 active:scale-95"
                     >
-                      <Clock className="w-5 h-5" />
-                      {t('request_pending') || 'Request Sent'}
+                      <UserMinus className="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" />
                     </button>
-                  )
-                ) : isAccepted ? (
-                  <button 
-                    data-lg-fx
-                    onClick={handleRemoveFriend}
-                    disabled={actionLoading}
-                    className="px-6 py-3 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 font-bold rounded-xl transition-all flex items-center gap-2 mx-auto md:mx-0"
-                  >
-                    <UserMinus className="w-5 h-5" />
-                    {t('remove_friend') || 'Remove Friend'}
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleAddFriend}
-                    disabled={actionLoading}
-                    className="btn btn-primary mx-auto md:mx-0"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    {t('add_friend') || 'Add Friend'}
-                  </button>
-                )}
-              </div>
+                  ) : (
+                    <button
+                      onClick={handleAddFriend}
+                      disabled={actionLoading}
+                      title={t('add_friend') || 'Add Friend'}
+                      aria-label={t('add_friend') || 'Add Friend'}
+                      className="flex items-center justify-center w-10 sm:w-11 h-10 sm:h-11 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all border border-white/15 active:scale-95"
+                    >
+                      <UserPlus className="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" />
+                    </button>
+                  )}
+            </div>
             )}
+          </div>
+
+          {/* Bio */}
+          <div className="mt-3">
+            {profile.bio ? (
+              <p className="text-gray-200 leading-relaxed text-sm sm:text-base max-w-2xl notranslate" translate="no">{profile.bio}</p>
+            ) : (
+              <p className="text-gray-500 italic text-sm">{t('no_bio') || 'This artist prefers to let their work speak for itself.'}</p>
+            )}
+          </div>
+
+          {/* Meta row: specialization + joined date */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-sm text-gray-400">
+            {profile.specialization && (
+              <span className="inline-flex items-center gap-1.5">
+                <SpecIcon className="w-4 h-4 text-purple-400" />
+                {t(profile.specialization)}
+              </span>
+            )}
+            {joinedDate && (
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                {t('joined') || 'Joined'} {joinedDate}
+              </span>
+            )}
+            {isAccepted && (
+              <span className="inline-flex items-center gap-1.5 text-purple-400 font-semibold">
+                <Check className="w-4 h-4" /> {t('friend')}
+              </span>
+            )}
+          </div>
+
+          {/* Counters: Following / Followers / (Friends for self) / Works */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-4 text-sm">
+            <button
+              type="button"
+              onClick={() => setFollowModalTab('following')}
+              className="group relative -mx-1 overflow-hidden rounded-full px-3.5 py-1.5 text-gray-400 border border-transparent transition-all duration-300 hover:text-white hover:border-white/20 hover:bg-white/[0.08] hover:backdrop-blur-md hover:shadow-[0_8px_24px_-8px_rgba(168,85,247,0.5)]"
+            >
+              <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-tr from-white/0 via-white/15 to-white/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              <span className="relative"><strong className="text-white font-black">{followCounts.following}</strong> {t('following') || 'Following'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFollowModalTab('followers')}
+              className="group relative -mx-1 overflow-hidden rounded-full px-3.5 py-1.5 text-gray-400 border border-transparent transition-all duration-300 hover:text-white hover:border-white/20 hover:bg-white/[0.08] hover:backdrop-blur-md hover:shadow-[0_8px_24px_-8px_rgba(168,85,247,0.5)]"
+            >
+              <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-tr from-white/0 via-white/15 to-white/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              <span className="relative"><strong className="text-white font-black">{followCounts.followers}</strong> {t('followers') || 'Followers'}</span>
+            </button>
+            {isSelf && (
+              <span className="text-gray-400">
+                <strong className="text-white font-black">{friendCount}</strong> {t('friends') || 'Friends'}
+              </span>
+            )}
+            <span className="text-gray-400">
+              <strong className="text-white font-black">{profile.finished_work_count || 0}</strong> {t('works') || 'Works'}
+            </span>
           </div>
         </div>
       </div>
