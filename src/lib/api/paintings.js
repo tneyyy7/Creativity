@@ -213,6 +213,39 @@ export async function fetchPaintingById(paintingId) {
 }
 
 
+// Pin / unpin one of the author's own works to the top of their profile.
+// Enforces a max of 3 pinned per user when turning a pin ON (a soft product
+// rule, kept here rather than in a DB trigger). Returns the new pinned state.
+// Throws Error('pin_limit') if the user already has 3 pinned works.
+// Throws Error('pin_column_missing') if the migration hasn't been applied yet,
+// so callers can degrade gracefully instead of surfacing a raw Postgres error.
+export async function togglePinPainting(paintingId, userId, pin) {
+  if (!paintingId || !userId) throw new Error('missing_args')
+  try {
+    if (pin) {
+      const { count, error: countErr } = await supabase
+        .from('paintings')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_pinned', true)
+      if (countErr) throw countErr
+      if ((count || 0) >= 3) throw new Error('pin_limit')
+    }
+
+    const { error } = await supabase
+      .from('paintings')
+      .update({ is_pinned: !!pin })
+      .eq('id', paintingId)
+      .eq('user_id', userId)
+    if (error) throw error
+    return !!pin
+  } catch (e) {
+    if (/is_pinned/.test(e?.message || '')) throw new Error('pin_column_missing')
+    throw e
+  }
+}
+
+
 export async function savePaintingTags(paintingId, tagNames) {
   try {
     // 1. Delete all existing tags for this painting first

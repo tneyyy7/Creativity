@@ -16,6 +16,7 @@ module.exports = {
     'dist-ssr',
     'node_modules',
     'supabase/functions/**', // Deno edge functions, different runtime
+    'netlify/edge-functions/**', // Netlify edge functions (Deno runtime)
     'public/OneSignalSDK*.js', // OneSignal vendor service workers
     '*.config.js',
     '*.cjs',

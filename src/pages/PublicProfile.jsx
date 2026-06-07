@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool, MoreVertical, Flag, Ban, Settings, Calendar } from 'lucide-react'
+import { ArrowLeft, User, UserPlus, Check, X, Clock, UserMinus, Palette, Lock, BadgeCheck, MessageCircle, Share2, Send, Camera, Shapes, Gem, Box, PenTool, MoreVertical, Flag, Ban, Settings, Calendar, Pin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts, blockUser, unblockUser, isUserBlocked } from '../lib/supabase'
+import { supabase, fetchPublicProfile, checkFriendshipStatus, sendFriendRequest, fetchPaintings, removeFriend, respondToFriendRequest, fetchFriends, sendMessage, checkFollowStatus, toggleFollow, fetchFollowCounts, blockUser, unblockUser, isUserBlocked, togglePinPainting } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { FollowListModal } from '../components/FollowListModal'
 import { ReportModal } from '../components/ReportModal'
 import { GlassModal, GlassModalHeader, glassInput } from '../components/GlassModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 import { getBannerGradientCss } from '../lib/bannerGradients'
+import { getActiveSocialLinks } from '../lib/socialLinks'
 import SmartImage from '../components/SmartImage'
 
 export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost, onEditProfile }) {
@@ -197,6 +198,23 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
     }
   }
 
+  const handlePinToggle = async (e, painting) => {
+    e.stopPropagation()
+    const nextPinned = !painting.is_pinned
+    try {
+      await togglePinPainting(painting.id, currentUserId, nextPinned)
+      setPaintings(prev => prev.map(p => p.id === painting.id ? { ...p, is_pinned: nextPinned } : p))
+    } catch (err) {
+      if (err?.message === 'pin_limit') {
+        alert(t('pin_limit_reached', 'You can pin up to 3 works. Unpin one first.'))
+      } else if (err?.message === 'pin_column_missing') {
+        alert(t('feature_not_ready', 'This feature is being rolled out — try again later.'))
+      } else {
+        console.error('Pin toggle error:', err)
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -230,6 +248,54 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
     : profile.specialization === '3D' ? Box
     : profile.specialization === 'designer' ? PenTool
     : Shapes
+
+  const socialLinks = getActiveSocialLinks(profile.social_links)
+  const pinnedPaintings = paintings.filter(p => p.is_pinned).slice(0, 3)
+  const restPaintings = paintings.filter(p => !pinnedPaintings.some(pin => pin.id === p.id))
+
+  // One card renderer reused by the pinned row and the main grid so modal
+  // navigation always gets the real index within the full paintings list.
+  const renderWorkCard = (painting) => {
+    const idx = paintings.findIndex(p => p.id === painting.id)
+    return (
+      <div key={painting.id} className="group cursor-pointer" onClick={() => onOpenPost?.(painting.id, painting, paintings, idx, profile)}>
+        <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-[#0c0b11] relative">
+          <SmartImage
+            src={painting.image_url}
+            alt={painting.title}
+            width={600}
+            srcWidths={[300, 600]}
+            sizes="(max-width: 1024px) 50vw, 33vw"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+          {painting.is_pinned && (
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-[10px] font-bold text-white">
+              <Pin className="w-3 h-3 fill-white" /> {t('pinned', 'Pinned')}
+            </div>
+          )}
+          {isSelf && (
+            <button
+              onClick={(e) => handlePinToggle(e, painting)}
+              title={painting.is_pinned ? t('unpin', 'Unpin') : t('pin', 'Pin to profile')}
+              aria-label={painting.is_pinned ? t('unpin', 'Unpin') : t('pin', 'Pin to profile')}
+              className={`absolute top-2 right-2 z-10 p-2 rounded-full backdrop-blur-md border transition-all active:scale-90 sm:opacity-0 sm:group-hover:opacity-100 ${
+                painting.is_pinned
+                  ? 'bg-purple-600/80 hover:bg-purple-500 text-white border-purple-400/50 sm:opacity-100'
+                  : 'bg-black/45 hover:bg-black/70 text-white border-white/15'
+              }`}
+            >
+              <Pin className={`w-4 h-4 ${painting.is_pinned ? 'fill-white' : ''}`} />
+            </button>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6 pointer-events-none">
+            <h3 className="text-white font-bold text-lg leading-tight mb-2 drop-shadow-md translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+              {painting.title}
+            </h3>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div id="public-profile-page" className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -439,6 +505,25 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
             )}
           </div>
 
+          {/* Link-in-bio: external social profiles */}
+          {socialLinks.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              {socialLinks.map(({ key, label, icon: Icon, url }) => (
+                <a
+                  key={key}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  title={label}
+                  aria-label={label}
+                  className="flex items-center justify-center w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 hover:border-white/20 transition-all active:scale-95"
+                >
+                  <Icon className="w-4 h-4" />
+                </a>
+              ))}
+            </div>
+          )}
+
           {/* Meta row: specialization + joined date */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-sm text-gray-400">
             {profile.specialization && (
@@ -490,13 +575,26 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
         </div>
       </div>
 
+      {/* Pinned works (up to 3) */}
+      {(!profile.is_private || isSelf || isAccepted) && pinnedPaintings.length > 0 && (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <Pin className="text-purple-500 w-5 h-5 fill-purple-500" />
+            {t('pinned', 'Pinned')}
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+            {pinnedPaintings.map(renderWorkCard)}
+          </div>
+        </div>
+      )}
+
       {/* Public Gallery */}
       <div className="space-y-6">
         <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
           <Palette className="text-purple-500 w-6 h-6" />
           {t('portfolio') || 'Portfolio'}
         </h2>
-        
+
         {profile.is_private && !isSelf && !isAccepted ? (
           <div className="glass-card p-12 text-center border-dashed">
             <Lock className="w-12 h-12 text-purple-500 mx-auto mb-4" />
@@ -510,25 +608,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-            {paintings.map((painting, idx) => (
-              <div key={painting.id} className="group cursor-pointer" onClick={() => onOpenPost?.(painting.id, painting, paintings, idx, profile)}>
-                <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-[#0c0b11] relative">
-                  <SmartImage
-                    src={painting.image_url}
-                    alt={painting.title}
-                    width={600}
-                    srcWidths={[300, 600]}
-                    sizes="(max-width: 1024px) 50vw, 33vw"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
-                    <h3 className="text-white font-bold text-lg leading-tight mb-2 drop-shadow-md translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                      {painting.title}
-                    </h3>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {restPaintings.map(renderWorkCard)}
           </div>
         )}
       </div>

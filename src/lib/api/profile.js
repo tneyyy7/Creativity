@@ -66,6 +66,7 @@ export const upsertProfile = async (profile) => {
   if (profile.theme !== undefined) profileData.theme = profile.theme
   if (profile.referral_code !== undefined) profileData.referral_code = profile.referral_code
   if (profile.referrer_host !== undefined) profileData.referrer_host = profile.referrer_host
+  if (profile.social_links !== undefined) profileData.social_links = profile.social_links
 
   const { data, error } = await supabase
     .from('profiles')
@@ -73,7 +74,17 @@ export const upsertProfile = async (profile) => {
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    // social_links column may not be migrated yet — retry without it so the
+    // rest of the profile still saves (the links just won't persist).
+    if (/social_links/.test(error.message || '') && profileData.social_links !== undefined) {
+      const { social_links: _omit, ...rest } = profileData
+      const retry = await supabase.from('profiles').upsert(rest).select().single()
+      if (retry.error) throw retry.error
+      return retry.data
+    }
+    throw error
+  }
   return data
 }
 
@@ -131,12 +142,13 @@ export const fetchPublicProfile = async (userId) => {
     const baseCols = 'id, nickname, avatar_url, bio, is_private, is_verified, finished_work_count, specialization'
     let { data, error } = await supabase
       .from('profiles')
-      .select(`${baseCols}, banner_gradient`)
+      .select(`${baseCols}, banner_gradient, social_links`)
       .eq('id', userId)
       .single()
-    // banner_gradient column may not be migrated yet — retry without it so the
-    // profile still loads (the gradient just falls back to the default preset).
-    if (error && /banner_gradient/.test(error.message || '')) {
+    // banner_gradient/social_links columns may not be migrated yet — retry
+    // without the optional columns so the profile still loads (the gradient
+    // falls back to default and the link row simply hides).
+    if (error && /banner_gradient|social_links/.test(error.message || '')) {
       ({ data, error } = await supabase
         .from('profiles')
         .select(baseCols)

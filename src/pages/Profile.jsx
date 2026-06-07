@@ -7,6 +7,7 @@ import { FollowListModal } from '../components/FollowListModal'
 import { PublicProfile } from './PublicProfile'
 import { BANNER_GRADIENTS, getBannerGradientCss, DEFAULT_BANNER_GRADIENT_ID } from '../lib/bannerGradients'
 import { getNicknameStyle, sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
+import { SOCIAL_PLATFORMS, normalizeSocialUrl } from '../lib/socialLinks'
 import { subscribeToPush, unsubscribeFromPush, checkNotificationSupport, isPushSubscribed } from '../lib/pwa'
 
 export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor, coverUrl, onViewProfile, onMessage, onOpenPost }) {
@@ -20,6 +21,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
   const [formNickname, setFormNickname] = useState(nickname)
   const [bio, setBio] = useState('')
   const [bannerGradient, setBannerGradient] = useState(DEFAULT_BANNER_GRADIENT_ID)
+  const [socialLinks, setSocialLinks] = useState({})
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -47,9 +49,9 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
     // Fetch bio when component mounts
     const fetchProfileData = async () => {
       if (user) {
-        // Fetch profile. banner_gradient may not be migrated yet — retry without
-        // it so bio/specialization still load.
-        let { data } = await supabase.from('profiles').select('bio, specialization, banner_gradient').eq('id', user.id).single()
+        // Fetch profile. banner_gradient/social_links may not be migrated yet —
+        // retry without them so bio/specialization still load.
+        let { data } = await supabase.from('profiles').select('bio, specialization, banner_gradient, social_links').eq('id', user.id).single()
         if (!data) {
           ({ data } = await supabase.from('profiles').select('bio, specialization').eq('id', user.id).single())
         }
@@ -57,6 +59,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
           if (data.bio) setBio(data.bio)
           if (data.specialization) setSpecialization(data.specialization)
           if (data.banner_gradient) setBannerGradient(data.banner_gradient)
+          if (data.social_links && typeof data.social_links === 'object') setSocialLinks(data.social_links)
         }
         if (user.created_at) {
           const date = new Date(user.created_at)
@@ -218,12 +221,20 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
         }
       }
 
+      // Normalize the link-in-bio inputs into safe absolute URLs, dropping blanks.
+      const cleanedSocials = {}
+      for (const p of SOCIAL_PLATFORMS) {
+        const norm = normalizeSocialUrl(p.key, socialLinks[p.key])
+        if (norm) cleanedSocials[p.key] = norm
+      }
+
       await upsertProfile({
         id: user.id,
         nickname: trimmedNickname,
         avatar_url: avatarUrl,
         bio: bio.trim(),
         specialization: specialization,
+        social_links: cleanedSocials,
         updated_at: new Date().toISOString()
       })
 
@@ -589,6 +600,28 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
                      className="notranslate w-full h-16 p-3 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-white text-xs resize-none custom-scrollbar leading-relaxed"
                    />
                  </div>
+              </div>
+
+              {/* Link-in-bio: social profiles */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">{t('social_links', 'Social links')}</label>
+                <div className="space-y-2">
+                  {SOCIAL_PLATFORMS.map(({ key, label, icon: Icon, placeholder }) => (
+                    <div key={key} className="relative flex items-center">
+                      <Icon className="absolute left-3 w-4 h-4 text-gray-500 pointer-events-none" />
+                      <input
+                        type="text"
+                        inputMode="url"
+                        value={socialLinks[key] || ''}
+                        onChange={(e) => setSocialLinks(prev => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        aria-label={label}
+                        translate="no"
+                        className="notranslate w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-white text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Error Message */}
