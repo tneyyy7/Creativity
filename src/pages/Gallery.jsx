@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Search, Trash2, MoreHorizontal, User, Palette, X, Upload, Loader2, Star, Medal, Zap, Crown, Sparkles, Rocket, EyeOff } from 'lucide-react'
+import { Plus, Search, Trash2, MoreHorizontal, User, Upload, Loader2, Star, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, uploadPainting, fetchPaintings, savePaintingMetadata, deletePainting, fetchPaintingTags, savePaintingTags } from '../lib/supabase'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
@@ -331,9 +331,15 @@ export function Gallery({ onOpenPost }) {
         pillVariant="glass"
       />
 
+      {loading && filteredPaintings.length === 0 && (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
         <div className="flex flex-col gap-4">
-          <button 
+          <button
             onClick={() => {
               if (fileInputRef.current) {
                 fileInputRef.current.removeAttribute('capture')
