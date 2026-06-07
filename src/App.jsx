@@ -151,6 +151,27 @@ function App() {
   // can tell whether there is a previous page to return to.
   const navIndexRef = useRef(0)
 
+  // Path to return to when the post viewer closes. Null when no viewer-driven
+  // /post/:id entry is currently on the history stack.
+  const postReturnPathRef = useRef(null)
+
+  // Reflect the open/active post in the URL so every post has its own shareable
+  // link (and dynamic OG preview). Called by PostViewerModal on open and on each
+  // swipe. The first post of a viewing session pushes a new history entry (so
+  // browser-back closes the viewer); subsequent swipes replace it.
+  const handleActivePost = (painting) => {
+    if (!painting?.id) return
+    const target = `/post/${painting.id}`
+    if (window.location.pathname === target) return
+    if (postReturnPathRef.current === null) {
+      postReturnPathRef.current = window.location.pathname + window.location.search
+      navIndexRef.current += 1
+      window.history.pushState({ navIndex: navIndexRef.current }, '', target)
+    } else {
+      window.history.replaceState({ navIndex: navIndexRef.current }, '', target)
+    }
+  }
+
   // Open a shared post / tag page once the session is ready.
   useEffect(() => {
     if (!user || deepLinkConsumedRef.current) return
@@ -382,11 +403,36 @@ function App() {
     }
   }, [activeTab, targetUserId, exploreCategory, isResettingPassword, authMode, user])
 
+  // When the post viewer closes, leave the /post/:id URL — restore the page the
+  // user opened the post from (or fall back to a tab for deep-linked opens).
+  // The ref guard prevents this from firing on initial mount (e.g. a /post/:id
+  // deep link) before the viewer has actually been opened.
+  const viewerWasOpenRef = useRef(false)
+  useEffect(() => {
+    if (postViewer) { viewerWasOpenRef.current = true; return }
+    if (!viewerWasOpenRef.current) return
+    viewerWasOpenRef.current = false
+    if (!window.location.pathname.startsWith('/post/')) return
+    const fallback = `/${activeTab && activeTab !== 'public_profile' ? activeTab : 'explore'}`
+    const back = postReturnPathRef.current || fallback
+    postReturnPathRef.current = null
+    navIndexRef.current += 1
+    window.history.pushState({ navIndex: navIndexRef.current }, '', back)
+    // activeTab is only read as a fallback; re-running on its change is harmless.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postViewer])
+
   // Synchronize browser history navigation (back/forward) to state
   useEffect(() => {
     const handlePopState = () => {
       navIndexRef.current = window.history.state?.navIndex ?? 0
       const initial = parseInitialUrl()
+      // /post/:id is shown as a modal overlay, not a tab. If back/forward moved
+      // us off a post entry, close any open viewer and drop the return path.
+      if (!initial.postId) {
+        postReturnPathRef.current = null
+        setPostViewer(null)
+      }
       setActiveTab(initial.tab)
       setTargetUserId(initial.targetId)
       setExploreCategory(initial.exploreCategory)
@@ -509,6 +555,7 @@ function App() {
               setPostViewer(null)
               setActiveTag(tagName)
             }}
+            onActivePost={handleActivePost}
           />
         )}
       </div>
@@ -700,6 +747,7 @@ function App() {
             setPostViewer(null);
             setActiveTag(tagName);
           }}
+          onActivePost={handleActivePost}
         />
       )}
     </div>

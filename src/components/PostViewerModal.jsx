@@ -9,7 +9,7 @@ import { GlassModal, glassActionBase, glassActionDanger, glassActionNeutral } fr
 import { getNicknameStyle } from '../lib/nicknameStyle'
 
 
-export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile, onTagClick }) {
+export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile, onTagClick, onActivePost }) {
   const { t } = useTranslation()
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0)
   const [carouselIndex, setCarouselIndex] = useState(0)
@@ -47,6 +47,15 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const isLiked = likes.some(l => l.user_id === currentUserId)
   const isAuthor = currentUserId === resolvedAuthor?.id
   const authorIsPro = !!resolvedAuthor?.isPro
+
+  // Report the active painting up to the host so it can reflect /post/:id in the
+  // URL — giving every post its own shareable link (and OG preview) as the user
+  // opens and swipes between posts.
+  useEffect(() => {
+    if (painting?.id) onActivePost?.(painting)
+    // onActivePost is a stable callback from App; keying on the id is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [painting?.id])
 
   // Resolve the author for the CURRENT painting. Feed/Explore arrays embed the
   // author's profile on each painting (`.profiles` / `.user`), so when paging we
