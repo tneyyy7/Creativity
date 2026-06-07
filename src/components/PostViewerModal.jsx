@@ -748,8 +748,11 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 
       {/* Boost toast */}
       {boostToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[130] bg-cyan-500/90 text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-xl backdrop-blur-md flex items-center gap-2">
-          <Rocket className="w-4 h-4" /> {boostToast}
+        <div
+          key={boostToast}
+          className="boost-toast fixed bottom-6 left-1/2 z-[130] flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white text-sm font-bold border border-cyan-400/40 bg-gradient-to-r from-cyan-500/90 to-sky-500/90 shadow-[0_8px_30px_rgba(34,211,238,0.35)] backdrop-blur-xl"
+        >
+          <Rocket className="w-4 h-4 flex-shrink-0" /> {boostToast}
         </div>
       )}
     </div>
