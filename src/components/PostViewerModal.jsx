@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Heart, MessageCircle, Send, Share2, ChevronLeft, ChevronRight, Trash2, CornerDownRight, Palette, Camera, Shapes, Bookmark, Gem, BadgeCheck, Box, PenTool, MoreVertical, Flag, Ban, Link2, Rocket, Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection, blockUser, getBoostBalance, applyBoost, reassignBoost, getMyBoosts } from '../lib/supabase'
+import { supabase, fetchPostLikes, togglePostLike, fetchPostComments, addPostComment, deletePostComment, fetchFriends, sendMessage, fetchPaintingTags, isBookmarked, toggleBookmark, incrementPaintingViews, addPaintingToCollection, blockUser, getBoostBalance, applyBoost, reassignBoost, getMyBoosts, searchUsers } from '../lib/supabase'
 import { ProfileAvatar } from './ProfileAvatar'
 import { CollectionsModal } from './CollectionsModal'
 import { ReportModal } from './ReportModal'
 import { GlassModal, glassActionBase, glassActionDanger, glassActionNeutral } from './GlassModal'
 import { getNicknameStyle } from '../lib/nicknameStyle'
+import { MentionText } from './MentionText'
+import { getActiveMention } from '../lib/mentions'
 
 
 export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile, onTagClick, onActivePost }) {
@@ -307,6 +309,18 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
     } catch (e) { console.error(e) }
   }
 
+  // Resolve a clicked @nickname to a profile and open it.
+  const handleMentionClick = async (handle) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('nickname', handle)
+        .maybeSingle()
+      if (data?.id) { onViewProfile?.(data.id); onClose?.() }
+    } catch (e) { console.error('Mention resolve error:', e) }
+  }
+
   const handleShareOpen = async () => {
     try {
       const f = await fetchFriends(currentUserId)
@@ -519,6 +533,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             onClose={onClose}
             paintingTags={paintingTags}
             onTagClick={onTagClick}
+            onMention={handleMentionClick}
           />
         </div>
       </div>
@@ -769,8 +784,42 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 }
 
 // Shared info panel used for both mobile and desktop
-function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, boost, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags, onTagClick }) {
+function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, boost, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags, onTagClick, onMention }) {
   const { t } = useTranslation()
+
+  // @mention autocomplete for the comment box.
+  const [mention, setMention] = useState(null) // { query, start } or null
+  const [mentionResults, setMentionResults] = useState([])
+
+  useEffect(() => {
+    if (!mention) { setMentionResults([]); return }
+    let cancelled = false
+    const id = setTimeout(async () => {
+      try {
+        const users = await searchUsers(mention.query, currentUserId)
+        if (!cancelled) setMentionResults((users || []).slice(0, 6))
+      } catch { if (!cancelled) setMentionResults([]) }
+    }, 150)
+    return () => { cancelled = true; clearTimeout(id) }
+  }, [mention, currentUserId])
+
+  const onCommentChange = (e) => {
+    const val = e.target.value
+    setCommentText(val)
+    const caret = e.target.selectionStart ?? val.length
+    setMention(getActiveMention(val, caret))
+  }
+
+  const applyMention = (nickname) => {
+    if (!mention) return
+    const before = commentText.slice(0, mention.start)
+    const after = commentText.slice(mention.start + 1 + mention.query.length)
+    setCommentText(`${before}@${nickname} ${after}`)
+    setMention(null)
+    setMentionResults([])
+    setTimeout(() => commentInputRef.current?.focus(), 0)
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Author */}
@@ -821,7 +870,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
                 {t(`cat_${painting.category.toLowerCase()}`)}
               </span>
             )}
-            {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description === 'New upload' ? t('new_upload_desc', 'New upload') : painting.description}</p>}
+            {painting.description && <p className="text-gray-400 text-sm leading-relaxed">{painting.description === 'New upload' ? t('new_upload_desc', 'New upload') : <MentionText text={painting.description} onMention={onMention} />}</p>}
             {paintingTags && paintingTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {paintingTags.map(tag => (
@@ -845,6 +894,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
                 onReply={() => { setReplyingTo({ id: comment.id, nickname: comment.profiles?.nickname ?? 'user' }); commentInputRef.current?.focus() }}
                 onDelete={() => handleDeleteComment(comment.id)}
                 onViewProfile={(id) => { onViewProfile?.(id); onClose?.() }}
+                onMention={onMention}
               />
               {getReplies(comment.id).map(reply => (
                 <div key={reply.id} className="ml-6 sm:ml-8 mt-2">
@@ -852,6 +902,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
                     onReply={() => { setReplyingTo({ id: comment.id, nickname: reply.profiles?.nickname ?? 'user' }); commentInputRef.current?.focus() }}
                     onDelete={() => handleDeleteComment(reply.id)}
                     onViewProfile={(id) => { onViewProfile?.(id); onClose?.() }}
+                    onMention={onMention}
                     isReply
                   />
                 </div>
@@ -936,19 +987,40 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
         )}
 
         {currentUserId ? (
-          <div 
-            style={{ 
-              paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)',
-              paddingTop: '0.75rem' 
-            }}
-            className="px-4 flex items-center gap-3 border-t border-white/5"
-          >
-            <input ref={commentInputRef} type="text" value={commentText} onChange={e => setCommentText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment() } }}
-              placeholder="Add a comment…" className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 outline-none min-w-0" maxLength={500} />
-            <button onClick={handleSendComment} disabled={!commentText.trim() || isSendingComment} className="text-purple-500 hover:text-purple-400 font-black text-sm disabled:opacity-30 transition-colors shrink-0">
-              Post
-            </button>
+          <div className="relative">
+            {/* @mention suggestions */}
+            {mention && mentionResults.length > 0 && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 mx-3 bg-[#1a1822] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-30 max-h-56 overflow-y-auto no-scrollbar">
+                {mentionResults.map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => applyMention(u.nickname)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+                  >
+                    <ProfileAvatar avatarUrl={u.avatar_url} workCount={u.finished_work_count ?? 0} size="xs" isPro={u.isPro} avatarFrame={u.avatar_frame} />
+                    <span className="text-sm font-bold text-white notranslate flex items-center gap-1" translate="no">
+                      @{u.nickname}
+                      {u.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-purple-400 fill-purple-400/20" />}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div
+              style={{
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)',
+                paddingTop: '0.75rem'
+              }}
+              className="px-4 flex items-center gap-3 border-t border-white/5"
+            >
+              <input ref={commentInputRef} type="text" value={commentText} onChange={onCommentChange}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment() } }}
+                placeholder="Add a comment…" className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 outline-none min-w-0" maxLength={500} />
+              <button onClick={handleSendComment} disabled={!commentText.trim() || isSendingComment} className="text-purple-500 hover:text-purple-400 font-black text-sm disabled:opacity-30 transition-colors shrink-0">
+                Post
+              </button>
+            </div>
           </div>
         ) : (
           <div className="px-4 py-3 border-t border-white/5">
@@ -960,7 +1032,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
   )
 }
 
-function CommentItem({ comment, currentUserId, isAuthor, formatTime, onReply, onDelete, onViewProfile, isReply }) {
+function CommentItem({ comment, currentUserId, isAuthor, formatTime, onReply, onDelete, onViewProfile, onMention, isReply }) {
   const canDelete = currentUserId === comment.user_id || isAuthor
   return (
     <div className="flex gap-2.5 group">
@@ -985,7 +1057,7 @@ function CommentItem({ comment, currentUserId, isAuthor, formatTime, onReply, on
           </button>
           <span className="text-[10px] text-gray-600">{formatTime(comment.created_at)}</span>
         </div>
-        <p className="text-gray-300 text-sm mt-0.5 leading-relaxed break-words">{comment.content}</p>
+        <p className="text-gray-300 text-sm mt-0.5 leading-relaxed break-words"><MentionText text={comment.content} onMention={onMention} /></p>
         <div className="flex items-center gap-3 mt-1">
           {!isReply && <button onClick={onReply} className="text-[11px] text-gray-600 hover:text-purple-400 transition-colors font-bold">Reply</button>}
           {canDelete && <button onClick={onDelete} className="text-[11px] text-gray-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>}
