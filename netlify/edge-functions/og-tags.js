@@ -1,40 +1,30 @@
 // Dynamic Open Graph tags for shared links.
 //
 // The SPA ships a static index.html with no per-page <meta og:*> tags, so every
-// shared /post/:id or /profile/:id link previewed flat (empty card) on Telegram,
-// Twitter, Facebook, Slack, iMessage — killing the growth loop that Share is
-// supposed to drive.
+// shared /post/:id or /profile/:id link previewed flat on Telegram, Twitter,
+// Facebook, Slack, iMessage — killing the growth loop that Share is supposed to drive.
 //
-// This Netlify Edge Function runs at the CDN for /post/* and /profile/*, fetches
-// the entity from Supabase REST (anon key — RLS already allows public reads, the
-// same query the client makes) and injects og:/twitter: tags into the HTML head
-// before it reaches the crawler. React still mounts into #root untouched.
+// This Netlify Edge Function runs on Deno at the CDN for /post/* and /profile/*,
+// fetches the entity from Supabase REST (anon key — RLS already allows public reads)
+// and injects og:/twitter: tags into the HTML head. React still mounts into #root untouched.
 //
-// It serves the enriched HTML to everyone (not just bots): simpler than fragile
-// User-Agent sniffing, and it doubles as SEO. On any failure it falls back to the
-// untouched SPA shell so a bad fetch never breaks the page.
+// On any failure it falls back to the untouched SPA shell so a bad fetch never breaks the page.
 
 const SITE_URL = 'https://thecreativityapp.com'
 const DEFAULT_IMAGE = `${SITE_URL}/icon-512.png`
-const DEFAULT_TITLE = 'Creativity — Painter\'s Companion'
 const DEFAULT_DESC = 'A community for artists to share their work, get inspired, and grow.'
 
-const env = (key) => {
+// Read env inside handler (Netlify global is only guaranteed inside the request context).
+function getEnv(key) {
   try {
     // eslint-disable-next-line no-undef
-    return (typeof Netlify !== 'undefined' && Netlify.env?.get(key)) ||
-      // eslint-disable-next-line no-undef
-      (typeof Deno !== 'undefined' && Deno.env?.get(key)) ||
-      (typeof process !== 'undefined' && process.env?.[key]) || ''
-  } catch {
-    return ''
-  }
+    if (typeof Netlify !== 'undefined') return Netlify.env.get(key) || ''
+    // eslint-disable-next-line no-undef
+    if (typeof Deno !== 'undefined') return Deno.env.get(key) || ''
+  } catch { /* empty */ }
+  return ''
 }
 
-const SUPABASE_URL = env('VITE_SUPABASE_URL') || env('SUPABASE_URL')
-const SUPABASE_ANON_KEY = env('VITE_SUPABASE_ANON_KEY') || env('SUPABASE_ANON_KEY')
-
-// Escape for safe insertion into an HTML attribute value.
 const esc = (str = '') =>
   String(str)
     .replace(/&/g, '&amp;')
@@ -42,21 +32,19 @@ const esc = (str = '') =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
-// Trim a description to a sane preview length on a word boundary.
 const clip = (str = '', max = 200) => {
   const s = String(str).replace(/\s+/g, ' ').trim()
   if (s.length <= max) return s
   return s.slice(0, max).replace(/\s+\S*$/, '') + '…'
 }
 
-async function fetchOne(table, id, select) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
-  const url = `${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&select=${select}&limit=1`
+async function fetchOne(supabaseUrl, anonKey, table, id, select) {
+  const url = `${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&select=${select}&limit=1`
   try {
     const res = await fetch(url, {
       headers: {
-        apikey: SUPABASE_ANON_KEY,
-        authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: anonKey,
+        authorization: `Bearer ${anonKey}`,
         accept: 'application/json',
       },
     })
@@ -68,39 +56,25 @@ async function fetchOne(table, id, select) {
   }
 }
 
-// Resolve the requested path into OG metadata, or null to leave HTML untouched.
-async function resolveMeta(pathname) {
-  const post = pathname.match(/^\/post\/([^/?#]+)/)
-  if (post) {
-    const p = await fetchOne(
-      'paintings',
-      post[1],
-      'title,description,image_url,media_urls,media_type,is_nsfw,user_id'
-    )
+async function resolveMeta(pathname, supabaseUrl, anonKey) {
+  const postMatch = pathname.match(/^\/post\/([^/?#]+)/)
+  if (postMatch) {
+    const p = await fetchOne(supabaseUrl, anonKey, 'paintings', postMatch[1],
+      'title,description,image_url,media_urls,media_type,is_nsfw,user_id')
     if (!p) return null
-    let author = null
-    if (p.user_id) {
-      author = await fetchOne('profiles', p.user_id, 'nickname')
-    }
+    const author = p.user_id
+      ? await fetchOne(supabaseUrl, anonKey, 'profiles', p.user_id, 'nickname')
+      : null
     const authorName = author?.nickname ? ` by @${author.nickname}` : ''
     const title = `${p.title?.trim() || 'Untitled'}${authorName} · Creativity`
     const firstMedia = Array.isArray(p.media_urls) ? p.media_urls[0] : ''
-    // Hide NSFW previews from crawlers; fall back to the site icon.
-    const image = p.is_nsfw
-      ? DEFAULT_IMAGE
-      : (p.image_url || firstMedia || DEFAULT_IMAGE)
-    return {
-      title,
-      description: clip(p.description) || DEFAULT_DESC,
-      image,
-      url: `${SITE_URL}${pathname}`,
-      type: 'article',
-    }
+    const image = p.is_nsfw ? DEFAULT_IMAGE : (p.image_url || firstMedia || DEFAULT_IMAGE)
+    return { title, description: clip(p.description) || DEFAULT_DESC, image, url: `${SITE_URL}${pathname}`, type: 'article' }
   }
 
-  const profile = pathname.match(/^\/profile\/([^/?#]+)/)
-  if (profile) {
-    const u = await fetchOne('profiles', profile[1], 'nickname,bio,avatar_url')
+  const profileMatch = pathname.match(/^\/profile\/([^/?#]+)/)
+  if (profileMatch) {
+    const u = await fetchOne(supabaseUrl, anonKey, 'profiles', profileMatch[1], 'nickname,bio,avatar_url')
     if (!u) return null
     const name = u.nickname ? `@${u.nickname}` : 'Artist'
     return {
@@ -144,13 +118,17 @@ export default async function handler(request, context) {
     const contentType = response.headers.get('content-type') || ''
     if (!contentType.includes('text/html')) return response
 
-    const meta = await resolveMeta(pathname)
+    // Read env vars inside handler — Netlify global is guaranteed here.
+    const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL')
+    const anonKey = getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY')
+    if (!supabaseUrl || !anonKey) return response
+
+    const meta = await resolveMeta(pathname, supabaseUrl, anonKey)
     if (!meta) return response
 
     let html = await response.text()
     const tags = buildTags(meta)
 
-    // Replace the static <title> so it matches, then inject OG tags into <head>.
     html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(meta.title)}</title>`)
     html = html.replace(/<\/head>/i, `${tags}\n  </head>`)
 
