@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
 import { supabase, fetchProfile, updateLastSeen, fetchSubscriptionStatus, upsertProfile, fetchAdminRole, fetchPaintingById, attachReferral } from './lib/supabase'
@@ -461,41 +461,51 @@ function App() {
   if (activeTag) {
     return (
       <div className="app-container">
-        <Navbar 
-          user={user} 
-          nickname={nickname} 
-          avatarUrl={avatarUrl} 
-          specialization={specialization} 
-          isVerified={isVerified} 
-          onOpenSidebar={() => setIsSidebarOpen(true)} 
-          hasUnreadNotifications={unreadNotifications > 0}
+        <Navbar
+          activeTab={activeTab}
+          user={user}
+          nickname={nickname}
+          avatarUrl={avatarUrl}
+          isVerified={isVerified}
+          isPro={isPro}
+          avatarFrame={avatarFrame}
+          nicknameColor={nicknameColor}
+          workCount={workCount}
+          userEmail={user?.email}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onProfileClick={() => { setActiveTag(null); setActiveTab('profile'); }}
+          onFriendsClick={() => { setActiveTag(null); setActiveTab('friends'); }}
         />
         <main className="main-content custom-scrollbar">
-          <TagPage 
-            tagName={activeTag} 
+          <TagPage
+            tagName={activeTag}
             currentUser={user}
             onOpenPost={(id, painting, filteredPaintings, index, profile) => {
-              setViewerData({
-                paintings: filteredPaintings,
-                initialIndex: index,
-                currentUserId: user?.id,
-                authorProfile: profile,
-                onClose: () => setViewerData(null),
-                onViewProfile: (userId) => {
-                  setViewerData(null)
-                  setActiveTag(null)
-                  setViewedProfileId(userId)
-                }
+              setPostViewer({
+                painting,
+                paintings: filteredPaintings || [painting],
+                index: index ?? 0,
+                externalProfile: profile,
               })
             }}
-            onBack={() => setActiveTag(null)} 
+            onBack={() => setActiveTag(null)}
           />
         </main>
-        {viewerData && (
-          <PostViewerModal 
-            {...viewerData}
+        {postViewer && (
+          <PostViewerModal
+            paintings={postViewer.paintings}
+            initialIndex={postViewer.index}
+            currentUserId={user?.id}
+            authorProfile={postViewer.externalProfile || postViewer.painting?.user || postViewer.painting?.profiles || null}
+            onClose={() => setPostViewer(null)}
+            onViewProfile={(userId) => {
+              setPostViewer(null)
+              setActiveTag(null)
+              setTargetUserId(userId)
+              setActiveTab('public_profile')
+            }}
             onTagClick={(tagName) => {
-              setViewerData(null)
+              setPostViewer(null)
               setActiveTag(tagName)
             }}
           />

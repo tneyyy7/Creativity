@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, SlidersHorizontal, Grid, Star, Tag, X, Flame, Calendar, BadgeCheck, Loader2, Sparkles, Heart, MessageSquare, Bookmark, Compass, UserPlus, Check, Gem, EyeOff } from 'lucide-react'
+import { Search, SlidersHorizontal, Star, Tag, X, Flame, Calendar, BadgeCheck, Loader2, Sparkles, Heart, MessageSquare, Bookmark, Compass, UserPlus, Check, Gem, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchExplorePaintings, fetchRecommendedCreators, fetchForYouPaintings, fetchBlockedIds, fetchBannedIds, togglePostLike, toggleBookmark, toggleFollow, isBookmarked } from '../lib/supabase'
+import { supabase, fetchExplorePaintings, fetchRecommendedCreators, fetchForYouPaintings, fetchBlockedIds, fetchBannedIds, togglePostLike, toggleBookmark, toggleFollow } from '../lib/supabase'
 import { StoriesBanner } from '../components/StoriesBanner'
 import { formatDistanceToNow } from 'date-fns'
 import { ru, enUS } from 'date-fns/locale'
@@ -479,7 +479,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
             })}
 
             {/* Infinite-scroll sentinel */}
-            {(activeSubTab === 'foryou' ? forYouHasMore : feedHasMore) && (
+            {(activeSubTab === 'foryou' ? forYouHasMore : exploreHasMore) && (
               <div ref={loadMoreRef} className="flex justify-center pt-4 h-12">
                 {loadingMore && <Loader2 className="w-5 h-5 animate-spin text-purple-400" />}
               </div>
