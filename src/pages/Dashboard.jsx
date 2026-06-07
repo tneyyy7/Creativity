@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { Plus, ArrowUpRight, Star, BadgeCheck, Eye, Heart, BarChart2, Gem, Lock } from 'lucide-react'
+import { ArrowUpRight, Star, BadgeCheck, Eye, Heart, BarChart2, Gem, Lock } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 
@@ -277,7 +277,14 @@ export function Dashboard({ nickname, isVerified, isPro, onNavigate, onOpenPost,
               <div className="lg:col-span-5 glass-card p-6 md:p-8 border-white/5 h-80 sm:h-96 animate-pulse" />
             </div>
           }>
-            <DashboardCharts isPro={isPro} proStats={proStats} />
+            {loadingPro ? (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+                <div className="lg:col-span-7 glass-card p-6 md:p-8 border-white/5 h-80 sm:h-96 animate-pulse" />
+                <div className="lg:col-span-5 glass-card p-6 md:p-8 border-white/5 h-80 sm:h-96 animate-pulse" />
+              </div>
+            ) : (
+              <DashboardCharts isPro={isPro} proStats={proStats} />
+            )}
           </Suspense>
         </div>
 

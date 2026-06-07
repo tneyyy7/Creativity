@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Palette, Camera, Shapes, Box, PenTool, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Loader2, AlertCircle, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { LiquidGlassButton } from '../components/LiquidGlass'

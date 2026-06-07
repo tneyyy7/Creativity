@@ -20,7 +20,7 @@
   Кастомизация — через объект LIQUID_GLASS_CONFIG ниже либо через проп `config`.
 */
 
-import { useRef, useState, useCallback, useEffect, useMemo, useId } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { motion, useSpring, useReducedMotion } from 'framer-motion'
 import '../styles/liquid-glass.css'
 

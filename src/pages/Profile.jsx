@@ -7,7 +7,7 @@ import { FollowListModal } from '../components/FollowListModal'
 import { PublicProfile } from './PublicProfile'
 import { BANNER_GRADIENTS, getBannerGradientCss, DEFAULT_BANNER_GRADIENT_ID } from '../lib/bannerGradients'
 import { getNicknameStyle, sanitizeNickname, isValidNickname, NICKNAME_MAX_LENGTH } from '../lib/nicknameStyle'
-import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, checkNotificationSupport, testPushNotification, isPushSubscribed } from '../lib/pwa'
+import { subscribeToPush, unsubscribeFromPush, checkNotificationSupport, isPushSubscribed } from '../lib/pwa'
 
 export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, isVerified, specialization, setSpecialization, workCount, isPro, avatarFrame, nicknameColor, coverUrl, onViewProfile, onMessage, onOpenPost }) {
   const { t } = useTranslation()
@@ -51,7 +51,7 @@ export function Profile({ user, nickname, setNickname, avatarUrl, setAvatarUrl, 
         // it so bio/specialization still load.
         let { data } = await supabase.from('profiles').select('bio, specialization, banner_gradient').eq('id', user.id).single()
         if (!data) {
-          ;({ data } = await supabase.from('profiles').select('bio, specialization').eq('id', user.id).single())
+          ({ data } = await supabase.from('profiles').select('bio, specialization').eq('id', user.id).single())
         }
         if (data) {
           if (data.bio) setBio(data.bio)

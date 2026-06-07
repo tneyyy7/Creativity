@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Plus, Gem, BadgeCheck, Box, PenTool } from 'lucide-react'
+import { Search, Bookmark, Folder, FolderPlus, ArrowLeft, Loader2, Palette, Shapes, Camera, Trash2, Gem, BadgeCheck, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchBookmarks, fetchUserCollections, createCollection } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
-import { getNicknameStyle } from '../lib/nicknameStyle'
 import { AnimatedPillGroup } from '../components/AnimatedPillGroup'
 import SmartImage from '../components/SmartImage'
 import { GlassModal, GlassModalHeader, glassInput, glassActionBase, glassActionPrimary } from '../components/GlassModal'
@@ -155,6 +154,20 @@ export function Bookmarks({ onOpenPost }) {
         )}
       </div>
 
+      {/* Search bar — only on the standard bookmarks list (not in album drill-down) */}
+      {!selectedCollection && activeSubTab === 'bookmarks' && bookmarks.length > 0 && (
+        <div className="relative mb-6">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('search_bookmarks')}
+            className="w-full pl-11 pr-4 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/40 transition-colors"
+          />
+        </div>
+      )}
+
       {/* Drill down viewer for a specific album */}
       {selectedCollection ? (
         <div className="space-y-6">
@@ -283,9 +296,9 @@ export function Bookmarks({ onOpenPost }) {
             <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/5">
               <Bookmark className="w-7 h-7 text-gray-600" />
             </div>
-            <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{t('no_bookmarks_title')}</h3>
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{search ? t('no_results_title') : t('no_bookmarks_title')}</h3>
             <p className="text-gray-500 text-sm max-w-sm mx-auto">
-              {t('no_bookmarks_desc')}
+              {search ? t('no_results_desc') : t('no_bookmarks_desc')}
             </p>
           </div>
         )

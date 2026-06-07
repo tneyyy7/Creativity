@@ -73,7 +73,7 @@ export function AdminLayout({ activeTab = 'reports', onTabChange, onViewProfile,
             <Loader2 className="w-7 h-7 animate-spin text-purple-500" />
           </div>
         }>
-          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'dashboard' && <Dashboard adminRole={adminRole} onNavigate={onTabChange} />}
           {activeTab === 'reports' && (
             <ReportsQueue 
               onViewProfile={onViewProfile}

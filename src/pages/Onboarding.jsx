@@ -49,6 +49,8 @@ export function Onboarding({ user, onComplete }) {
         .neq('id', user.id) // Exclude current user if they somehow have it
         .maybeSingle()
 
+      if (checkError) throw checkError
+
       if (existingUser) {
         throw new Error(t('nickname_taken') || "This nickname is already taken")
       }

@@ -38,6 +38,9 @@ brain/
 # Qwen agent files
 .qwen/
 
+# Supabase local CLI temp state
+supabase/.temp/
+
 # Screenshots and videos (root-level only — keep public/ assets tracked)
 /*.png
 /*.jpg

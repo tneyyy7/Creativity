@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Check, Crown, Sparkles, Zap, Gem, AlertCircle, ArrowRight, Palette, Shield, Image as ImageIcon, Upload, Trash2 } from 'lucide-react'
+import { Check, Crown, Zap, Gem, AlertCircle, ArrowRight, Palette, Shield, Image as ImageIcon, Upload, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchSubscriptionStatus, fetchProProfileSettings, updateProProfileSettings, uploadProfileCover } from '../lib/supabase'
 import { redirectToStripeCheckout } from '../lib/stripe'

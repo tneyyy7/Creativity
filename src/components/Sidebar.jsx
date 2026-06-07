@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Settings as SettingsIcon, Trophy, MessageSquare, Image, Palette, BarChart3, Settings, LogOut, X, Users, MessageCircle, Bookmark, Compass, Sparkles, Gem, Shield } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, Trophy, Palette, BarChart3, LogOut, X, Users, MessageCircle, Bookmark, Compass, Gem, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, fetchTotalUnreadCount, fetchPendingReportsCount } from '../lib/supabase'
 

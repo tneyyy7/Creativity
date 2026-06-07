@@ -137,7 +137,7 @@ export const fetchPublicProfile = async (userId) => {
     // banner_gradient column may not be migrated yet — retry without it so the
     // profile still loads (the gradient just falls back to the default preset).
     if (error && /banner_gradient/.test(error.message || '')) {
-      ;({ data, error } = await supabase
+      ({ data, error } = await supabase
         .from('profiles')
         .select(baseCols)
         .eq('id', userId)

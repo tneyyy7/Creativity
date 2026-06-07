@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Search, UserPlus, Check, X, User, UserMinus, BadgeCheck, Palette, Camera, Shapes, Gem, Box, PenTool } from 'lucide-react'
+import { Search, UserPlus, Check, X, UserMinus, BadgeCheck, Palette, Camera, Shapes, Gem, Box, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend, sendFriendRequest, fetchProfileMinimal } from '../lib/supabase'
+import { searchUsers, fetchFriends, fetchPendingRequests, respondToFriendRequest, removeFriend } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { getNicknameStyle } from '../lib/nicknameStyle'
 

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Search, Loader2, ChevronLeft, ChevronRight, CreditCard, ExternalLink,
-  Ban, RotateCcw, XCircle, DollarSign, Users as UsersIcon, Hand,
+  RotateCcw, XCircle, DollarSign, Users as UsersIcon, Hand,
   X, User, Calendar, Clock, Hash, AlertTriangle, Gem
 } from 'lucide-react'
 import {

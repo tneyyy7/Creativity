@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { Smile, Upload, Trash2, Plus, Gem, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Smile, Upload, Trash2, Plus, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, fetchCustomEmojis, uploadCustomEmoji, deleteCustomEmoji, convertHeicToJpeg } from '../lib/supabase'
+import { fetchCustomEmojis, uploadCustomEmoji, deleteCustomEmoji, convertHeicToJpeg } from '../lib/supabase'
 
 export function CustomEmojisManager({ userId, isPro }) {
   const { t } = useTranslation()

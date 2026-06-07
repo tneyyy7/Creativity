@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useLayoutEffect, Fragment } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, User, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff, Loader2, Pin, PinOff } from 'lucide-react'
+import { Send, MessageSquare, Search, ArrowLeft, MoreVertical, BadgeCheck, Trash2, Edit3, X as CloseIcon, Check as SaveIcon, Reply, X, Palette, Camera, Shapes, Smile, Gem, Box, PenTool, Users, UserPlus, LogOut, Pencil, Bell, BellOff, Loader2, Pin, PinOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchProProfileSettings, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, fetchChatMutes, fetchChatPins, toggleChatPin, fetchHiddenChats, hideConversation, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat, uploadAvatar, fetchProfile } from '../lib/supabase'
+import { supabase, sendMessage, fetchMessages, fetchConversations, markAsRead, updateChatPresence, searchFriends, deleteMessage, updateMessage, fetchPaintings, fetchPublicProfile, fetchCustomEmojis, fetchChatTheme, saveChatTheme, fetchChatMute, toggleChatMute, fetchChatMutes, fetchChatPins, toggleChatPin, fetchHiddenChats, hideConversation, updateMessageReactions, fetchGroupChats, fetchGroupMessages, sendGroupMessage, fetchGroupMembers, markGroupRead, removeGroupMember, leaveGroup, updateGroupChat, uploadAvatar, fetchProfile } from '../lib/supabase'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { CreateGroupModal } from '../components/CreateGroupModal'
 import { PostViewerModal } from '../components/PostViewerModal'
@@ -450,7 +450,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     let match
     
     while ((match = emojiRegex.exec(content)) !== null) {
-      const [fullMatch, url, name] = match
+      const [, url, name] = match
       const index = match.index
       
       if (index > lastIndex) {
@@ -1112,7 +1112,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
       e.stopPropagation()
       try {
         e.target.releasePointerCapture(e.pointerId)
-      } catch (err) {}
+      } catch { /* element may already be released */ }
     }
   }
 
@@ -1135,7 +1135,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
     chatLongPressTimer.current = setTimeout(() => {
       chatWasLongPress.current = true
       openChatMenu(conv, rowEl)
-      try { window.navigator?.vibrate?.(50) } catch (err) {}
+      try { window.navigator?.vibrate?.(50) } catch { /* vibrate unsupported */ }
     }, 500)
   }
 
@@ -1787,7 +1787,7 @@ export function Messages({ currentUser, isPro, initialChatUser, onInitialChatOpe
                       
                       {isPro ? (
                         <div className="space-y-1">
-                          {Object.keys(THEME_STYLES).map((themeKey) => {
+                          {Object.keys(CHAT_THEME_STYLES).map((themeKey) => {
                             const name = t('chat_theme_' + themeKey)
                             return (
                               <button
