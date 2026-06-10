@@ -52,4 +52,6 @@ IMG_*.MP4
 
 # Local dev/debug scripts (not part of the app)
 /check_*.js
+/check_*.mjs
 /test_*.js
+/test_*.mjs
