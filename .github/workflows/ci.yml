@@ -33,6 +33,19 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Secret-leak guard: the client bundle must never ship a server-side secret.
+      # We scan for high-signal tokens only — NOT a bare `eyJ` JWT, because the
+      # Supabase ANON key is itself a JWT and legitimately ships in the bundle.
+      # These patterns (Stripe secret/live keys, service-role key, webhook
+      # secrets, OneSignal REST key) must never appear in dist/.
+      - name: Scan dist for leaked secrets
+        run: |
+          if grep -rIlE 'sk_live_|sk_test_|service_role|whsec_|SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|LEMON_SQUEEZY_WEBHOOK_SECRET|ONESIGNAL_REST_API_KEY|os_v2_' dist/; then
+            echo "::error::A server-side secret appears in the client bundle (dist/). Failing build."
+            exit 1
+          fi
+          echo "✅ No server-side secrets found in dist/."
+
   # RLS regression guard — asserts the DB security invariants fixed on 2026-06-10
   # (self-grant Pro, self-grant admin, billing PII leak) stay closed. Read-only.
   # Needs the SUPABASE_ACCESS_TOKEN repo secret; skips (passes) if it is absent

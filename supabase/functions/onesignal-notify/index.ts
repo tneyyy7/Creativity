@@ -5,6 +5,13 @@ const ONESIGNAL_APP_ID = Deno.env.get('ONESIGNAL_APP_ID')
 const ONESIGNAL_REST_API_KEY = Deno.env.get('ONESIGNAL_REST_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+// Shared secret guarding this webhook. It is deployed with --no-verify-jwt (the
+// DB webhook sends no user JWT), so without this check ANYONE who knows the URL
+// could push arbitrary text to any user (phishing/spam). The Supabase DB webhook
+// must send this value in the `x-webhook-secret` header. Set it with:
+//   supabase secrets set ONESIGNAL_WEBHOOK_SECRET=<random>
+// then add the same header to the DB webhook config.
+const ONESIGNAL_WEBHOOK_SECRET = Deno.env.get('ONESIGNAL_WEBHOOK_SECRET')
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -171,6 +178,22 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // Fail-closed auth: require the shared secret. If it is not configured we refuse
+  // to run rather than fall open (which is what let this endpoint be abused).
+  if (!ONESIGNAL_WEBHOOK_SECRET) {
+    console.error("ONESIGNAL_WEBHOOK_SECRET not configured — refusing (fail-closed).")
+    return new Response(JSON.stringify({ error: "Not configured" }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 503,
+    })
+  }
+  if (req.headers.get('x-webhook-secret') !== ONESIGNAL_WEBHOOK_SECRET) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 401,
+    })
   }
 
   try {
