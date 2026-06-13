@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { LiquidGlassButton } from '../components/LiquidGlass'
 import { getReferral } from '../utils/referral'
 
-export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, onModeChange }) {
+export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, onModeChange, onBrowseAsGuest }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState(initialMode) // 'login' | 'signup' | 'forgot' | 'reset'
   const [isLoading, setIsLoading] = useState(false)
@@ -381,6 +381,17 @@ export function Auth({ onAuth, initialMode = 'login', onPasswordResetComplete, o
                 className="text-purple-500 hover:text-purple-400 underline underline-offset-4 transition-colors"
               >
                 {t('auth_back_to_login') || "Вернуться к входу"}
+              </button>
+            </p>
+          )}
+
+          {onBrowseAsGuest && (isLogin || isSignup) && (
+            <p className="text-center font-bold text-sm pt-1">
+              <button
+                onClick={onBrowseAsGuest}
+                className="text-gray-400 hover:text-white underline underline-offset-4 transition-colors"
+              >
+                {t('auth_browse_as_guest', 'Просто посмотреть сайт →')}
               </button>
             </p>
           )}

@@ -1,5 +1,6 @@
 import { attachAuthors, supabase } from './core'
 import { fetchBlockedIds } from './moderation'
+import { compressImage } from '../../utils/compressImage'
 
 export const convertHeicToJpeg = async (file) => {
   try {
@@ -58,7 +59,8 @@ export const convertHeicToJpeg = async (file) => {
 
 
 export const uploadPainting = async (file, userId) => {
-  const processedFile = await convertHeicToJpeg(file)
+  const heicFile = await convertHeicToJpeg(file)
+  const processedFile = await compressImage(heicFile, { maxPx: 1920, quality: 0.80 })
 
   // Normalize filename: remove special characters, spaces to dashes, etc.
   const cleanName = processedFile.name

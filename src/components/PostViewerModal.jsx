@@ -11,7 +11,7 @@ import { MentionText } from './MentionText'
 import { getActiveMention } from '../lib/mentions'
 
 
-export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile, onTagClick, onActivePost }) {
+export function PostViewerModal({ paintings, initialIndex, currentUserId, authorProfile, onClose, onViewProfile, onTagClick, onActivePost, onRequireAuth }) {
   const { t } = useTranslation()
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0)
   const [carouselIndex, setCarouselIndex] = useState(0)
@@ -191,7 +191,8 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   const isBoostedByMe = !!painting && myBoostedIds.has(painting.id)
 
   const handleBoost = async () => {
-    if (!currentUserId || isBoosting || !painting) return
+    if (isBoosting || !painting) return
+    if (!currentUserId) return onRequireAuth?.(t('guest_reason_boost', 'чтобы продвигать работы'))
     if (!boostInfo.is_pro) { setShowBoostUpsell(true); return }
     if (isBoostedByMe) return
     if (boostInfo.available <= 0) {
@@ -242,7 +243,8 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   }
 
   const handleLike = async () => {
-    if (!currentUserId || isLiking) return
+    if (isLiking) return
+    if (!currentUserId) return onRequireAuth?.(t('guest_reason_like', 'чтобы ставить лайки'))
     setIsLiking(true)
     try {
       await togglePostLike(painting.id, currentUserId)
@@ -252,7 +254,8 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   }
 
   const handleBookmark = async () => {
-    if (!currentUserId || isBookmarking) return
+    if (isBookmarking) return
+    if (!currentUserId) return onRequireAuth?.(t('guest_reason_bookmark', 'чтобы сохранять в закладки'))
 
     if (!isSaved) {
       // Show album selection BEFORE saving — the modal handles the actual save.
@@ -290,7 +293,9 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
   }
 
   const handleSendComment = async () => {
-    if (!commentText.trim() || isSendingComment || !currentUserId) return
+    if (isSendingComment) return
+    if (!currentUserId) return onRequireAuth?.(t('guest_reason_comment', 'чтобы оставлять комментарии'))
+    if (!commentText.trim()) return
     setIsSendingComment(true)
     try {
       const newComment = await addPostComment(painting.id, currentUserId, commentText.trim(), replyingTo?.id ?? null)
@@ -534,6 +539,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
             paintingTags={paintingTags}
             onTagClick={onTagClick}
             onMention={handleMentionClick}
+            onRequireAuth={onRequireAuth}
           />
         </div>
       </div>
@@ -619,6 +625,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
           onClose={onClose}
           paintingTags={paintingTags}
           onTagClick={onTagClick}
+          onRequireAuth={onRequireAuth}
         />
       </div>
 
@@ -784,7 +791,7 @@ export function PostViewerModal({ paintings, initialIndex, currentUserId, author
 }
 
 // Shared info panel used for both mobile and desktop
-function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, boost, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags, onTagClick, onMention }) {
+function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getReplies, isLiked, isSaved, isAuthor, currentUserId, showLikesPopup, setShowLikesPopup, replyingTo, setReplyingTo, commentText, setCommentText, commentInputRef, commentsEndRef, handleLike, handleBookmark, boost, handleSendComment, handleDeleteComment, handleShareOpen, likeSummary, formatTime, isLiking, isBookmarking, isSendingComment, onViewProfile, onClose, paintingTags, onTagClick, onMention, onRequireAuth }) {
   const { t } = useTranslation()
 
   // @mention autocomplete for the comment box.
@@ -916,11 +923,11 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
       {/* Bottom bar */}
       <div className="border-t border-white/5 shrink-0">
         <div className="px-4 sm:px-5 pt-3 pb-2 flex items-center gap-5">
-          <button onClick={handleLike} disabled={!currentUserId || isLiking} className={`transition-all group disabled:opacity-40 flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}`}>
+          <button onClick={handleLike} disabled={isLiking} className={`transition-all group disabled:opacity-40 flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}`}>
             <Heart className={`w-6 h-6 transition-all ${isLiked ? 'fill-red-500 scale-110' : 'group-hover:scale-110'}`} />
             {likes.length > 0 && <span className="text-sm font-black">{likes.length}</span>}
           </button>
-          <button onClick={() => commentInputRef.current?.focus()} className="text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
+          <button onClick={() => currentUserId ? commentInputRef.current?.focus() : onRequireAuth?.(t('guest_reason_comment', 'чтобы оставлять комментарии'))} className="text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
             <MessageCircle className="w-6 h-6" />
             {comments.length > 0 && <span className="text-sm font-black text-gray-400">{comments.length}</span>}
           </button>
@@ -930,7 +937,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
           {boost && (
             <button
               onClick={boost.onBoost}
-              disabled={!currentUserId || boost.isBoosting || boost.isBoosted}
+              disabled={boost.isBoosting || boost.isBoosted}
               title={!boost.isPro ? t('boost_pro_only', 'Boost — функция Pro') : boost.isBoosted ? t('boost_done', 'Забустено') : t('boost', 'Забустить')}
               className={`transition-all group disabled:opacity-60 flex items-center gap-1.5 ${boost.isBoosted ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
             >
@@ -941,7 +948,7 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
               {boost.isPro && !boost.isBoosted && boost.available > 0 && <span className="text-sm font-black">{boost.available}</span>}
             </button>
           )}
-          <button onClick={handleBookmark} disabled={!currentUserId || isBookmarking} className={`transition-all group disabled:opacity-40 ml-auto ${isSaved ? 'text-purple-500' : 'text-gray-400 hover:text-purple-400'}`}>
+          <button onClick={handleBookmark} disabled={isBookmarking} className={`transition-all group disabled:opacity-40 ml-auto ${isSaved ? 'text-purple-500' : 'text-gray-400 hover:text-purple-400'}`}>
             <Bookmark className={`w-6 h-6 transition-all ${isSaved ? 'fill-purple-500 scale-110' : 'group-hover:scale-110'}`} />
           </button>
         </div>
@@ -1024,7 +1031,12 @@ function InfoPanel({ painting, authorProfile, likes, comments, topLevel, getRepl
           </div>
         ) : (
           <div className="px-4 py-3 border-t border-white/5">
-            <p className="text-xs text-gray-600 text-center">Log in to like and comment</p>
+            <button
+              onClick={() => onRequireAuth?.(t('guest_reason_comment', 'чтобы оставлять комментарии'))}
+              className="w-full text-xs font-bold text-purple-400 hover:text-purple-300 text-center transition-colors"
+            >
+              {t('guest_login_to_interact', 'Войдите, чтобы ставить лайки и комментировать')}
+            </button>
           </div>
         )}
       </div>

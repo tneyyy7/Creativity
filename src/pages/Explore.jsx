@@ -14,9 +14,11 @@ import SmartImage from '../components/SmartImage'
 const TAB_CONTAINER = 'relative flex items-center gap-2 bg-white/[0.03] p-1 rounded-2xl border border-white/5 shadow-inner'
 const TAB_BUTTON = 'lg-pill flex items-center justify-center gap-1.5 font-black uppercase tracking-tighter text-xs whitespace-nowrap rounded-xl px-3.5 py-2'
 
-export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile, initialCategory = 'All', onCategoryChange }) {
+export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, onViewProfile, onRequireAuth, initialCategory = 'All', onCategoryChange }) {
   const { t, i18n } = useTranslation()
-  const [activeSubTab, setActiveSubTab] = useState('foryou') // 'foryou', 'feed' (subscriptions) or 'explore' (global search)
+  // Гостю недоступна персональная лента «Для вас» (нужны подписки) — он сразу
+  // видит глобальный Explore.
+  const [activeSubTab, setActiveSubTab] = useState(currentUser ? 'foryou' : 'explore') // 'foryou', 'feed' (subscriptions) or 'explore' (global search)
 
   // Loading states
   const [loading, setLoading] = useState(true)
@@ -194,7 +196,7 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
 
   // Recommended creator follow action
   const handleFollowRecommended = async (targetId) => {
-    if (!currentUser) return
+    if (!currentUser) return onRequireAuth?.(t('guest_reason_follow', 'чтобы подписываться на авторов'))
     const followed = await toggleFollow(currentUser.id, targetId)
     setFollowingMap(prev => ({ ...prev, [targetId]: followed }))
 
@@ -205,13 +207,13 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
   }
 
   const handleLike = async (postId) => {
-    if (!currentUser) return
+    if (!currentUser) return onRequireAuth?.(t('guest_reason_like', 'чтобы ставить лайки'))
     const liked = await togglePostLike(postId, currentUser.id)
     setLikedMap(prev => ({ ...prev, [postId]: liked }))
   }
 
   const handleBookmark = async (postId) => {
-    if (!currentUser) return
+    if (!currentUser) return onRequireAuth?.(t('guest_reason_bookmark', 'чтобы сохранять в закладки'))
     const saved = await toggleBookmark(currentUser.id, postId)
     setBookmarkedMap(prev => ({ ...prev, [postId]: saved }))
   }
@@ -229,29 +231,35 @@ export function Explore({ currentUser, nickname, avatarUrl, isPro, onOpenPost, o
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6 pb-16 animate-in fade-in duration-500">
       
-      {/* 1. WIP Stories horizontal banner (Always Visible at the Top) */}
-      <div className="glass-card overflow-visible p-2 border-white/5 rounded-3xl w-full">
-        <StoriesBanner
-          currentUser={currentUser}
-          avatarUrl={avatarUrl}
-          nickname={nickname}
-          isPro={isPro}
-          onViewProfile={onViewProfile}
-        />
-      </div>
+      {/* 1. WIP Stories horizontal banner (Always Visible at the Top).
+          Гостю не показываем — истории доступны участникам. */}
+      {currentUser && (
+        <div className="glass-card overflow-visible p-2 border-white/5 rounded-3xl w-full">
+          <StoriesBanner
+            currentUser={currentUser}
+            avatarUrl={avatarUrl}
+            nickname={nickname}
+            isPro={isPro}
+            onViewProfile={onViewProfile}
+          />
+        </div>
+      )}
 
       {/* Tab Switcher & Unified Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
-        <AnimatedPillGroup
-          value={activeSubTab}
-          onChange={setActiveSubTab}
-          options={[
-            { value: 'foryou',  icon: <Sparkles className="w-3.5 h-3.5" />, label: t('for_you', 'For You') },
-            { value: 'explore', icon: <Compass  className="w-3.5 h-3.5" />, label: t('explore') },
-          ]}
-          containerClassName={TAB_CONTAINER}
-          buttonClassName={TAB_BUTTON}
-        />
+        {/* Гостю показываем только глобальный Explore — переключатель скрыт. */}
+        {currentUser && (
+          <AnimatedPillGroup
+            value={activeSubTab}
+            onChange={setActiveSubTab}
+            options={[
+              { value: 'foryou',  icon: <Sparkles className="w-3.5 h-3.5" />, label: t('for_you', 'For You') },
+              { value: 'explore', icon: <Compass  className="w-3.5 h-3.5" />, label: t('explore') },
+            ]}
+            containerClassName={TAB_CONTAINER}
+            buttonClassName={TAB_BUTTON}
+          />
+        )}
 
         {/* Explore Sub-Filters (Only rendered under Explore sub-tab) */}
         {activeSubTab === 'explore' && (
