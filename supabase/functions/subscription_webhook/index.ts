@@ -51,21 +51,34 @@ serve(async (req) => {
     const rawBody = await req.text()
     const signature = req.headers.get('x-signature')
 
-    // Verify signature if secret is configured
-    if (LEMON_SQUEEZY_WEBHOOK_SECRET && signature) {
-      const isValid = await verifySignature(rawBody, signature, LEMON_SQUEEZY_WEBHOOK_SECRET)
-      if (!isValid) {
-        console.error("Invalid Lemon Squeezy signature")
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401,
-        })
-      }
-    } else if (LEMON_SQUEEZY_WEBHOOK_SECRET && !signature) {
-      console.warn("Missing x-signature header, but secret is configured")
+    // FAIL-CLOSED signature verification. Previously the check was skipped entirely
+    // when the secret env var was unset, which let anyone POST a forged
+    // subscription event and self-grant Pro. We now refuse to process the webhook
+    // unless BOTH the secret is configured AND a valid signature is present.
+    // NOTE: Lemon Squeezy is deprecated — billing moved fully to Stripe. This
+    // function should be removed from deploy entirely:
+    //   supabase functions delete subscription_webhook
+    // Until then it stays locked shut.
+    if (!LEMON_SQUEEZY_WEBHOOK_SECRET) {
+      console.error("LEMON_SQUEEZY_WEBHOOK_SECRET not configured — refusing to process (fail-closed).")
+      return new Response(JSON.stringify({ error: "Webhook not configured" }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 503,
+      })
+    }
+    if (!signature) {
+      console.warn("Missing x-signature header")
       return new Response(JSON.stringify({ error: "Missing signature header" }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
+      })
+    }
+    const isValid = await verifySignature(rawBody, signature, LEMON_SQUEEZY_WEBHOOK_SECRET)
+    if (!isValid) {
+      console.error("Invalid Lemon Squeezy signature")
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
       })
     }
 

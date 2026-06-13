@@ -91,6 +91,30 @@ async function main() {
   check('Privilege-decision funcs pin search_path', secdef.length === 0,
     secdef.map(r => r.proname).join(', '))
 
+  // 7. Storage: RLS must be enabled on storage.objects. All uploads (avatars,
+  //    post images, stories, covers, custom emojis) live in the single
+  //    "paintings" bucket under a <user_id>/ prefix, so object-level RLS is the
+  //    only thing stopping one user from overwriting/deleting another's files.
+  const storageRls = await q(`
+    select c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='storage' and c.relname='objects'`)
+  check('storage.objects has RLS enabled', storageRls[0]?.relrowsecurity === true)
+
+  // 8. Storage: no UNCONDITIONAL write/delete for anon/public. A policy is only
+  //    flagged when its gating clause is literally true/empty (USING for
+  //    UPDATE/DELETE, WITH CHECK for INSERT) AND it targets anon or public —
+  //    i.e. anyone could upload, overwrite, or delete arbitrary objects. Legit
+  //    policies that gate on auth.uid()/owner are NOT flagged.
+  const openStorage = await q(`
+    select policyname, cmd from pg_policies
+    where schemaname='storage' and tablename='objects'
+      and cmd in ('INSERT','UPDATE','DELETE','ALL')
+      and ('anon' = any(roles) or 'public' = any(roles))
+      and coalesce(btrim(qual),'true')='true'
+      and coalesce(btrim(with_check),'true')='true'`)
+  check('storage.objects has no unconditional public write/delete', openStorage.length === 0,
+    openStorage.map(r => `${r.policyname}:${r.cmd}`).join(', '))
+
   // Report
   let failed = 0
   for (const r of results) {
