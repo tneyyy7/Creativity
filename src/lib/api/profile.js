@@ -1,5 +1,6 @@
 import { cleanProfile, enrichProfilesWithProData, supabase } from './core'
 import { convertHeicToJpeg } from './paintings'
+import { compressImage } from '../../utils/compressImage'
 
 export async function fetchProfile(userId) {
   try {
@@ -116,7 +117,8 @@ export const updateBannerGradient = async (userId, gradientId) => {
 
 
 export const uploadAvatar = async (file, userId) => {
-  const processedFile = await convertHeicToJpeg(file)
+  const heicFile = await convertHeicToJpeg(file)
+  const processedFile = await compressImage(heicFile, { maxPx: 400, quality: 0.85 })
   const fileExt = processedFile.name.split('.').pop()
   const fileName = `${userId}/${Math.random()}.${fileExt}`
   const filePath = `${fileName}`
@@ -252,12 +254,13 @@ export async function uploadProfileCover(userId, file) {
   try {
     if (!userId || !file) throw new Error('Missing user ID or file')
 
-    const fileExt = file.name ? file.name.split('.').pop() : 'jpg'
+    const compressed = await compressImage(file, { maxPx: 1920, quality: 0.80 })
+    const fileExt = compressed.name ? compressed.name.split('.').pop() : 'jpg'
     const fileName = `${userId}/cover/${Date.now()}.${fileExt}`
 
     const { error: uploadError } = await supabase.storage
       .from('paintings')
-      .upload(fileName, file, { upsert: true })
+      .upload(fileName, compressed, { upsert: true })
 
     if (uploadError) throw uploadError
 

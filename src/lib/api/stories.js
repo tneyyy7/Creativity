@@ -1,5 +1,6 @@
 import { cleanProfile, enrichProfilesWithProData, supabase } from './core'
 import { convertHeicToJpeg } from './paintings'
+import { compressImage } from '../../utils/compressImage'
 
 export async function fetchActiveStories(currentUserId = null) {
   try {
@@ -77,7 +78,8 @@ export async function uploadStory(userId, file, caption = '', isPro = false) {
     // Загружаем картинку/видео в бакет paintings (переиспользуем бакет для удобства)
     let processedFile = file
     if (file.type && file.type.startsWith('image/')) {
-      processedFile = await convertHeicToJpeg(file)
+      const heicFile = await convertHeicToJpeg(file)
+      processedFile = await compressImage(heicFile, { maxPx: 1920, quality: 0.80 })
     }
     const fileExt = processedFile.name.split('.').pop()
     const fileName = `${userId}/stories/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`

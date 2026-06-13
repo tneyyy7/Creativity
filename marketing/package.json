@@ -1,0 +1,22 @@
+{
+  "name": "creativity-marketing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion marketing video for Creativity — Painter's Companion",
+  "scripts": {
+    "studio": "remotion studio src/index.js",
+    "render": "remotion render src/index.js CreativityPromo out/creativity-promo.mp4 --codec=h264 --crf=16",
+    "render:web": "remotion render src/index.js CreativityPromo out/creativity-promo-web.mp4 --codec=h264 --crf=20",
+    "still": "remotion still src/index.js CreativityPromo out/poster.png --frame=210"
+  },
+  "dependencies": {
+    "@remotion/google-fonts": "4.0.370",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "4.0.370"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.370",
+    "playwright": "^1.60.0"
+  }
+}

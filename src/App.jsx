@@ -6,6 +6,8 @@ import { Auth } from './pages/Auth'
 import { Onboarding } from './pages/Onboarding'
 import { TagPage } from './pages/TagPage'
 import { PostViewerModal } from './components/PostViewerModal'
+import { GuestBar } from './components/GuestBar'
+import { RegisterPrompt } from './components/RegisterPrompt'
 import { initOneSignal } from './lib/pwa'
 import { applyTheme, getStoredTheme } from './lib/theme'
 import { identifyUser, resetUser } from './lib/observability'
@@ -134,7 +136,33 @@ function App() {
     // Гость, пришедший по реф-ссылке, должен сразу видеть регистрацию.
     return initial.authMode || (arrivedViaReferral ? 'signup' : 'login')
   })
-  
+
+  // Показывать ли гостю полноэкранную форму входа/регистрации. По умолчанию
+  // false — неавторизованный посетитель сразу попадает в гостевой просмотр
+  // (лента/пост/профиль). Становится true, если он пришёл прямо на /login,
+  // /signup, /forgot, по реф-ссылке, или сам нажал «Войти»/«Регистрация».
+  const [authScreen, setAuthScreen] = useState(() => {
+    const initial = parseInitialUrl()
+    if (initial.isResettingPassword) return true
+    if (initial.authMode) return true
+    if (arrivedViaReferral) return true
+    return false
+  })
+
+  // Приглашение зарегистрироваться: null или { reason } — показывается, когда
+  // гость пробует действие, требующее аккаунта (лайк, коммент, подписка…).
+  const [authPrompt, setAuthPrompt] = useState(null)
+
+  // Вызывается гостевыми компонентами при попытке закрытого действия.
+  const requireAuth = (reason) => setAuthPrompt({ reason: reason || null })
+
+  // Открыть форму входа/регистрации из гостевого режима.
+  const openAuth = (mode) => {
+    setAuthPrompt(null)
+    setAuthMode(mode)
+    setAuthScreen(true)
+  }
+
   const [isOnboarding, setIsOnboarding] = useState(false)
   const [activeTag, setActiveTag] = useState(null)
 
@@ -389,8 +417,16 @@ function App() {
       return
     }
 
-    if (!user) {
+    // Гость, выбравший форму входа/регистрации, — отражаем auth-маршрут.
+    if (!user && authScreen) {
       pushPath(authMode === 'forgot' ? '/forgot-password' : `/${authMode}`)
+      return
+    }
+
+    // Гость в режиме просмотра видит только Explore и публичные профили —
+    // остальные вкладки для него недоступны, поэтому URL сводим к /explore.
+    if (!user && !(activeTab === 'public_profile' && targetUserId)) {
+      pushPath(exploreCategory && exploreCategory !== 'All' ? `/explore/${exploreCategory.toLowerCase()}` : '/explore')
       return
     }
 
@@ -401,7 +437,7 @@ function App() {
     } else if (activeTab && activeTab !== 'public_profile') {
       pushPath(`/${activeTab}`)
     }
-  }, [activeTab, targetUserId, exploreCategory, isResettingPassword, authMode, user])
+  }, [activeTab, targetUserId, exploreCategory, isResettingPassword, authMode, authScreen, user])
 
   // When the post viewer closes, leave the /post/:id URL — restore the page the
   // user opened the post from (or fall back to a tab for deep-linked opens).
@@ -439,6 +475,11 @@ function App() {
       setIsResettingPassword(initial.isResettingPassword || false)
       if (initial.authMode) {
         setAuthMode(initial.authMode)
+        setAuthScreen(true)
+      } else if (!initial.isResettingPassword) {
+        // Возврат на гостевой маршрут (/explore, /post/:id, /profile/:id) —
+        // выходим из формы входа обратно в просмотр.
+        setAuthScreen(false)
       }
     }
     window.addEventListener('popstate', handlePopState)
@@ -482,12 +523,12 @@ function App() {
   if (loading) {
     return null
   }
-  if (!user || isResettingPassword) {
+  if (isResettingPassword || (!user && authScreen)) {
     const currentAuthMode = isResettingPassword ? 'reset' : authMode
     return (
-      <Auth 
-        onAuth={setUser} 
-        initialMode={currentAuthMode} 
+      <Auth
+        onAuth={setUser}
+        initialMode={currentAuthMode}
         onModeChange={(newMode) => {
           setAuthMode(newMode)
           if (newMode === 'reset') {
@@ -496,8 +537,102 @@ function App() {
             setIsResettingPassword(false)
           }
         }}
-        onPasswordResetComplete={() => setIsResettingPassword(false)} 
+        onPasswordResetComplete={() => setIsResettingPassword(false)}
+        onBrowseAsGuest={isResettingPassword ? undefined : () => { setAuthScreen(false); setActiveTab('explore') }}
       />
+    )
+  }
+
+  // ── Гостевой режим: неавторизованный посетитель может листать ленту Explore,
+  // открывать посты и публичные профили. Закрытые действия (лайк, коммент,
+  // подписка, сообщение) поднимают приглашение зарегистрироваться. ───────────
+  if (!user) {
+    return (
+      <div className="app-container">
+        <div className="main-content">
+          <GuestBar onLogin={() => openAuth('login')} onSignup={() => openAuth('signup')} />
+          <main className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar flex flex-col">
+            <div className="tab-transition flex-1 flex flex-col min-h-0">
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400">Loading…</div>}>
+                {activeTab === 'public_profile' && targetUserId ? (
+                  <PublicProfile
+                    currentUserId={null}
+                    targetUserId={targetUserId}
+                    onBack={() => { setTargetUserId(null); setActiveTab('explore') }}
+                    onRequireAuth={requireAuth}
+                    onMessage={() => requireAuth('Чтобы написать сообщение')}
+                    onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile') }}
+                    onOpenPost={(id, painting, collection, index, profile) => setPostViewer({
+                      painting,
+                      paintings: collection || [painting],
+                      index: index ?? 0,
+                      externalProfile: profile
+                    })}
+                  />
+                ) : activeTag ? (
+                  <TagPage
+                    tagName={activeTag}
+                    currentUser={null}
+                    onOpenPost={(id, painting, filteredPaintings, index, profile) => setPostViewer({
+                      painting,
+                      paintings: filteredPaintings || [painting],
+                      index: index ?? 0,
+                      externalProfile: profile,
+                    })}
+                    onBack={() => setActiveTag(null)}
+                  />
+                ) : (
+                  <Explore
+                    currentUser={null}
+                    isPro={false}
+                    initialCategory={exploreCategory}
+                    onCategoryChange={setExploreCategory}
+                    onRequireAuth={requireAuth}
+                    onViewProfile={(id) => { setTargetUserId(id); setActiveTab('public_profile') }}
+                    onOpenPost={(id, painting, collection, index, profile) => setPostViewer({
+                      painting,
+                      paintings: collection || [painting],
+                      index: index ?? 0,
+                      externalProfile: profile
+                    })}
+                  />
+                )}
+              </Suspense>
+            </div>
+          </main>
+        </div>
+
+        {postViewer && (
+          <PostViewerModal
+            paintings={postViewer.paintings}
+            initialIndex={postViewer.index}
+            currentUserId={null}
+            authorProfile={postViewer.externalProfile || postViewer.painting?.user || postViewer.painting?.profiles || null}
+            onRequireAuth={requireAuth}
+            onClose={() => setPostViewer(null)}
+            onViewProfile={(id) => {
+              setPostViewer(null)
+              setActiveTag(null)
+              setTargetUserId(id)
+              setActiveTab('public_profile')
+            }}
+            onTagClick={(tagName) => {
+              setPostViewer(null)
+              setActiveTag(tagName)
+            }}
+            onActivePost={handleActivePost}
+          />
+        )}
+
+        {authPrompt && (
+          <RegisterPrompt
+            reason={authPrompt.reason}
+            onLogin={() => openAuth('login')}
+            onSignup={() => openAuth('signup')}
+            onClose={() => setAuthPrompt(null)}
+          />
+        )}
+      </div>
     )
   }
 

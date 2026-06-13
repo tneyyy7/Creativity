@@ -11,7 +11,7 @@ import { getBannerGradientCss } from '../lib/bannerGradients'
 import { getActiveSocialLinks } from '../lib/socialLinks'
 import SmartImage from '../components/SmartImage'
 
-export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost, onEditProfile }) {
+export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, onViewProfile, onOpenPost, onEditProfile, onRequireAuth }) {
   const { t } = useTranslation()
   const [profile, setProfile] = useState(null)
   const [paintings, setPaintings] = useState([])
@@ -93,7 +93,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   }
 
   const handleFollowToggle = async () => {
-    if (!currentUserId) return
+    if (!currentUserId) return onRequireAuth?.(t('guest_reason_follow', 'чтобы подписываться на авторов'))
     setActionLoading(true)
     try {
       const followState = await toggleFollow(currentUserId, targetUserId)
@@ -109,6 +109,7 @@ export function PublicProfile({ currentUserId, targetUserId, onBack, onMessage, 
   }
 
   const handleAddFriend = async () => {
+    if (!currentUserId) return onRequireAuth?.(t('guest_reason_friend', 'чтобы добавлять в друзья'))
     setActionLoading(true)
     try {
       await sendFriendRequest(currentUserId, targetUserId)
